@@ -1,0 +1,62 @@
+{
+    "folders": [
+        {
+            "name": "Frontend (Flutter)",
+            "path": "./frontend"
+        },
+        {
+            "name": "batjetkiret-backend (Root)",
+            "path": "."
+        }
+    ],
+    "settings": {
+        "dart.flutterProjectSearchPaths": [
+            "frontend"
+        ],
+        "dart.projectSearchDepth": 4,
+        "files.exclude": {
+            "**/.git": true,
+            "**/.DS_Store": true,
+            "**/__pycache__": true,
+            "**/*.pyc": true
+        }
+    },
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "name": "Flutter (iOS Simulator - iPhone 17 Pro)",
+                "request": "launch",
+                "type": "dart",
+                "program": "${workspaceFolder:Frontend (Flutter)}/lib/main.dart",
+                "cwd": "${workspaceFolder:Frontend (Flutter)}",
+                "deviceId": "A8E0AAEA-45F8-4480-B868-D9D53165DB2E",
+                "args": [
+                    "--dart-define=API_BASE_URL=http://localhost:8000"
+                ]
+            },
+            {
+                "name": "Flutter (macOS Desktop)",
+                "request": "launch",
+                "type": "dart",
+                "program": "${workspaceFolder:Frontend (Flutter)}/lib/main.dart",
+                "cwd": "${workspaceFolder:Frontend (Flutter)}",
+                "deviceId": "macos",
+                "args": [
+                    "--dart-define=API_BASE_URL=http://localhost:8000"
+                ]
+            },
+            {
+                "name": "Flutter (Chrome Web)",
+                "request": "launch",
+                "type": "dart",
+                "program": "${workspaceFolder:Frontend (Flutter)}/lib/main.dart",
+                "cwd": "${workspaceFolder:Frontend (Flutter)}",
+                "deviceId": "chrome",
+                "args": [
+                    "--dart-define=API_BASE_URL=http://localhost:8000"
+                ]
+            }
+        ]
+    }
+}

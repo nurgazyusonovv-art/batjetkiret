@@ -1,0 +1,125 @@
+import { useEffect, useState } from 'react';
+import { notificationsService } from '@/services/notifications';
+import { Notification } from '@/types';
+import { Trash2, Check } from 'lucide-react';
+import './NotificationsPage.css';
+
+export default function NotificationsPage() {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadNotifications = async () => {
+    try {
+      setLoading(true);
+      const data = await notificationsService.getNotifications(0, 100);
+      setNotifications(data);
+      setError('');
+    } catch (e) {
+      setError('Билдирүүлөрдү жүктөө мүмкүн болгон жок');
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleMarkAsRead = async (id: number) => {
+    try {
+      await notificationsService.markAsRead(id);
+      setNotifications(notifications.map(n => 
+        n.id === id ? { ...n, is_read: true } : n
+      ));
+    } catch (e) {
+      console.error('Error marking as read:', e);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Ошол билдирүүнү чындай эле өчүргүсүз бе?')) return;
+    
+    try {
+      await notificationsService.deleteNotification(id);
+      setNotifications(notifications.filter(n => n.id !== id));
+    } catch (e) {
+      console.error('Error deleting notification:', e);
+    }
+  };
+
+  if (loading) {
+    return <div className="loading-container"><p>Жүктөлүүдө...</p></div>;
+  }
+
+  if (error) {
+    return (
+      <div className="error-container">
+        <p>{error}</p>
+        <button onClick={loadNotifications}>Кайра аракет</button>
+      </div>
+    );
+  }
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  return (
+    <div className="notifications-page">
+      <div className="notifications-header">
+        <div>
+          <h1>Билдирүүлөр</h1>
+          <p className="notifications-subtitle">
+            Жалпы: {notifications.length} | Окулбаган: {unreadCount}
+          </p>
+        </div>
+        <button className="refresh-btn" onClick={loadNotifications}>Жаңылоо</button>
+      </div>
+
+      {notifications.length === 0 ? (
+        <div className="empty-state">
+          <p>Билдирүүлөр жок</p>
+        </div>
+      ) : (
+        <div className="notifications-list">
+          {notifications.map((notif) => (
+            <div 
+              key={notif.id} 
+              className={`notification-item ${notif.is_read ? 'read' : 'unread'}`}
+            >
+              <div className="notification-content">
+                <div className="notification-header">
+                  <h3 className="notification-title">{notif.title}</h3>
+                  <span className="notification-time">
+                    {new Date(notif.created_at).toLocaleString('ru-RU')}
+                  </span>
+                </div>
+                <p className="notification-message">{notif.message}</p>
+              </div>
+              <div className="notification-actions">
+                {!notif.is_read && (
+                  <button 
+                    className="action-btn read-btn"
+                    title="Окуу"
+                    onClick={() => handleMarkAsRead(notif.id)}
+                  >
+                    <Check size={18} />
+                  </button>
+                )}
+                <button 
+                  className="action-btn delete-btn"
+                  title="Өчүү"
+                  onClick={() => handleDelete(notif.id)}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

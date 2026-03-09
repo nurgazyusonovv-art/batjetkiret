@@ -1,0 +1,13 @@
+fastapi==0.115.0
+uvicorn[standard]==0.32.1
+gunicorn==23.0.0
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+alembic==1.14.0
+python-jose==3.3.0
+passlib[bcrypt]==1.7.4
+pydantic==2.9.2
+python-dotenv==1.0.0
+pydantic-settings==2.5.2
+slowapi==0.1.9
+aiogram==3.15.0
