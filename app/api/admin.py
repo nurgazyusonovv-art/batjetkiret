@@ -4,12 +4,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from typing import Literal
 import random
-import json
 import logging
 import os
-import ssl
-from urllib import error as url_error
-from urllib import parse, request
 
 from app.api.deps import get_db, require_admin
 from app.models.order import Order
@@ -21,7 +17,6 @@ from app.models.user_rating import UserRating
 from app.services.wallet import refund, payout
 from app.models.notification import Notification
 from app.models.order_status_log import OrderStatusLog
-from sqlalchemy import func
 from datetime import datetime, timedelta
 from app.services.wallet import topup
 from app.models.chat import ChatRoom
@@ -31,84 +26,11 @@ from app.services.order_status import apply_status_change
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 logger = logging.getLogger(__name__)
-DEFAULT_TELEGRAM_BOT_TOKEN = "8696534686:AAGusULCLSuVK1QsWuZcCP4blaorfTM3N_g"
 
 USER_ORDER_SERVICE_FEE = 5.0
 COURIER_ORDER_SERVICE_FEE = 5.0
 TOTAL_SERVICE_FEE_PER_COMPLETED_ORDER = USER_ORDER_SERVICE_FEE + COURIER_ORDER_SERVICE_FEE
 
-
-def _is_ssl_verify_error(exc: Exception) -> bool:
-    """Detect SSL verification failures, including URLError-wrapped variants."""
-    if isinstance(exc, ssl.SSLError):
-        return True
-    if isinstance(exc, url_error.URLError):
-        reason = getattr(exc, "reason", None)
-        if isinstance(reason, ssl.SSLError):
-            return True
-        if reason and "CERTIFICATE_VERIFY_FAILED" in str(reason):
-            return True
-        if "CERTIFICATE_VERIFY_FAILED" in str(exc):
-            return True
-    return "CERTIFICATE_VERIFY_FAILED" in str(exc)
-
-
-def _urlopen_with_ssl_fallback(target, timeout: int = 10):
-    """Open URL/request with default SSL first, then fallback to unverified SSL if needed."""
-    try:
-        return request.urlopen(target, timeout=timeout)
-    except Exception as exc:
-        if not _is_ssl_verify_error(exc):
-            raise
-        unverified_ctx = ssl._create_unverified_context()
-        return request.urlopen(target, timeout=timeout, context=unverified_ctx)
-
-
-def _send_telegram_message(chat_id: int, text: str) -> None:
-    """Send a best-effort Telegram notification. Failures should not block admin action."""
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", DEFAULT_TELEGRAM_BOT_TOKEN)
-    if not bot_token:
-        logger.warning("TELEGRAM_BOT_TOKEN is not set; skip Telegram notification")
-        return
-
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = json.dumps({"chat_id": chat_id, "text": text}).encode("utf-8")
-    req = request.Request(
-        url,
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with _urlopen_with_ssl_fallback(req, timeout=10) as response:
-            if response.status >= 400:
-                logger.warning("Telegram sendMessage failed with status %s", response.status)
-    except Exception as exc:
-        logger.warning("Telegram sendMessage failed: %s", exc)
-
-
-def _resolve_telegram_file_url(file_id: str) -> str:
-    """Resolve Telegram file_id to a downloadable file URL."""
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", DEFAULT_TELEGRAM_BOT_TOKEN)
-    if not bot_token:
-        raise HTTPException(status_code=500, detail="TELEGRAM_BOT_TOKEN is not configured")
-
-    query = parse.urlencode({"file_id": file_id})
-    url = f"https://api.telegram.org/bot{bot_token}/getFile?{query}"
-    try:
-        with _urlopen_with_ssl_fallback(url, timeout=10) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Failed to fetch file from Telegram: {exc}") from exc
-
-    if not payload.get("ok"):
-        raise HTTPException(status_code=502, detail="Telegram getFile returned an error")
-
-    file_path = (payload.get("result") or {}).get("file_path")
-    if not file_path:
-        raise HTTPException(status_code=502, detail="Telegram file_path not found")
-
-    return f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
 
 
 class AdminUserUpdateRequest(BaseModel):
@@ -312,13 +234,14 @@ def mark_notification_read(
 def create_notification(
     payload: NotificationCreate,
     db: Session = Depends(get_db),
+    admin=Depends(require_admin),
 ):
     """Create a new notification (can be called from app or internally)"""
     notif = Notification(
         title=payload.title,
         message=payload.message,
         is_read=False,
-        user_id=1,  # System user (admins can see all notifications)
+        user_id=1,
     )
     db.add(notif)
     db.commit()
@@ -331,6 +254,30 @@ def create_notification(
         "is_read": notif.is_read,
         "created_at": notif.created_at,
     }
+
+
+@router.post("/notifications/broadcast")
+def broadcast_notification(
+    payload: NotificationCreate,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Send a notification to ALL active users at once."""
+    users = db.query(User).filter(User.is_active == True).all()  # noqa: E712
+
+    notifs = [
+        Notification(
+            user_id=u.id,
+            title=payload.title,
+            message=payload.message,
+            is_read=False,
+        )
+        for u in users
+    ]
+    db.bulk_save_objects(notifs)
+    db.commit()
+
+    return {"sent_to": len(notifs), "message": f"{len(notifs)} колдонуучуга жөнөтүлдү"}
 
 
 
@@ -375,7 +322,7 @@ def all_orders(
     db: Session = Depends(get_db),
     admin=Depends(require_admin),
 ):
-    query = db.query(Order)
+    query = db.query(Order).filter(Order.source != "dine_in")
 
     # Priority: explicit date filter, then date range, fallback to today_only toggle.
     if order_date:
@@ -439,15 +386,15 @@ def system_stats(
     from datetime import datetime
     
     # All-time stats
-    total_orders = db.query(func.count(Order.id)).scalar()
+    total_orders = db.query(func.count(Order.id)).filter(Order.enterprise_id == None).scalar()
     waiting_orders = (
         db.query(func.count(Order.id))
-        .filter(Order.status == "WAITING_COURIER")
+        .filter(Order.status == "WAITING_COURIER", Order.enterprise_id == None)
         .scalar()
     )
     completed_orders = (
         db.query(func.count(Order.id))
-        .filter(Order.status == "COMPLETED")
+        .filter(Order.status == "COMPLETED", Order.enterprise_id == None)
         .scalar()
     )
 
@@ -459,7 +406,7 @@ def system_stats(
     
     total_orders_today = (
         db.query(func.count(Order.id))
-        .filter(Order.created_at >= today_start)
+        .filter(Order.created_at >= today_start, Order.enterprise_id == None)
         .scalar()
     )
     
@@ -467,7 +414,8 @@ def system_stats(
         db.query(func.count(Order.id))
         .filter(
             Order.created_at >= today_start,
-            Order.status.in_(["CANCELED", "CANCELLED"])
+            Order.status.in_(["CANCELED", "CANCELLED"]),
+            Order.enterprise_id == None
         )
         .scalar()
     )
@@ -476,7 +424,8 @@ def system_stats(
         db.query(func.count(Order.id))
         .filter(
             Order.created_at >= today_start,
-            Order.status == "COMPLETED"
+            Order.status == "COMPLETED",
+            Order.enterprise_id == None
         )
         .scalar()
     )
@@ -570,7 +519,7 @@ def date_stats(
     
     total_orders = (
         db.query(func.count(Order.id))
-        .filter(Order.created_at >= day_start, Order.created_at <= day_end)
+        .filter(Order.created_at >= day_start, Order.created_at <= day_end, Order.enterprise_id == None)
         .scalar()
     )
     

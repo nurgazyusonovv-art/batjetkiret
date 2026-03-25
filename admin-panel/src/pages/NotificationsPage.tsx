@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
 import { notificationsService } from '@/services/notifications';
 import { Notification } from '@/types';
-import { Trash2, Check } from 'lucide-react';
+import { Trash2, Check, Send } from 'lucide-react';
+import api from '@/services/api';
 import './NotificationsPage.css';
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Broadcast form state
+  const [bcTitle, setBcTitle] = useState('');
+  const [bcMessage, setBcMessage] = useState('');
+  const [bcSending, setBcSending] = useState(false);
+  const [bcResult, setBcResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const loadNotifications = async () => {
     try {
@@ -37,6 +44,28 @@ export default function NotificationsPage() {
       ));
     } catch (e) {
       console.error('Error marking as read:', e);
+    }
+  };
+
+  const handleBroadcast = async () => {
+    if (!bcTitle.trim() || !bcMessage.trim()) {
+      setBcResult({ ok: false, text: 'Аталышты жана текстти толтуруңуз' });
+      return;
+    }
+    setBcSending(true);
+    setBcResult(null);
+    try {
+      const res = await api.post('/admin/notifications/broadcast', {
+        title: bcTitle.trim(),
+        message: bcMessage.trim(),
+      });
+      setBcResult({ ok: true, text: res.data.message });
+      setBcTitle('');
+      setBcMessage('');
+    } catch {
+      setBcResult({ ok: false, text: 'Жөнөтүүдө ката чыкты' });
+    } finally {
+      setBcSending(false);
     }
   };
 
@@ -76,6 +105,43 @@ export default function NotificationsPage() {
           </p>
         </div>
         <button className="refresh-btn" onClick={loadNotifications}>Жаңылоо</button>
+      </div>
+
+      {/* Broadcast card */}
+      <div className="broadcast-card">
+        <div className="broadcast-title">
+          <Send size={18} />
+          Баардык колдонуучуларга билдирүү жөнөтүү
+        </div>
+        <div className="broadcast-form">
+          <input
+            className="bc-input"
+            placeholder="Аталышы (мис: Акция! Жаңы тариф)"
+            value={bcTitle}
+            onChange={e => setBcTitle(e.target.value)}
+            maxLength={120}
+          />
+          <textarea
+            className="bc-textarea"
+            placeholder="Билдирүү тексти..."
+            rows={3}
+            value={bcMessage}
+            onChange={e => setBcMessage(e.target.value)}
+            maxLength={500}
+          />
+          {bcResult && (
+            <div className={`bc-result ${bcResult.ok ? 'ok' : 'err'}`}>
+              {bcResult.text}
+            </div>
+          )}
+          <button
+            className="bc-send-btn"
+            onClick={handleBroadcast}
+            disabled={bcSending}
+          >
+            {bcSending ? 'Жөнөтүлүүдө...' : <><Send size={15} /> Баарына жөнөтүү</>}
+          </button>
+        </div>
       </div>
 
       {notifications.length === 0 ? (

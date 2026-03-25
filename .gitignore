@@ -48,3 +48,14 @@ admin-panel/node_modules/
 admin-panel/.next/
 admin-panel/build/
 admin-panel/dist/
+
+# Web Client
+web-client/node_modules/
+web-client/dist/
+
+# Enterprise Panel
+enterprise-panel/node_modules/
+enterprise-panel/dist/
+
+# Uploads
+uploads/

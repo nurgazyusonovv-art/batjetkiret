@@ -1,0 +1,24 @@
+[Unit]
+Description=Batken Express Backend (FastAPI)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=exec
+User=ubuntu
+WorkingDirectory=/var/www/batken/backend
+EnvironmentFile=/var/www/batken/backend/.env
+ExecStartPre=/var/www/batken/backend/venv/bin/alembic upgrade head
+ExecStart=/var/www/batken/backend/venv/bin/gunicorn app.main:app \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --workers 2 \
+    --bind 127.0.0.1:8000 \
+    --access-logfile - \
+    --error-logfile -
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
