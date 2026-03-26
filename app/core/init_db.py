@@ -19,21 +19,27 @@ def _migrate(engine):
                 pass  # Column already exists
 
 
-def init_db():
+def _init_db_with_retry():
     import time
     import logging
     logger = logging.getLogger("app.init_db")
-    for attempt in range(5):
+    for attempt in range(10):
         try:
             Base.metadata.create_all(bind=engine)
             _migrate(engine)
             logger.info("Database initialized successfully")
             return
         except Exception as e:
-            logger.warning(f"DB init attempt {attempt + 1}/5 failed: {e}")
-            if attempt < 4:
-                time.sleep(3)
-    logger.error("Failed to initialize database after 5 attempts")
+            logger.warning(f"DB init attempt {attempt + 1}/10 failed: {e}")
+            if attempt < 9:
+                time.sleep(5)
+    logger.error("Failed to initialize database after 10 attempts")
+
+
+def init_db():
+    import threading
+    t = threading.Thread(target=_init_db_with_retry, daemon=True)
+    t.start()
 
 
 if __name__ == "__main__":
