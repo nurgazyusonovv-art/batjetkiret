@@ -1,19 +1,28 @@
-from app.core.database import engine, Base 
-from app.models.user import User
-from app.models.order import Order
-from app.models.transaction import Transaction
-from app.models.topup import TopUpRequest
-from app.models.notification import Notification
-from app.models.chat import ChatRoom
-from app.models.message import Message
-from app.models.rating import CourierRating
-from app.models.user_rating import UserRating
-from app.models.password_reset import PasswordReset
-from app.models.order_status_log import OrderStatusLog
+from sqlalchemy import text
+from app.core.database import engine, Base
+from app.models import *
+
+
+def _migrate(engine):
+    """Incremental SQLite schema migrations (no Alembic)."""
+    migrations = [
+        "ALTER TABLE orders ADD COLUMN order_type VARCHAR DEFAULT 'delivery'",
+        "ALTER TABLE orders ADD COLUMN table_number VARCHAR",
+        "ALTER TABLE orders ADD COLUMN hidden_for_enterprise BOOLEAN DEFAULT FALSE NOT NULL",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                pass  # Column already exists
 
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    _migrate(engine)
+
 
 if __name__ == "__main__":
     init_db()

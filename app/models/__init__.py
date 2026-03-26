@@ -9,6 +9,9 @@ from app.models.notification import Notification
 from app.models.topup import TopUpRequest
 from app.models.transaction import Transaction
 from app.models.order_status_log import OrderStatusLog
+from app.models.enterprise import Enterprise
+from app.models.enterprise_category import EnterpriseCategory
+from app.models.enterprise_product import EnterpriseProduct
 
 __all__ = [
     "User",
@@ -22,4 +25,7 @@ __all__ = [
     "TopUpRequest",
     "Transaction",
     "OrderStatusLog",
+    "Enterprise",
+    "EnterpriseCategory",
+    "EnterpriseProduct",
 ]

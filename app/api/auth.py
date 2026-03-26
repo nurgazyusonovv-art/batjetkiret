@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 import logging
 import random
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse
 from app.core.security import hash_password, verify_password, create_access_token
@@ -35,7 +35,7 @@ def _mask_phone(phone: str) -> str:
     return f"***{phone[-4:]}"
 
 @router.post("/reset-password")
-@limiter.limit("5/minute")
+@limiter.limit("10/minute")
 def reset_password(
     request: Request,
     phone: str,
@@ -129,7 +129,7 @@ def forgot_password(request: Request, phone: str, db: Session = Depends(get_db))
     return {"message": "Reset code sent"}
 
 @router.post("/register", response_model=TokenResponse)
-@limiter.limit("5/minute")
+@limiter.limit("20/minute")
 def register(request: Request, data: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.phone == data.phone).first():
         raise HTTPException(
@@ -166,7 +166,7 @@ def register(request: Request, data: RegisterRequest, db: Session = Depends(get_
     }
 
 @router.post("/login", response_model=TokenResponse)
-@limiter.limit("5/minute")
+@limiter.limit("30/minute")
 def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.phone == data.phone).first()
     if not user or not verify_password(data.password, user.hashed_password):
@@ -193,27 +193,17 @@ def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/change-password")
 def change_password(
-    request: Request,
     old_password: str,
     new_password: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(lambda req: None),
+    current_user: User = Depends(get_current_user),
 ):
     """User changes their own password"""
-    # Get current user from token
-    from app.api.deps import get_current_user
-    current_user = get_current_user(request, db)
-    
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    # Verify old password
     if not verify_password(old_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect password")
-    
-    # Update password
+
     current_user.hashed_password = hash_password(new_password)
     db.commit()
-    
+
     logger.info("Password changed for user=%s", _mask_phone(current_user.phone))
     return {"message": "Password changed successfully"}

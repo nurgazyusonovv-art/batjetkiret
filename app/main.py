@@ -2,25 +2,35 @@ from time import perf_counter
 from uuid import uuid4
 import logging
 
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.core.logging import configure_logging
+from app.core.custom_logging import configure_logging
 from app.api import auth, couriers, orders, courier_orders, users, wallet, admin
 from app.api import chat
 from app.api import support_chat
 from app.api import notifications
 from app.api import ratings
 from app.api import topup
+from app.api import enterprises
+from app.api import enterprise_portal
+from app.core.init_db import init_db
 
 configure_logging(level=settings.LOG_LEVEL, json_logs=settings.LOG_JSON)
 logger = logging.getLogger("app.request")
 
-app = FastAPI(title="BATJETKIRET API")
+app = FastAPI(title="BATKEN EXPRESS API")
 app.state.limiter = limiter
+
+
+@app.on_event("startup")
+def startup_init_db():
+    init_db()
 
 # Custom exception handler for rate limit exceeded
 @app.exception_handler(RateLimitExceeded)
@@ -72,7 +82,7 @@ async def request_logging_middleware(request: Request, call_next):
     return response
 
 # CORS configuration - allow all localhost origins for development
-if settings.DEBUG or True:  # Allow all origins for development
+if settings.DEBUG:  # Allow all origins for development
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],  # Allow all origins
@@ -101,7 +111,13 @@ app.include_router(admin.router)
 app.include_router(ratings.router)
 app.include_router(users.router)
 app.include_router(topup.router)
+app.include_router(enterprises.router)
+app.include_router(enterprise_portal.router)
 
 
 
 app.include_router(chat.router)
+
+_uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+os.makedirs(_uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")

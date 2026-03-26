@@ -63,10 +63,11 @@ def _get_user_from_ws_token(db: Session, token: str | None) -> User:
 
 
 def _build_orders_live_snapshot(db: Session, current_user: User) -> list[dict]:
-    # Exclude hidden orders based on user role
+    # Exclude hidden orders based on user role; dine_in orders are not shown in the app
     orders = (
         db.query(Order)
         .filter(
+            Order.source != "dine_in",
             or_(
                 # User sees their orders that aren't hidden for them
                 (Order.user_id == current_user.id) & (Order.hidden_for_user == False),  # noqa: E712
@@ -174,6 +175,7 @@ def create_order(
 
     order = Order(
         user_id=current_user.id,
+        enterprise_id=data.enterprise_id,
         category=data.category,
         description=data.description,
         from_address=data.from_address,
@@ -187,6 +189,8 @@ def create_order(
         user_commission=user_commission,
         courier_commission=courier_commission,
         status="WAITING_COURIER",
+        source="online",
+        order_type="delivery",
     )
 
     db.add(order)
@@ -256,6 +260,7 @@ def my_orders(
         .filter(
             Order.user_id == current_user.id,
             Order.hidden_for_user == False,  # noqa: E712
+            Order.source != "dine_in",
         )
         .order_by(Order.created_at.desc())
         .all()
@@ -351,17 +356,38 @@ def get_order(
     if order.user_id != current_user.id and order.courier_id != current_user.id:
         raise HTTPException(status_code=403)
 
-    return {
+    result = {
         "id": order.id,
         "status": order.status,
         "price": float(order.price),
+        "category": order.category,
+        "description": order.description,
         "from_address": order.from_address,
         "to_address": order.to_address,
         "from_latitude": float(order.from_latitude) if order.from_latitude is not None else None,
         "from_longitude": float(order.from_longitude) if order.from_longitude is not None else None,
         "to_latitude": float(order.to_latitude) if order.to_latitude is not None else None,
         "to_longitude": float(order.to_longitude) if order.to_longitude is not None else None,
+        "distance_km": float(order.distance_km) if order.distance_km is not None else None,
+        "created_at": order.created_at,
+        "enterprise_id": order.enterprise_id,
     }
+
+    # Only show verification code to the order owner when status is DELIVERED
+    if order.user_id == current_user.id and order.status == "DELIVERED":
+        result["verification_code"] = order.verification_code
+
+    if order.courier_id and order.courier:
+        result["courier_name"] = order.courier.name
+        result["courier_phone"] = order.courier.phone
+
+    if order.enterprise_id:
+        from app.models.enterprise import Enterprise
+        ent = db.query(Enterprise).filter(Enterprise.id == order.enterprise_id).first()
+        if ent:
+            result["enterprise_name"] = ent.name
+
+    return result
 
 
 @router.get("/{order_id}/status-audit")
@@ -422,6 +448,42 @@ def user_rating_for_order(
         "user_id": order.user_id,
         "average_rating": round(float(avg), 2),
     }
+
+@router.patch("/{order_id}")
+def update_order(
+    order_id: int,
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update order — only allowed when status is WAITING_COURIER."""
+    from pydantic import BaseModel
+    from typing import Optional
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if order.status != "WAITING_COURIER":
+        raise HTTPException(status_code=400, detail="Курьер дайындалган заказды өзгөртүүгө болбойт")
+
+    allowed = {"description", "from_address", "to_address",
+               "from_latitude", "from_longitude", "to_latitude", "to_longitude",
+               "distance_km"}
+    for field, value in data.items():
+        if field in allowed:
+            setattr(order, field, value)
+
+    # Recalculate price if distance changed
+    if "distance_km" in data and data["distance_km"] is not None:
+        from app.services.pricing import calculate_price
+        order.price = calculate_price(float(data["distance_km"]))
+
+    db.commit()
+    db.refresh(order)
+    return {"id": order.id, "message": "Updated", "price": float(order.price)}
+
 
 @router.post("/{order_id}/cancel")
 def cancel_order(

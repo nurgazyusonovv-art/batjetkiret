@@ -11,6 +11,7 @@ class OrderCreateRequest(BaseModel):
     to_latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     to_longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     distance_km: float = Field(..., gt=0, le=1000)
+    enterprise_id: Optional[int] = None
     
     @field_validator('distance_km')
     def distance_must_be_positive(cls, v):

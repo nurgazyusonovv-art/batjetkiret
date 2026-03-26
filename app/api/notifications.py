@@ -55,6 +55,27 @@ def mark_read(
 
 
 
+@router.post("/support-message")
+def send_support_message(
+    title: str,
+    message: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Allow authenticated users to send a support message visible to all admins."""
+    admins = db.query(User).filter(User.is_admin == True).all()
+    for admin in admins:
+        db.add(
+            Notification(
+                user_id=admin.id,
+                title=f"[{current_user.phone}] {title}",
+                message=message,
+            )
+        )
+    db.commit()
+    return {"message": "Билдирүү жөнөтүлдү"}
+
+
 @router.get("/unread-count")
 def unread_count(
     db: Session = Depends(get_db),

@@ -35,6 +35,11 @@ class Order(Base):
     user_commission = Column(Numeric(10, 2), nullable=True, default=0)  # Commission from user
     courier_commission = Column(Numeric(10, 2), nullable=True, default=0)  # Commission from courier
 
+    enterprise_id = Column(Integer, ForeignKey("enterprises.id"), nullable=True)
+    source = Column(String, default="online")    # 'online' | 'local' | 'dine_in'
+    order_type = Column(String, default="delivery")  # 'delivery' | 'dine_in'
+    table_number = Column(String, nullable=True)
+
     status = Column(String, default="WAITING_COURIER")
     admin_note = Column(Text, nullable=True)
     verification_code = Column(String(6), nullable=True)
@@ -42,5 +47,6 @@ class Order(Base):
     # Soft delete flags for separate history visibility
     hidden_for_user = Column(Boolean, default=False, nullable=False)
     hidden_for_courier = Column(Boolean, default=False, nullable=False)
+    hidden_for_enterprise = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime, server_default=func.now())

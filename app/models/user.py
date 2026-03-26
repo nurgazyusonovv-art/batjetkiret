@@ -19,5 +19,7 @@ class User(Base):
     balance = Column(Numeric(10, 2), default=0)
     address = Column(String, nullable=True)
     is_online = Column(Boolean, default=False)
+    is_enterprise = Column(Boolean, default=False)  # enterprise portal user
+    enterprise_id = Column(Integer, nullable=True)  # linked enterprise (no FK to avoid circular dep)
 
     created_at = Column(DateTime, server_default=func.now())

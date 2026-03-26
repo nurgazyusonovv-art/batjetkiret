@@ -56,3 +56,19 @@ def require_admin(
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin only")
     return current_user
+
+
+def require_enterprise(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Require the user to be an enterprise portal user with an active enterprise."""
+    from app.models.enterprise import Enterprise
+    if not current_user.is_enterprise or not current_user.enterprise_id:
+        raise HTTPException(status_code=403, detail="Enterprise users only")
+    enterprise = db.query(Enterprise).filter(Enterprise.id == current_user.enterprise_id).first()
+    if not enterprise:
+        raise HTTPException(status_code=404, detail="Enterprise not found")
+    if not enterprise.is_active:
+        raise HTTPException(status_code=403, detail="Enterprise is not active")
+    return current_user, enterprise
