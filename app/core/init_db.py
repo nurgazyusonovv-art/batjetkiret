@@ -20,8 +20,20 @@ def _migrate(engine):
 
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
-    _migrate(engine)
+    import time
+    import logging
+    logger = logging.getLogger("app.init_db")
+    for attempt in range(5):
+        try:
+            Base.metadata.create_all(bind=engine)
+            _migrate(engine)
+            logger.info("Database initialized successfully")
+            return
+        except Exception as e:
+            logger.warning(f"DB init attempt {attempt + 1}/5 failed: {e}")
+            if attempt < 4:
+                time.sleep(3)
+    logger.error("Failed to initialize database after 5 attempts")
 
 
 if __name__ == "__main__":
