@@ -7,6 +7,8 @@ from app.models.order_status_log import OrderStatusLog
 
 ALLOWED_STATUSES = {
     "WAITING_COURIER",
+    "PREPARING",
+    "READY",
     "ACCEPTED",
     "ON_THE_WAY",
     "DELIVERED",
@@ -17,6 +19,8 @@ ALLOWED_STATUSES = {
 
 ALLOWED_TRANSITIONS = {
     "WAITING_COURIER": {"ACCEPTED", "CANCELLED"},
+    "PREPARING": {"READY", "CANCELLED"},
+    "READY": {"ACCEPTED", "CANCELLED"},
     "ACCEPTED": {"ON_THE_WAY", "CANCELLED", "WAITING_COURIER"},
     "ON_THE_WAY": {"DELIVERED", "COMPLETED"},
     "DELIVERED": {"COMPLETED"},
