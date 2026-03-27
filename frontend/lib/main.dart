@@ -12,6 +12,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'core/notifications/notification_overlay.dart';
 import 'core/notifications/notifications_service.dart';
 import 'core/services/fcm_service.dart';
+import 'core/services/notification_navigator.dart';
 import 'features/auth/presentation/auth_page.dart';
 import 'features/profile/data/user_api.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
@@ -24,11 +25,14 @@ import 'features/orders/presentation/cubit/orders_cubit.dart';
 import 'features/orders/presentation/my_orders_page.dart';
 import 'features/splash/presentation/splash_screen.dart';
 
+final _navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HiveService.initialize();
   await NotificationsService.initialize();
   await Firebase.initializeApp();
+  NotificationNavigator.navigatorKey = _navigatorKey;
   runApp(const BatkenExpressApp());
 }
 
@@ -60,6 +64,7 @@ class BatkenExpressApp extends StatelessWidget {
               builder: (context, child) {
                 return NotificationOverlay(
                   child: MaterialApp(
+                    navigatorKey: _navigatorKey,
                     debugShowCheckedModeBanner: false,
                     title: 'Batken Express',
                     theme: AppTheme.light,
@@ -186,6 +191,14 @@ class _MainNavigationState extends State<MainNavigation>
 
     FcmService.initialize(widget.token);
 
+    // Set auth context for notification tap navigation
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final profile = context.read<ProfileCubit>();
+      await profile.loadUser(widget.token, silent: true);
+      final userId = profile.state.user?.id ?? 0;
+      NotificationNavigator.setAuth(widget.token, userId);
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _refreshForTab(_currentIndex);
@@ -246,8 +259,13 @@ class _MainNavigationState extends State<MainNavigation>
             .reduce(max);
 
         for (final n in newUnread) {
-          // System notification with sound
-          await NotificationsService.showNotification(n.id, n.title, n.message);
+          // System notification with sound + chatId payload for tap navigation
+          await NotificationsService.showNotification(
+            n.id,
+            n.title,
+            n.message,
+            chatId: n.chatId,
+          );
           // In-app overlay banner
           NotificationsService.addNotification({
             'title': n.title,
@@ -268,6 +286,7 @@ class _MainNavigationState extends State<MainNavigation>
   void dispose() {
     _autoRefreshTimer?.cancel();
     _notificationPollTimer?.cancel();
+    NotificationNavigator.clear();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

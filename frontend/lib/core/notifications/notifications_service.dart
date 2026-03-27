@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../services/notification_navigator.dart';
 
 class NotificationsService {
   static final _plugin = FlutterLocalNotificationsPlugin();
@@ -22,7 +23,19 @@ class NotificationsService {
       requestSoundPermission: true,
     );
     const settings = InitializationSettings(android: android, iOS: ios);
-    await _plugin.initialize(settings);
+    await _plugin.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (details) {
+        // User tapped a local notification — open chat if payload has chat_id
+        final payload = details.payload;
+        if (payload != null && payload.isNotEmpty) {
+          final chatId = int.tryParse(payload);
+          if (chatId != null && chatId > 0) {
+            NotificationNavigator.openChatById(chatId);
+          }
+        }
+      },
+    );
 
     // Create Android notification channel with sound + vibration
     const channel = AndroidNotificationChannel(
@@ -45,12 +58,14 @@ class NotificationsService {
         ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
-  /// Show a system notification with sound (works in foreground & background)
+  /// Show a system notification with sound. [chatId] is passed as payload
+  /// so tapping the notification opens the correct chat.
   static Future<void> showNotification(
     int id,
     String title,
-    String body,
-  ) async {
+    String body, {
+    int? chatId,
+  }) async {
     if (!_initialized) return;
     const androidDetails = AndroidNotificationDetails(
       'batken_messages',
@@ -66,7 +81,13 @@ class NotificationsService {
       android: androidDetails,
       iOS: iosDetails,
     );
-    await _plugin.show(id, title, body, details);
+    await _plugin.show(
+      id,
+      title,
+      body,
+      details,
+      payload: chatId != null ? '$chatId' : null,
+    );
   }
 
   /// Add notification to in-app overlay stream

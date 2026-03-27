@@ -4,13 +4,19 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
 import '../notifications/notifications_service.dart';
+import 'notification_navigator.dart';
 
 /// Called by Firebase when a background/terminated message arrives.
 /// Must be a top-level function.
 @pragma('vm:entry-point')
 Future<void> firebaseBackgroundMessageHandler(RemoteMessage message) async {
   // Background messages are automatically shown by Firebase on Android.
-  // No additional handling needed unless custom logic is required.
+}
+
+int? _chatIdFromMessage(RemoteMessage message) {
+  final raw = message.data['chat_id'];
+  if (raw == null) return null;
+  return int.tryParse(raw.toString());
 }
 
 class FcmService {
@@ -19,7 +25,6 @@ class FcmService {
 
   static Future<void> initialize(String authToken) async {
     if (_initialized) {
-      // Already initialized — just make sure token is sent to backend
       await _syncTokenToBackend(authToken);
       return;
     }
@@ -37,22 +42,44 @@ class FcmService {
     // Register background handler
     FirebaseMessaging.onBackgroundMessage(firebaseBackgroundMessageHandler);
 
-    // Foreground messages — show as heads-up local notification
+    // App was TERMINATED and user tapped notification
+    final initial = await messaging.getInitialMessage();
+    if (initial != null) {
+      final chatId = _chatIdFromMessage(initial);
+      if (chatId != null) {
+        // Delay to let the navigator finish mounting
+        Future.delayed(const Duration(milliseconds: 800), () {
+          NotificationNavigator.openChatById(chatId);
+        });
+      }
+    }
+
+    // App was in BACKGROUND and user tapped notification
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      final chatId = _chatIdFromMessage(message);
+      if (chatId != null) {
+        NotificationNavigator.openChatById(chatId);
+      }
+    });
+
+    // App in FOREGROUND — show heads-up local notification
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       final notification = message.notification;
       if (notification == null) return;
 
       final title = notification.title ?? '';
       final body = notification.body ?? '';
+      final chatId = _chatIdFromMessage(message);
 
-      // Show system heads-up notification with sound
+      // Show system heads-up with chat_id as payload so tap opens chat
       NotificationsService.showNotification(
         message.hashCode,
         title,
         body,
+        chatId: chatId,
       );
 
-      // Show in-app overlay banner
+      // In-app overlay banner
       NotificationsService.addNotification({
         'title': title,
         'body': body,
