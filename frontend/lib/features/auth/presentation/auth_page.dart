@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -6,6 +7,48 @@ import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
 import 'cubit/auth_cubit.dart';
 import 'cubit/auth_state.dart';
+
+/// Formats 9 digits as (XXX)-XX-XX-XX and limits to 9 digits.
+class _KyrgyzPhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits =
+        newValue.text.replaceAll(RegExp(r'\D'), '').substring(
+          0,
+          newValue.text.replaceAll(RegExp(r'\D'), '').length.clamp(0, 9),
+        );
+    final formatted = _applyMask(digits);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  static String _applyMask(String digits) {
+    if (digits.isEmpty) return '';
+    final buf = StringBuffer();
+    for (int i = 0; i < digits.length; i++) {
+      if (i == 0) buf.write('(');
+      buf.write(digits[i]);
+      if (i == 2) {
+        buf.write(')');
+        if (digits.length > 3) buf.write('-');
+      } else if (i == 4 && digits.length > 5) {
+        buf.write('-');
+      } else if (i == 6 && digits.length > 7) {
+        buf.write('-');
+      }
+    }
+    return buf.toString();
+  }
+
+  /// Strips mask characters and returns only the 9 digits.
+  static String digitsOnly(String masked) =>
+      masked.replaceAll(RegExp(r'\D'), '');
+}
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key, this.onAuthSuccess});
@@ -34,29 +77,35 @@ class _AuthPageState extends State<AuthPage> {
 
   AuthCubit get _authCubit => context.read<AuthCubit>();
 
+  /// Returns the full E.164 phone number: +996XXXXXXXXX
+  String get _fullPhone {
+    final digits = _KyrgyzPhoneFormatter.digitsOnly(_phoneController.text);
+    return '+996$digits';
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     await _authCubit.submit(
-      phone: _phoneController.text.trim(),
+      phone: _fullPhone,
       password: _passwordController.text,
       name: _nameController.text.trim(),
     );
   }
 
   Future<void> _forgotPassword() async {
-    final phone = _phoneController.text.trim();
-    if (phone.length < 10) {
+    final digits = _KyrgyzPhoneFormatter.digitsOnly(_phoneController.text);
+    if (digits.length < 9) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Телефон номерин киргизиңиз (10+)')),
+        const SnackBar(content: Text('Телефон номерин толук жазыңыз')),
       );
       return;
     }
 
     try {
-      final message = await _authCubit.forgotPassword(phone);
+      final message = await _authCubit.forgotPassword(_fullPhone);
       if (!mounted) {
         return;
       }
@@ -218,11 +267,16 @@ class _AuthPageState extends State<AuthPage> {
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         textInputAction: TextInputAction.next,
-                        hintText: '+996 (___) __-__-__',
+                        hintText: '(700)-55-22-11',
                         prefixIcon: const Icon(Icons.phone_android),
+                        prefixText: '+996 ',
+                        inputFormatters: [_KyrgyzPhoneFormatter()],
                         validator: (value) {
-                          if (value == null || value.trim().length < 10) {
-                            return 'Телефон 10+ символ болушу керек';
+                          final digits = _KyrgyzPhoneFormatter.digitsOnly(
+                            value ?? '',
+                          );
+                          if (digits.length < 9) {
+                            return 'Телефон номерин толук жазыңыз';
                           }
                           return null;
                         },
