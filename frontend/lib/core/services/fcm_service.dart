@@ -47,10 +47,8 @@ class FcmService {
     if (initial != null) {
       final chatId = _chatIdFromMessage(initial);
       if (chatId != null) {
-        // Delay to let the navigator finish mounting
-        Future.delayed(const Duration(milliseconds: 800), () {
-          NotificationNavigator.openChatById(chatId);
-        });
+        // Navigator may not be mounted yet — retry with backoff
+        _openWithRetry(chatId);
       }
     }
 
@@ -58,7 +56,10 @@ class FcmService {
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       final chatId = _chatIdFromMessage(message);
       if (chatId != null) {
-        NotificationNavigator.openChatById(chatId);
+        // Small delay so any pending frame callbacks finish first
+        Future.delayed(const Duration(milliseconds: 300), () {
+          NotificationNavigator.openChatById(chatId);
+        });
       }
     });
 
@@ -93,6 +94,21 @@ class FcmService {
     // Listen for token refresh
     messaging.onTokenRefresh.listen((newToken) async {
       await _sendTokenToBackend(authToken, newToken);
+    });
+  }
+
+  /// Retries openChatById until the navigator is mounted (terminated-app launch).
+  static void _openWithRetry(int chatId, {int attempt = 0}) {
+    const delays = [500, 1000, 2000, 3000];
+    final ms = attempt < delays.length ? delays[attempt] : 0;
+    if (ms == 0) return; // gave up
+
+    Future.delayed(Duration(milliseconds: ms), () {
+      if (NotificationNavigator.navigatorKey?.currentState != null) {
+        NotificationNavigator.openChatById(chatId);
+      } else {
+        _openWithRetry(chatId, attempt: attempt + 1);
+      }
     });
   }
 
