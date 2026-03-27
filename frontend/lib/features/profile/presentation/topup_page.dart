@@ -234,7 +234,7 @@ class _TopupPageState extends State<TopupPage> {
                 SizedBox(height: 6),
                 Text(
                   '1. Суммасын жазыңыз\n'
-                  '2. Эл Карт / О!Pay / MBank аркылуу которуңуз\n'
+                  '2. +996501889810 номерине MBank аркылуу которуңуз\n'
                   '3. Төлөмдүн скриншотун жүктөңүз\n'
                   '4. «Жөнөтүү» баскычын басыңыз',
                   style: TextStyle(

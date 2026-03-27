@@ -20,6 +20,7 @@ from app.models.message import Message
 from app.models.notification import Notification
 from app.models.order import Order
 from app.models.user import User
+from app.services import fcm as fcm_service
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -135,10 +136,18 @@ def _create_notifications(db: Session, chat: ChatRoom, sender_id: int) -> None:
             db.add(
                 Notification(
                     user_id=uid,
-                    title="New message",
-                    message="You have a new chat message",
+                    title="Жаңы билдирүү",
+                    message="Сизге жаңы чат билдирүүсү бар",
                     related_chat_id=chat.id,
                 )
+            )
+            # Send FCM push notification
+            recipient = db.query(User).filter(User.id == uid).first()
+            fcm_service.send_push_to_user(
+                recipient,
+                title="Жаңы билдирүү",
+                body="Сизге жаңы чат билдирүүсү бар",
+                data={"chat_id": str(chat.id), "type": chat.type},
             )
 
 

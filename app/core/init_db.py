@@ -14,6 +14,7 @@ def _migrate(engine):
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_latitude FLOAT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_longitude FLOAT",
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS intercity_city_id INTEGER",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR",
     ]
     for sql in migrations:
         try:

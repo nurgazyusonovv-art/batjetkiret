@@ -45,6 +45,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   String? _statusAuditError;
   Position? _userPosition;
   Timer? _locationTimer;
+  Timer? _orderRefreshTimer;
   final _userApi = UserApi();
 
   @override
@@ -58,6 +59,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     if (widget.isCourier) {
       _fetchUserLocation();
       _startLocationTimer();
+    } else {
+      _startOrderRefreshTimer();
     }
   }
 
@@ -92,9 +95,16 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     });
   }
 
+  void _startOrderRefreshTimer() {
+    _orderRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) _reloadCurrentOrder();
+    });
+  }
+
   @override
   void dispose() {
     _locationTimer?.cancel();
+    _orderRefreshTimer?.cancel();
     _detailCubit.close();
     super.dispose();
   }
@@ -669,8 +679,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  if (widget.isCourier &&
-                      currentOrder.fromLatitude != null &&
+                  if (currentOrder.fromLatitude != null &&
                       currentOrder.fromLongitude != null &&
                       currentOrder.toLatitude != null &&
                       currentOrder.toLongitude != null) ...[
@@ -687,6 +696,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                               latitude: currentOrder.toLatitude!,
                               longitude: currentOrder.toLongitude!,
                             ),
+                            isCourier: widget.isCourier,
+                            courierLat: widget.isCourier ? null : currentOrder.courierLatitude,
+                            courierLon: widget.isCourier ? null : currentOrder.courierLongitude,
                           ),
                         ));
                       },
@@ -703,8 +715,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                                 latitude: currentOrder.toLatitude!,
                                 longitude: currentOrder.toLongitude!,
                               ),
-                              userLat: _userPosition?.latitude,
-                              userLon: _userPosition?.longitude,
+                              userLat: widget.isCourier ? _userPosition?.latitude : null,
+                              userLon: widget.isCourier ? _userPosition?.longitude : null,
+                              courierLat: widget.isCourier ? null : currentOrder.courierLatitude,
+                              courierLon: widget.isCourier ? null : currentOrder.courierLongitude,
                             ),
                             Positioned(
                               top: 8,
@@ -2127,10 +2141,19 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 }
 
 class _FullScreenMapPage extends StatefulWidget {
-  const _FullScreenMapPage({required this.from, required this.to});
+  const _FullScreenMapPage({
+    required this.from,
+    required this.to,
+    this.isCourier = false,
+    this.courierLat,
+    this.courierLon,
+  });
 
   final LatLng from;
   final LatLng to;
+  final bool isCourier;
+  final double? courierLat;
+  final double? courierLon;
 
   @override
   State<_FullScreenMapPage> createState() => _FullScreenMapPageState();
@@ -2138,11 +2161,21 @@ class _FullScreenMapPage extends StatefulWidget {
 
 class _FullScreenMapPageState extends State<_FullScreenMapPage> {
   Position? _userPosition;
+  Timer? _gpsTimer;
 
   @override
   void initState() {
     super.initState();
-    _fetchLocation();
+    if (widget.isCourier) {
+      _fetchLocation();
+      _gpsTimer = Timer.periodic(const Duration(seconds: 5), (_) => _fetchLocation());
+    }
+  }
+
+  @override
+  void dispose() {
+    _gpsTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchLocation() async {
@@ -2171,8 +2204,10 @@ class _FullScreenMapPageState extends State<_FullScreenMapPage> {
           _OrderRouteMap(
             from: widget.from,
             to: widget.to,
-            userLat: _userPosition?.latitude,
-            userLon: _userPosition?.longitude,
+            userLat: widget.isCourier ? _userPosition?.latitude : null,
+            userLon: widget.isCourier ? _userPosition?.longitude : null,
+            courierLat: widget.isCourier ? null : widget.courierLat,
+            courierLon: widget.isCourier ? null : widget.courierLon,
           ),
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
@@ -2229,11 +2264,22 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
   @override
   void didUpdateWidget(_OrderRouteMap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.userLat != widget.userLat ||
-        oldWidget.userLon != widget.userLon ||
-        oldWidget.courierLat != widget.courierLat ||
-        oldWidget.courierLon != widget.courierLon) {
+    // Full reload only if route endpoints changed
+    if (oldWidget.from.latitude != widget.from.latitude ||
+        oldWidget.from.longitude != widget.from.longitude ||
+        oldWidget.to.latitude != widget.to.latitude ||
+        oldWidget.to.longitude != widget.to.longitude) {
       _buildController();
+      return;
+    }
+    // Smooth JS updates for moving markers
+    if (widget.userLat != null && widget.userLon != null &&
+        (oldWidget.userLat != widget.userLat || oldWidget.userLon != widget.userLon)) {
+      _controller.runJavaScript('if(window.updateUserPos) updateUserPos(${widget.userLat}, ${widget.userLon});');
+    }
+    if (widget.courierLat != null && widget.courierLon != null &&
+        (oldWidget.courierLat != widget.courierLat || oldWidget.courierLon != widget.courierLon)) {
+      _controller.runJavaScript('if(window.updateCourierPos) updateCourierPos(${widget.courierLat}, ${widget.courierLon});');
     }
   }
 
@@ -2277,22 +2323,12 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
     final centerLat = (from.latitude + to.latitude) / 2;
     final centerLon = (from.longitude + to.longitude) / 2;
     final hasUser = userLat != null && userLon != null;
-    final userPlacemark = hasUser
-        ? '''
-      var userPos = [$userLat, $userLon];
-      map.geoObjects.add(new ymaps.Placemark(userPos,
-        { hintContent: 'Менин жайгашкан жерим' },
-        { preset: 'islands#blueCircleDotIcon' }
-      ));'''
-        : '';
     final hasCourier = courierLat != null && courierLon != null;
-    final courierPlacemark = hasCourier
-        ? '''
-      var courierPos = [$courierLat, $courierLon];
-      map.geoObjects.add(new ymaps.Placemark(courierPos,
-        { hintContent: 'Курьер' },
-        { preset: 'islands#orangeDeliveryIcon' }
-      ));'''
+    final initUserMark = hasUser
+        ? 'userMark = new ymaps.Placemark([$userLat, $userLon], { hintContent: "Менин жайгашкан жерим" }, { preset: "islands#blueCircleDotIcon" }); map.geoObjects.add(userMark);'
+        : '';
+    final initCourierMark = hasCourier
+        ? 'courierMark = new ymaps.Placemark([$courierLat, $courierLon], { hintContent: "Курьер" }, { preset: "islands#orangeDeliveryIcon" }); map.geoObjects.add(courierMark);'
         : '';
 
     return '''
@@ -2321,8 +2357,28 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
 
       map.geoObjects.add(new ymaps.Placemark(from, { hintContent: 'Чыгаруу' }, { preset: 'islands#greenDotIcon' }));
       map.geoObjects.add(new ymaps.Placemark(to, { hintContent: 'Жеткирүү' }, { preset: 'islands#redDotIcon' }));
-      $userPlacemark
-      $courierPlacemark
+
+      var userMark = null;
+      var courierMark = null;
+      $initUserMark
+      $initCourierMark
+
+      window.updateUserPos = function(lat, lon) {
+        if (userMark) {
+          userMark.geometry.setCoordinates([lat, lon]);
+        } else {
+          userMark = new ymaps.Placemark([lat, lon], { hintContent: 'Менин жайгашкан жерим' }, { preset: 'islands#blueCircleDotIcon' });
+          map.geoObjects.add(userMark);
+        }
+      };
+      window.updateCourierPos = function(lat, lon) {
+        if (courierMark) {
+          courierMark.geometry.setCoordinates([lat, lon]);
+        } else {
+          courierMark = new ymaps.Placemark([lat, lon], { hintContent: 'Курьер' }, { preset: 'islands#orangeDeliveryIcon' });
+          map.geoObjects.add(courierMark);
+        }
+      };
 
       function drawFallback() {
         map.geoObjects.add(new ymaps.Polyline([from, to], {}, { strokeColor: '#1E88E5', strokeWidth: 4, opacity: 0.8 }));

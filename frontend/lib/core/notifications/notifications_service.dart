@@ -1,24 +1,79 @@
 import 'dart:async';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-/// Простой сервис уведомлений на базе WebSocket
-/// Уведомления поступают через существующую WebSocket систему
 class NotificationsService {
+  static final _plugin = FlutterLocalNotificationsPlugin();
+  static bool _initialized = false;
+
   static final _notificationStream =
       StreamController<Map<String, dynamic>>.broadcast();
 
-  /// Инициализация сервиса уведомлений
-  static Future<void> initialize() async {}
-
-  /// Stream уведомлений для слушания в UI
   static Stream<Map<String, dynamic>> get notificationStream =>
       _notificationStream.stream;
 
-  /// Добавить уведомление в поток (вызывается из других сервисов)
+  static Future<void> initialize() async {
+    if (_initialized) return;
+    _initialized = true;
+
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const ios = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    const settings = InitializationSettings(android: android, iOS: ios);
+    await _plugin.initialize(settings);
+
+    // Create Android notification channel with sound + vibration
+    const channel = AndroidNotificationChannel(
+      'batken_messages',
+      'Билдирүүлөр',
+      description: 'Жаңы билдирүүлөр жана чат хабарлары',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    );
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
+    // Request iOS permissions
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
+  }
+
+  /// Show a system notification with sound (works in foreground & background)
+  static Future<void> showNotification(
+    int id,
+    String title,
+    String body,
+  ) async {
+    if (!_initialized) return;
+    const androidDetails = AndroidNotificationDetails(
+      'batken_messages',
+      'Билдирүүлөр',
+      channelDescription: 'Жаңы билдирүүлөр жана чат хабарлары',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+    );
+    const iosDetails = DarwinNotificationDetails(presentSound: true);
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+    await _plugin.show(id, title, body, details);
+  }
+
+  /// Add notification to in-app overlay stream
   static void addNotification(Map<String, dynamic> notification) {
     _notificationStream.add(notification);
   }
 
-  /// Добавить уведомление о новом заказе
   static void notifyNewOrder(String orderId, String status) {
     addNotification({
       'type': 'new_order',
@@ -30,42 +85,38 @@ class NotificationsService {
     });
   }
 
-  /// Добавить уведомление об изменении статуса заказа
   static void notifyOrderStatusChanged(String orderId, String newStatus) {
     addNotification({
       'type': 'order_status_changed',
       'order_id': orderId,
       'status': newStatus,
-      'title': 'Заказ статусы өзгөрдү',
-      'body': 'Заказ #$orderId $newStatus статусуна өтүүдү',
+      'title': 'Заказ статусу өзгөрдү',
+      'body': 'Заказ #$orderId $newStatus статусуна өттү',
       'timestamp': DateTime.now(),
     });
   }
 
-  /// Добавить уведомление о рейтинге
   static void notifyRating(String courierName, double rating) {
     addNotification({
       'type': 'rating_received',
       'courier_name': courierName,
       'rating': rating,
       'title': 'Сиз рейтинг алдыңыз!',
-      'body': '$courierName сизди $rating жылдыз бер баалаган',
+      'body': '$courierName сизди $rating жылдыз менен баалаган',
       'timestamp': DateTime.now(),
     });
   }
 
-  /// Добавить уведомление о пополнении баланса
   static void notifyTopupApproved(double amount) {
     addNotification({
       'type': 'topup_approved',
       'amount': amount,
       'title': 'Баланс толуктолду',
-      'body': '$amount SOM кошулду',
+      'body': '$amount сом кошулду',
       'timestamp': DateTime.now(),
     });
   }
 
-  /// Добавить уведомление об ошибке
   static void notifyError(String title, String message) {
     addNotification({
       'type': 'error',
@@ -75,7 +126,6 @@ class NotificationsService {
     });
   }
 
-  /// Очистка ресурсов (при logout)
   static void dispose() {
     _notificationStream.close();
   }

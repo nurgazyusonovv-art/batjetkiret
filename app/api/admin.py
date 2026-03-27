@@ -25,6 +25,7 @@ from app.models.message import Message
 from app.models.password_reset import PasswordReset
 from app.services.order_status import apply_status_change
 from app.core.security import hash_password
+from app.services import fcm as fcm_service
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 logger = logging.getLogger(__name__)
@@ -323,6 +324,10 @@ def broadcast_notification(
     ]
     db.bulk_save_objects(notifs)
     db.commit()
+
+    # Send FCM push to all users with tokens
+    for u in users:
+        fcm_service.send_push_to_user(u, title=payload.title, body=payload.message)
 
     return {"sent_to": len(notifs), "message": f"{len(notifs)} колдонуучуга жөнөтүлдү"}
 

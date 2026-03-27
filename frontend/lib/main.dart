@@ -4,11 +4,16 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:frontend/features/home/presentation/home_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'dart:math';
 import 'core/theme/app_theme.dart';
 import 'core/config.dart';
 import 'core/storage/hive_service.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'core/notifications/notification_overlay.dart';
+import 'core/notifications/notifications_service.dart';
+import 'core/services/fcm_service.dart';
 import 'features/auth/presentation/auth_page.dart';
+import 'features/profile/data/user_api.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/cubit/auth_state.dart';
 import 'features/profile/presentation/profile_page.dart';
@@ -22,6 +27,8 @@ import 'features/splash/presentation/splash_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HiveService.initialize();
+  await NotificationsService.initialize();
+  await Firebase.initializeApp();
   runApp(const BatkenExpressApp());
 }
 
@@ -149,9 +156,12 @@ class _MainNavigationState extends State<MainNavigation>
   int _previousIndex = 0;
   late final List<Widget> _pages;
   Timer? _autoRefreshTimer;
+  Timer? _notificationPollTimer;
   bool _isAppInForeground = true;
   bool _isRefreshing = false;
   int _consecutiveRefreshErrors = 0;
+  int _lastSeenNotificationId = 0;
+  final _userApi = UserApi();
 
   // Refresh intervals loaded from AppConfig (configurable via environment)
   Duration get _homeActiveInterval => AppConfig.homeActiveInterval;
@@ -165,7 +175,7 @@ class _MainNavigationState extends State<MainNavigation>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _pages = [ 
+    _pages = [
       HomePage(token: widget.token),
       MyOrdersPage(token: widget.token),
       ProfilePage(
@@ -174,10 +184,13 @@ class _MainNavigationState extends State<MainNavigation>
       ),
     ];
 
+    FcmService.initialize(widget.token);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _refreshForTab(_currentIndex);
       _scheduleNextAutoRefresh();
+      _startNotificationPolling();
     });
   }
 
@@ -196,6 +209,7 @@ class _MainNavigationState extends State<MainNavigation>
       _isAppInForeground = true;
       _refreshForTab(_currentIndex);
       _scheduleNextAutoRefresh();
+      _startNotificationPolling();
       return;
     }
 
@@ -207,9 +221,53 @@ class _MainNavigationState extends State<MainNavigation>
     }
   }
 
+  void _startNotificationPolling() {
+    _notificationPollTimer?.cancel();
+    _notificationPollTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _checkNewNotifications(),
+    );
+    // Check immediately on start
+    _checkNewNotifications();
+  }
+
+  Future<void> _checkNewNotifications() async {
+    if (!mounted || !_isAppInForeground || widget.token.isEmpty) return;
+    try {
+      final notifications = await _userApi.getNotifications(widget.token);
+      final newUnread = notifications
+          .where((n) => !n.isRead && n.id > _lastSeenNotificationId)
+          .toList();
+
+      if (newUnread.isNotEmpty) {
+        // Update baseline to max id seen
+        _lastSeenNotificationId = notifications
+            .map((n) => n.id)
+            .reduce(max);
+
+        for (final n in newUnread) {
+          // System notification with sound
+          await NotificationsService.showNotification(n.id, n.title, n.message);
+          // In-app overlay banner
+          NotificationsService.addNotification({
+            'title': n.title,
+            'body': n.message,
+            'type': 'info',
+          });
+        }
+      } else if (_lastSeenNotificationId == 0 && notifications.isNotEmpty) {
+        // First run — set baseline without showing notifications
+        _lastSeenNotificationId = notifications
+            .map((n) => n.id)
+            .reduce(max);
+      }
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     _autoRefreshTimer?.cancel();
+    _notificationPollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

@@ -5,6 +5,10 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
 
+
+class UpdateFcmTokenRequest(BaseModel):
+    token: str
+
 router = APIRouter(prefix="/users", tags=["Users"])
 
 class UpdateUserRequest(BaseModel):
@@ -91,5 +95,19 @@ def update_location(
         raise HTTPException(status_code=404, detail="User not found")
     user.current_latitude = request.latitude
     user.current_longitude = request.longitude
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/me/fcm-token")
+def update_fcm_token(
+    request: UpdateFcmTokenRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.fcm_token = request.token
     db.commit()
     return {"ok": True}
