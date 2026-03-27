@@ -1702,7 +1702,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   String _formatDate(String dateString) {
     try {
-      final date = DateTime.parse(dateString);
+      final utc = dateString.endsWith('Z') ? dateString : '${dateString}Z';
+      final date = DateTime.parse(utc).toLocal();
       return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return dateString;

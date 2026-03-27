@@ -328,7 +328,8 @@ class AdvancedFilterOptions {
 
     // Filter by Date Range
     if (dateRange != null) {
-      final createdAt = DateTime.tryParse(order.createdAt);
+      final raw = order.createdAt;
+      final createdAt = DateTime.tryParse(raw.endsWith('Z') ? raw : '${raw}Z');
       if (createdAt != null) {
         final localDate = createdAt.toLocal();
         if (localDate.isBefore(dateRange!.start) ||

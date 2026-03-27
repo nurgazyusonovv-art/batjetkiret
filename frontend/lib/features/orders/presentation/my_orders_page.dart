@@ -279,7 +279,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
   }
 
   bool _isOrderFromToday(Order order) {
-    final parsed = DateTime.tryParse(order.createdAt);
+    final raw = order.createdAt;
+    final parsed = DateTime.tryParse(raw.endsWith('Z') ? raw : '${raw}Z');
     if (parsed == null) return false;
 
     final local = parsed.toLocal();
@@ -994,7 +995,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
 
   String _formatDate(String dateString) {
     try {
-      final date = DateTime.parse(dateString);
+      final utc = dateString.endsWith('Z') ? dateString : '${dateString}Z';
+      final date = DateTime.parse(utc).toLocal();
       return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return dateString;

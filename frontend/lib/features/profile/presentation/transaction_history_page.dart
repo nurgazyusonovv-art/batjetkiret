@@ -100,7 +100,8 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
   }
 
   String _formatDateTime(String raw) {
-    final date = DateTime.tryParse(raw);
+    final utc = raw.endsWith('Z') ? raw : '${raw}Z';
+    final date = DateTime.tryParse(utc);
     if (date == null) return raw;
     final local = date.toLocal();
     final day = local.day.toString().padLeft(2, '0');

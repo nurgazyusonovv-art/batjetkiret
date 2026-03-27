@@ -283,7 +283,8 @@ class _SupportChatPageState extends State<SupportChatPage> {
   }
 
   String _formatTime(String raw) {
-    final parsed = DateTime.tryParse(raw);
+    final utc = raw.endsWith('Z') ? raw : '${raw}Z';
+    final parsed = DateTime.tryParse(utc);
     if (parsed == null) return '';
     final local = parsed.toLocal();
     final h = local.hour.toString().padLeft(2, '0');

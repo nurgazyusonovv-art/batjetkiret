@@ -15,62 +15,48 @@ class _NotificationOverlayState extends State<NotificationOverlay>
     with WidgetsBindingObserver {
   OverlayEntry? _overlayEntry;
   bool _isVisible = false;
+  Timer? _autoDismissTimer;
   late final StreamSubscription<Map<String, dynamic>> subscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-    // Слушаем уведомления из сервиса
-    subscription = NotificationsService.notificationStream.listen((
-      notification,
-    ) {
-      _showNotification(notification);
-    });
+    subscription = NotificationsService.notificationStream.listen(
+      _showNotification,
+    );
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     subscription.cancel();
+    _autoDismissTimer?.cancel();
     _overlayEntry?.remove();
     super.dispose();
   }
 
   void _showNotification(Map<String, dynamic> notification) {
     if (_isVisible) return;
-
     _isVisible = true;
 
     final overlayState = Overlay.of(context);
     _overlayEntry = OverlayEntry(
-      builder: (context) => TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: 1),
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
-        builder: (context, value, child) {
-          return Positioned(
-            top: MediaQuery.of(context).padding.top + 16 - ((1 - value) * 10),
-            left: 16,
-            right: 16,
-            child: Opacity(opacity: value, child: child),
-          );
-        },
-        child: _NotificationBanner(
-          notification: notification,
-          onDismiss: _dismissNotification,
-        ),
+      builder: (context) => _AnimatedBannerEntry(
+        notification: notification,
+        onDismiss: _dismissNotification,
       ),
     );
 
     overlayState.insert(_overlayEntry!);
 
-    // Автоматическое скрытие через 5 секунд
-    Future.delayed(const Duration(seconds: 5), _dismissNotification);
+    _autoDismissTimer?.cancel();
+    _autoDismissTimer = Timer(const Duration(seconds: 5), _dismissNotification);
   }
 
   void _dismissNotification() {
+    _autoDismissTimer?.cancel();
+    _autoDismissTimer = null;
     if (_overlayEntry != null) {
       _overlayEntry!.remove();
       _overlayEntry = null;
@@ -79,20 +65,129 @@ class _NotificationOverlayState extends State<NotificationOverlay>
   }
 
   @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+// ──────────────────────────────────────────────
+// Animated wrapper: slide-in from top + swipe-to-dismiss
+// ──────────────────────────────────────────────
+class _AnimatedBannerEntry extends StatefulWidget {
+  final Map<String, dynamic> notification;
+  final VoidCallback onDismiss;
+
+  const _AnimatedBannerEntry({
+    required this.notification,
+    required this.onDismiss,
+  });
+
+  @override
+  State<_AnimatedBannerEntry> createState() => _AnimatedBannerEntryState();
+}
+
+class _AnimatedBannerEntryState extends State<_AnimatedBannerEntry>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _slideY;   // 0 = hidden above, 1 = final pos
+  late final Animation<double> _opacity;
+
+  // Swipe tracking
+  double _dragOffset = 0;
+  bool _isDismissed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+    _slideY = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _animateOut({double velocityY = 0}) async {
+    if (_isDismissed) return;
+    _isDismissed = true;
+    await _controller.reverse();
+    widget.onDismiss();
+  }
+
+  void _onDragUpdate(DragUpdateDetails d) {
+    // Allow dragging up and sideways; resist dragging down
+    final dy = d.delta.dy;
+    final dx = d.delta.dx;
+    setState(() {
+      if (dy < 0) {
+        _dragOffset += dy;            // swipe up — full speed
+      } else {
+        _dragOffset += dy * 0.2;      // swipe down — strongly resist
+      }
+      _dragOffset += dx.abs() * 0.05; // sideways also counts slightly
+    });
+  }
+
+  void _onDragEnd(DragEndDetails d) {
+    final velocity = d.velocity.pixelsPerSecond;
+    // Dismiss if dragged up >60px or flung upward fast
+    if (_dragOffset < -60 || velocity.dy < -400) {
+      _animateOut(velocityY: velocity.dy);
+    } else {
+      // Snap back
+      setState(() => _dragOffset = 0);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return widget.child;
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final slideOffset = (1 - _slideY.value) * -80;
+        final totalOffset = slideOffset + _dragOffset;
+        final swipeFraction = (_dragOffset.abs() / 80).clamp(0.0, 1.0);
+
+        return Positioned(
+          top: topPadding + 16 + totalOffset,
+          left: 16,
+          right: 16,
+          child: Opacity(
+            opacity: (_opacity.value * (1 - swipeFraction * 0.6)).clamp(0.0, 1.0),
+            child: child,
+          ),
+        );
+      },
+      child: GestureDetector(
+        onVerticalDragUpdate: _onDragUpdate,
+        onVerticalDragEnd: _onDragEnd,
+        child: _NotificationBanner(
+          notification: widget.notification,
+          onDismiss: () => _animateOut(),
+        ),
+      ),
+    );
   }
 }
 
+// ──────────────────────────────────────────────
+// Banner UI (unchanged look)
+// ──────────────────────────────────────────────
 class _NotificationBanner extends StatelessWidget {
   final Map<String, dynamic> notification;
   final VoidCallback onDismiss;
 
   const _NotificationBanner({
-    Key? key,
     required this.notification,
     required this.onDismiss,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +196,6 @@ class _NotificationBanner extends StatelessWidget {
     final body = notification['body'] as String? ?? '';
     final notificationType = notification['type'] as String? ?? 'info';
 
-    // Выбираем цвет в зависимости от типа уведомления
     Color accentColor = Colors.blue;
     IconData iconData = Icons.notifications;
 
@@ -126,14 +220,15 @@ class _NotificationBanner extends StatelessWidget {
     }
 
     return Material(
+      color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accentColor.withOpacity(0.3), width: 1),
+          border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -143,7 +238,7 @@ class _NotificationBanner extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: Stack(
             children: [
-              // Боковая полоса с цветом
+              // Colored left bar
               Positioned(
                 left: 0,
                 top: 0,
@@ -151,29 +246,25 @@ class _NotificationBanner extends StatelessWidget {
                 width: 4,
                 child: Container(color: accentColor),
               ),
-              // Основной контент
+              // Content
               Padding(
-                padding: const EdgeInsets.only(
-                  left: 12,
-                  right: 12,
-                  top: 12,
-                  bottom: 12,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Иконка
                     Container(
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: accentColor.withOpacity(0.1),
+                        color: accentColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(iconData, color: accentColor, size: 24),
                     ),
                     const SizedBox(width: 12),
-                    // Текст
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,7 +291,6 @@ class _NotificationBanner extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Кнопка закрытия
                     IconButton(
                       onPressed: onDismiss,
                       icon: const Icon(Icons.close),

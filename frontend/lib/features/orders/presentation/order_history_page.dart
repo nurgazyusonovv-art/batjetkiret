@@ -625,7 +625,8 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
 
   DateTime _parseDate(String raw) {
     try {
-      return DateTime.parse(raw).toLocal();
+      final utc = raw.endsWith('Z') ? raw : '${raw}Z';
+      return DateTime.parse(utc).toLocal();
     } catch (_) {
       return DateTime.fromMillisecondsSinceEpoch(0);
     }

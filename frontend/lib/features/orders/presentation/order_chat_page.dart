@@ -323,7 +323,8 @@ class _OrderChatPageState extends State<OrderChatPage>
   }
 
   String _formatTime(String raw) {
-    final parsed = DateTime.tryParse(raw);
+    final utc = raw.endsWith('Z') ? raw : '${raw}Z';
+    final parsed = DateTime.tryParse(utc);
     if (parsed == null) return '';
 
     final local = parsed.toLocal();
