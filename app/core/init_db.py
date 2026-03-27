@@ -4,21 +4,23 @@ from app.models import *
 
 
 def _migrate(engine):
-    """Incremental SQLite schema migrations (no Alembic)."""
+    """Incremental schema migrations — each runs in its own connection/transaction."""
+    import logging
+    logger = logging.getLogger("app.init_db")
     migrations = [
-        "ALTER TABLE orders ADD COLUMN order_type VARCHAR DEFAULT 'delivery'",
-        "ALTER TABLE orders ADD COLUMN table_number VARCHAR",
-        "ALTER TABLE orders ADD COLUMN hidden_for_enterprise BOOLEAN DEFAULT FALSE NOT NULL",
-        "ALTER TABLE users ADD COLUMN current_latitude FLOAT",
-        "ALTER TABLE users ADD COLUMN current_longitude FLOAT",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR DEFAULT 'delivery'",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS table_number VARCHAR",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS hidden_for_enterprise BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_latitude FLOAT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_longitude FLOAT",
     ]
-    with engine.connect() as conn:
-        for sql in migrations:
-            try:
+    for sql in migrations:
+        try:
+            with engine.connect() as conn:
                 conn.execute(text(sql))
                 conn.commit()
-            except Exception:
-                pass  # Column already exists
+        except Exception as e:
+            logger.warning(f"Migration skipped ({e})")
 
 
 def _init_db_with_retry():
