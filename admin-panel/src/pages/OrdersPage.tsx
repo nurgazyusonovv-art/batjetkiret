@@ -450,9 +450,21 @@ export default function OrdersPage() {
             </tr>
           </thead>
           <tbody>
-            {paginatedOrders.map((order) => (
-              <tr key={order.id} onClick={() => openOrderDetails(order.id)} style={{ cursor: 'pointer' }}>
-                <td className="order-id">#{order.id}</td>
+            {paginatedOrders.map((order) => {
+              const isIntercity = order.category === 'intercity';
+              return (
+              <tr
+                key={order.id}
+                onClick={() => openOrderDetails(order.id)}
+                className={isIntercity ? 'intercity-row' : ''}
+                style={{ cursor: 'pointer' }}
+              >
+                <td className="order-id">
+                  #{order.id}
+                  {isIntercity && (
+                    <span className="intercity-badge">🚌 Шаарлар аралык</span>
+                  )}
+                </td>
                 <td>{order.user_phone || '-'}</td>
                 <td>{order.courier_phone || 'Жок'}</td>
                 <td className="route-cell">
@@ -465,9 +477,11 @@ export default function OrdersPage() {
                       {(order.delivery_location || '-').substring(0, 30)}...
                     </span>
                   </div>
-                  <div className="route-distance">
-                    {order.distance_km.toFixed(1)} км
-                  </div>
+                  {!isIntercity && (
+                    <div className="route-distance">
+                      {order.distance_km.toFixed(1)} км
+                    </div>
+                  )}
                 </td>
                 <td className="price-cell">{order.estimated_price} сом</td>
                 <td>
@@ -506,7 +520,8 @@ export default function OrdersPage() {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
 
