@@ -7,7 +7,8 @@ import 'package:frontend/core/widgets/app_button.dart';
 import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:frontend/features/profile/presentation/notifications_page.dart';
 import 'package:frontend/features/profile/presentation/transaction_history_page.dart';
-import 'package:frontend/features/common/screens/send_notification_screen.dart';
+import 'package:frontend/features/profile/presentation/support_chat_page.dart';
+import '../data/user_api.dart' as user_api_lib;
 import 'package:frontend/features/profile/presentation/topup_page.dart';
 
 import '../data/user_model.dart';
@@ -66,7 +67,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => NotificationsPage(token: widget.token),
+                      builder: (_) => NotificationsPage(token: widget.token, userId: user?.id ?? 0),
                     ),
                   );
                   if (mounted) _profileCubit.loadUser(widget.token, silent: true);
@@ -519,12 +520,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _MenuItem(
         icon: Icons.support_agent_outlined,
         label: 'Администраторго жазуу',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => SendNotificationScreen(token: widget.token),
-          ),
-        ),
+        onTap: _openSupportChat,
       ),
       _MenuItem(
         icon: Icons.share_outlined,
@@ -682,6 +678,32 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
+  }
+
+  Future<void> _openSupportChat() async {
+    final user = context.read<ProfileCubit>().state.user;
+    if (user == null) return;
+    try {
+      final chatId = await user_api_lib.UserApi().startSupportChat(widget.token);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SupportChatPage(
+            token: widget.token,
+            chatId: chatId,
+            title: 'Администратор',
+            myUserId: user.id,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString().replaceFirst('Exception: ', '')),
+        backgroundColor: AppColors.danger,
+      ));
+    }
   }
 
   void _showEditBottomSheet() {

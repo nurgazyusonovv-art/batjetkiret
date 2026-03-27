@@ -8,9 +8,10 @@ import '../data/notification_item.dart';
 import '../data/user_api.dart';
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key, required this.token});
+  const NotificationsPage({super.key, required this.token, required this.userId});
 
   final String token;
+  final int userId;
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -131,7 +132,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               token: widget.token,
               chatId: contextData.chatId,
               title: contextData.counterpartyName ?? 'Колдоо кызматы',
-              counterpartyId: contextData.counterpartyId,
+              myUserId: widget.userId,
             ),
           ),
         );

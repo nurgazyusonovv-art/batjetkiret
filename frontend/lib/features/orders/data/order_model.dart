@@ -126,6 +126,7 @@ class Order {
     final normalizedStatus = switch (rawStatus.toUpperCase()) {
       'WAITING_COURIER' => 'pending',
       'ACCEPTED' => 'accepted',
+      'PREPARING' => 'preparing',
       'READY' => 'ready',
       'IN_TRANSIT' => 'in_transit',
       'ON_THE_WAY' => 'in_transit',

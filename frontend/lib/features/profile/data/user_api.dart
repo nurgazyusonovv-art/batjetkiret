@@ -316,6 +316,21 @@ class UserApi {
     }
   }
 
+  Future<int> startSupportChat(String token) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}/support/start'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    final data = _decode(response.body);
+    if (response.statusCode == 200) {
+      return (data['chat_id'] as num).toInt();
+    }
+    throw Exception(_extractError(data, fallback: 'Чат ачылбады'));
+  }
+
   Map<String, dynamic> _decode(String body) {
     if (body.isEmpty) {
       return <String, dynamic>{};

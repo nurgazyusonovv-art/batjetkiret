@@ -14,13 +14,13 @@ class SupportChatPage extends StatefulWidget {
     required this.token,
     required this.chatId,
     required this.title,
-    required this.counterpartyId,
+    required this.myUserId,
   });
 
   final String token;
   final int chatId;
   final String title;
-  final int? counterpartyId;
+  final int myUserId;
 
   @override
   State<SupportChatPage> createState() => _SupportChatPageState();
@@ -243,8 +243,7 @@ class _SupportChatPageState extends State<SupportChatPage> {
   }
 
   bool _isMine(ChatMessage message) {
-    if (widget.counterpartyId == null) return false;
-    return message.senderId != widget.counterpartyId;
+    return message.senderId == widget.myUserId;
   }
 
   Future<void> _sendMessage() async {

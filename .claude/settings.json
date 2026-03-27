@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \":*)",
+      "Bash(npm install:*)",
+      "Read(//private/tmp/**)",
+      "Bash(npm list:*)",
+      "Bash(python3 -c \":*)",
+      "Bash(python -c \"from app.main import app; print\\(''''OK -'''', len\\(app.routes\\), ''''routes''''\\)\")",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter devices:*)",
+      "Bash(flutter build:*)",
+      "Bash(flutter logs:*)",
+      "Bash(timeout 90 flutter run -d DA2978D1-6AA2-42EC-A335-457B93DAFEE6 --verbose)",
+      "Read(//Users/nurgazyuson/.pub-cache/hosted/pub.dev/hive_flutter-1.1.0/**)",
+      "Read(//Users/nurgazyuson/.pub-cache/hosted/pub.dev/**)",
+      "Bash(xcrun simctl:*)",
+      "Bash(find /Users/nurgazyuson/python_projects/batjetkiret-backend/enterprise-panel/src -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
+      "Bash(ls /Users/nurgazyuson/python_projects/batjetkiret-backend/admin-panel/.env*)",
+      "Bash(ls /Users/nurgazyuson/python_projects/batjetkiret-backend/admin-panel/vite.config*)",
+      "Bash(find /Users/nurgazyuson/python_projects/batjetkiret-backend/app -name limiter.py -o -name rate*)"
+    ]
+  }
+}

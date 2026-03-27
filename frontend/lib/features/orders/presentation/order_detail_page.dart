@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -2249,13 +2248,10 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
           },
         ),
       )
-      ..loadRequest(
-        Uri.dataFromString(
-          _buildHtml(widget.from, widget.to, widget.userLat, widget.userLon,
-              widget.courierLat, widget.courierLon),
-          mimeType: 'text/html',
-          encoding: Encoding.getByName('utf-8'),
-        ),
+      ..loadHtmlString(
+        _buildHtml(widget.from, widget.to, widget.userLat, widget.userLon,
+            widget.courierLat, widget.courierLon),
+        baseUrl: 'https://yandex.ru',
       );
   }
 
@@ -2328,22 +2324,28 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
       $userPlacemark
       $courierPlacemark
 
-      ymaps.route([
-        { type: 'wayPoint', point: from },
-        { type: 'wayPoint', point: to }
-      ], { mapStateAutoApply: false }).then(function (route) {
-        route.getPaths().options.set({
-          strokeColor: '#1E88E5',
-          strokeWidth: 4,
-          opacity: 0.85
-        });
-        map.geoObjects.add(route);
-        map.setBounds(route.getBounds(), { checkZoomRange: true, zoomMargin: 32 });
-      }, function () {
-        // fallback: straight line if routing fails
+      function drawFallback() {
         map.geoObjects.add(new ymaps.Polyline([from, to], {}, { strokeColor: '#1E88E5', strokeWidth: 4, opacity: 0.8 }));
-        map.setBounds(map.geoObjects.getBounds(), { checkZoomRange: true, zoomMargin: 24 });
-      });
+        map.setBounds(map.geoObjects.getBounds(), { checkZoomRange: true, zoomMargin: 32 });
+      }
+
+      var fromLon = ${from.longitude};
+      var fromLat = ${from.latitude};
+      var toLon = ${to.longitude};
+      var toLat = ${to.latitude};
+
+      fetch('https://router.project-osrm.org/route/v1/driving/' + fromLon + ',' + fromLat + ';' + toLon + ',' + toLat + '?overview=full&geometries=geojson')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.code === 'Ok' && data.routes && data.routes[0]) {
+            var coords = data.routes[0].geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+            map.geoObjects.add(new ymaps.Polyline(coords, {}, { strokeColor: '#1E88E5', strokeWidth: 5, opacity: 0.9 }));
+            map.setBounds(map.geoObjects.getBounds(), { checkZoomRange: true, zoomMargin: 32 });
+          } else {
+            drawFallback();
+          }
+        })
+        .catch(function() { drawFallback(); });
     });
   </script>
 </body>
