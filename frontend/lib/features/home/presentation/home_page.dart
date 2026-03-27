@@ -14,6 +14,7 @@ import 'package:frontend/features/home/presentation/cubit/order_create_state.dar
 import 'package:frontend/features/orders/presentation/cubit/orders_cubit.dart';
 import 'package:frontend/features/orders/presentation/order_detail_page.dart';
 import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomePage extends StatefulWidget {
   final String token;
@@ -561,6 +562,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   LatLng? _selectedFromLocation;
   LatLng? _selectedToLocation;
 
+  // GPS state
+  bool _isGettingFromLocation = false;
+  bool _isGettingToLocation = false;
+
   // Enterprise list
   List<Enterprise>? _enterprises;
   bool _isLoadingEnterprises = false;
@@ -708,6 +713,65 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     _cubit.goToPickupStep();
     _fromAddressController.clear();
     setState(() => _selectedFromLocation = null);
+  }
+
+  Future<void> _getMyLocation({required bool isFrom}) async {
+    setState(() {
+      if (isFrom) { _isGettingFromLocation = true; }
+      else { _isGettingToLocation = true; }
+    });
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('GPS уруксаты берилген жок'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      final loc = LatLng(latitude: pos.latitude, longitude: pos.longitude);
+      final address = await RealGeocoder.getAddressFromCoordinates(
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+      );
+      if (!mounted) return;
+      setState(() {
+        if (isFrom) {
+          _selectedFromLocation = loc;
+          _fromAddressController.text = address;
+        } else {
+          _selectedToLocation = loc;
+          _toAddressController.text = address;
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('GPS катасы: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          if (isFrom) { _isGettingFromLocation = false; }
+          else { _isGettingToLocation = false; }
+        });
+      }
+    }
   }
 
   // ── Order submission ────────────────────────────────────────────────────────
@@ -1424,17 +1488,24 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
             'Товар кайдан алынат?',
             style: TextStyle(color: Colors.grey[600], fontSize: 14),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           _buildAddressField(
             controller: _fromAddressController,
             hint: 'Мисал: ул. Жибек Жолу, 123',
             label: 'Жөнөтүүнүн адресси',
           ),
+          const SizedBox(height: 10),
+          _buildMyLocationButton(isFrom: true),
           const SizedBox(height: 16),
           _buildMapSection(
             location: _selectedFromLocation,
             mapLabel: 'Картадан тандаңыз',
-            onChanged: (loc, addr) => setState(() => _selectedFromLocation = loc),
+            onChanged: (loc, addr) {
+              setState(() {
+                _selectedFromLocation = loc;
+                if (addr != null) { _fromAddressController.text = addr; }
+              });
+            },
             locationColor: Colors.green,
           ),
           const SizedBox(height: 80),
@@ -1459,21 +1530,54 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
             'Кайда жеткирип берели?',
             style: TextStyle(color: Colors.grey[600], fontSize: 14),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           _buildAddressField(
             controller: _toAddressController,
             hint: 'Мисал: пр. Чуй, 456',
             label: 'Жеткирүүнүн адресси',
           ),
+          const SizedBox(height: 10),
+          _buildMyLocationButton(isFrom: false),
           const SizedBox(height: 16),
           _buildMapSection(
             location: _selectedToLocation,
             mapLabel: 'Картадан тандаңыз',
-            onChanged: (loc, addr) => setState(() => _selectedToLocation = loc),
+            onChanged: (loc, addr) {
+              setState(() {
+                _selectedToLocation = loc;
+                if (addr != null) { _toAddressController.text = addr; }
+              });
+            },
             locationColor: Colors.blue,
           ),
           const SizedBox(height: 80),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMyLocationButton({required bool isFrom}) {
+    final isLoading = isFrom ? _isGettingFromLocation : _isGettingToLocation;
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: isLoading ? null : () => _getMyLocation(isFrom: isFrom),
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: AppColors.primary),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        icon: isLoading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.my_location, size: 18, color: AppColors.primary),
+        label: Text(
+          isLoading ? 'Аныкталуудa...' : 'Менин учурдагы ордум',
+          style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w500),
+        ),
       ),
     );
   }

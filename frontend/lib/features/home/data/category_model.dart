@@ -10,6 +10,7 @@ class Category {
 
 // Available categories
 final List<Category> categories = [
+  Category(id: 'taxi', name: 'Такси', icon: Icons.local_taxi),
   Category(id: 'food', name: 'Тамак-аш', icon: Icons.restaurant),
   Category(id: 'groceries', name: 'Азык-түлүк', icon: Icons.shopping_cart),
   Category(id: 'pharmacy', name: 'Дарыкана', icon: Icons.local_pharmacy),
