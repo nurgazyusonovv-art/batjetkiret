@@ -109,7 +109,10 @@ def available_orders(
 
     orders = (
         db.query(Order)
-        .filter(Order.status == "WAITING_COURIER")
+        .filter(
+            Order.status == "WAITING_COURIER",
+            Order.category != "intercity",
+        )
         .order_by(Order.created_at.desc())
         .all()
     )

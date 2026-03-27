@@ -15,6 +15,7 @@ import 'package:frontend/features/orders/presentation/cubit/orders_cubit.dart';
 import 'package:frontend/features/orders/presentation/order_detail_page.dart';
 import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:geolocator/geolocator.dart';
+import 'intercity_order_page.dart';
 
 class HomePage extends StatefulWidget {
   final String token;
@@ -394,20 +395,30 @@ class _HomePageState extends State<HomePage> {
                                 });
                               },
                               onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => OrderCreatePage(
-                                      token: widget.token,
-                                      selectedCategory: category,
-                                      initialFromAddress:
-                                          user?.address ??
-                                          (homeState.selectedLocation !=
-                                                  'адрес киргиз'
-                                              ? homeState.selectedLocation
-                                              : null),
+                                if (category.id == 'intercity') {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => IntercityOrderPage(
+                                        token: widget.token,
+                                      ),
                                     ),
-                                  ),
-                                );
+                                  );
+                                } else {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => OrderCreatePage(
+                                        token: widget.token,
+                                        selectedCategory: category,
+                                        initialFromAddress:
+                                            user?.address ??
+                                            (homeState.selectedLocation !=
+                                                    'адрес киргиз'
+                                                ? homeState.selectedLocation
+                                                : null),
+                                      ),
+                                    ),
+                                  );
+                                }
                               },
                               child: AnimatedScale(
                                 scale: _pressedCategoryIndex == index

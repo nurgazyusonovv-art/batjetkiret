@@ -10,14 +10,9 @@ class OrderCreateRequest(BaseModel):
     from_longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     to_latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     to_longitude: Optional[float] = Field(default=None, ge=-180, le=180)
-    distance_km: float = Field(..., gt=0, le=1000)
+    distance_km: float = Field(default=1.0, ge=0, le=10000)
     enterprise_id: Optional[int] = None
-    
-    @field_validator('distance_km')
-    def distance_must_be_positive(cls, v):
-        if v <= 0:
-            raise ValueError('Distance must be greater than 0')
-        return v
+    intercity_city_id: Optional[int] = None
 
 class OrderResponse(BaseModel):
     id: int

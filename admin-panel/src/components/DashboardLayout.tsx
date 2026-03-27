@@ -10,6 +10,7 @@ import {
   Bell,
   Building2,
   MessageSquare,
+  MapPin,
 } from 'lucide-react';
 import api from '@/services/api';
 import { authService } from '@/services/auth';
@@ -74,6 +75,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { path: '/notifications', icon: Bell, label: 'Билдирүүлөр', badge: unreadCount },
     { path: '/enterprises', icon: Building2, label: 'Ишканалар' },
     { path: '/support-chats', icon: MessageSquare, label: 'Колдоо чаттары', badge: unreadSupportCount },
+    { path: '/intercity', icon: MapPin, label: 'Шаарлар аралык' },
   ];
 
   return (

@@ -8,6 +8,7 @@ import StatsPage from './pages/StatsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import EnterprisesPage from './pages/EnterprisesPage';
 import SupportChatsPage from './pages/SupportChatsPage';
+import IntercityPage from './pages/IntercityPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 
@@ -100,6 +101,17 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <SupportChatsPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/intercity"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <IntercityPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

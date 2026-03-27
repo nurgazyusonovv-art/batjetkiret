@@ -1,0 +1,226 @@
+.intercity-page {
+  padding: 24px;
+}
+
+.intercity-page .page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.intercity-page .page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px;
+}
+
+.intercity-page .page-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.add-city-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  background: #667eea;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.add-city-btn:hover { background: #5a67d8; }
+
+/* Add / Edit form card */
+.city-form-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.city-form-card h3 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.city-form-row,
+.city-edit-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.city-input {
+  flex: 1;
+  min-width: 160px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.city-input:focus { border-color: #667eea; }
+
+.price-input { max-width: 140px; flex: none; }
+
+.confirm-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: #10b981;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.confirm-btn:hover:not(:disabled) { background: #059669; }
+.confirm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.cancel-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.cancel-btn:hover { background: #e5e7eb; }
+
+.city-edit-actions { display: flex; gap: 6px; }
+
+/* Grid */
+.cities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.city-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 18px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s;
+}
+.city-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.city-card.inactive { opacity: 0.55; }
+
+.city-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.city-icon { font-size: 28px; }
+
+.city-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.city-status-dot.active { background: #10b981; }
+.city-status-dot.inactive { background: #d1d5db; }
+
+.city-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 6px;
+}
+
+.city-price {
+  font-size: 20px;
+  font-weight: 800;
+  color: #667eea;
+  margin-bottom: 14px;
+}
+
+.city-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toggle-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+.toggle-btn.on { color: #10b981; }
+.toggle-btn.off { color: #9ca3af; }
+.toggle-btn:hover { background: #f3f4f6; }
+
+.edit-btn {
+  border: none;
+  background: #eff6ff;
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+.edit-btn:hover { background: #dbeafe; }
+
+.delete-btn {
+  border: none;
+  background: #fef2f2;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+.delete-btn:hover { background: #fee2e2; }
+
+.loading-text,
+.error-text {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+  font-size: 15px;
+}
+.error-text { color: #ef4444; }
+
+.empty-state {
+  text-align: center;
+  padding: 60px 24px;
+  color: #9ca3af;
+}
+.empty-state p { margin: 0 0 20px; font-size: 15px; }

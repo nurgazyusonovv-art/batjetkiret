@@ -8,6 +8,7 @@ from decimal import Decimal
 from app.api.deps import get_db, get_current_user
 from app.core.database import SessionLocal
 from app.models.order import Order
+from app.models.intercity_city import IntercityCity
 from app.models.chat import ChatRoom
 from app.models.message import Message
 from app.models.order_status_log import OrderStatusLog
@@ -167,8 +168,20 @@ def create_order(
             detail="Заказ түзүү үчүн баланста 10 сомдон көп болушу керек",
         )
 
-    price = calculate_price(data.distance_km)
-    
+    # Intercity orders use fixed city price; regular orders use distance-based price.
+    if data.category == "intercity":
+        if not data.intercity_city_id:
+            raise HTTPException(status_code=400, detail="intercity_city_id is required for intercity orders")
+        city = db.query(IntercityCity).filter(
+            IntercityCity.id == data.intercity_city_id,
+            IntercityCity.is_active == True,  # noqa: E712
+        ).first()
+        if not city:
+            raise HTTPException(status_code=404, detail="City not found or inactive")
+        price = float(city.price)
+    else:
+        price = calculate_price(data.distance_km)
+
     # Store fixed commission values (business rule: 5 som from user + 5 som from courier).
     user_commission = USER_ORDER_SERVICE_FEE
     courier_commission = COURIER_ORDER_SERVICE_FEE
@@ -176,6 +189,7 @@ def create_order(
     order = Order(
         user_id=current_user.id,
         enterprise_id=data.enterprise_id,
+        intercity_city_id=data.intercity_city_id,
         category=data.category,
         description=data.description,
         from_address=data.from_address,
@@ -184,7 +198,7 @@ def create_order(
         from_longitude=data.from_longitude,
         to_latitude=data.to_latitude,
         to_longitude=data.to_longitude,
-        distance_km=data.distance_km,
+        distance_km=data.distance_km if data.category != "intercity" else 0,
         price=price,
         user_commission=user_commission,
         courier_commission=courier_commission,

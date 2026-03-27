@@ -12,6 +12,7 @@ from app.models.order_status_log import OrderStatusLog
 from app.models.enterprise import Enterprise
 from app.models.enterprise_category import EnterpriseCategory
 from app.models.enterprise_product import EnterpriseProduct
+from app.models.intercity_city import IntercityCity
 
 __all__ = [
     "User",
@@ -28,4 +29,5 @@ __all__ = [
     "Enterprise",
     "EnterpriseCategory",
     "EnterpriseProduct",
+    "IntercityCity",
 ]

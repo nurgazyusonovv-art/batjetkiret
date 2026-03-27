@@ -9,6 +9,7 @@ import os
 
 from app.api.deps import get_db, require_admin
 from app.models.order import Order
+from app.models.intercity_city import IntercityCity
 from app.models.rating import CourierRating
 from app.models.user import User
 from app.models.transaction import Transaction
@@ -1571,3 +1572,76 @@ def reject_topup_request(
         "request_id": request_id,
         "admin_note": admin_note,
     }
+
+
+# ── Intercity cities ──────────────────────────────────────────────────────────
+
+class IntercityCityCreate(BaseModel):
+    name: str
+    price: float
+
+
+class IntercityCityUpdate(BaseModel):
+    name: str | None = None
+    price: float | None = None
+    is_active: bool | None = None
+
+
+@router.get("/intercity/cities")
+def admin_list_intercity_cities(
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    cities = db.query(IntercityCity).order_by(IntercityCity.name).all()
+    return [
+        {"id": c.id, "name": c.name, "price": float(c.price), "is_active": c.is_active}
+        for c in cities
+    ]
+
+
+@router.post("/intercity/cities")
+def admin_create_intercity_city(
+    data: IntercityCityCreate,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    city = IntercityCity(name=data.name.strip(), price=data.price)
+    db.add(city)
+    db.commit()
+    db.refresh(city)
+    return {"id": city.id, "name": city.name, "price": float(city.price), "is_active": city.is_active}
+
+
+@router.put("/intercity/cities/{city_id}")
+def admin_update_intercity_city(
+    city_id: int,
+    data: IntercityCityUpdate,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    city = db.query(IntercityCity).filter(IntercityCity.id == city_id).first()
+    if not city:
+        raise HTTPException(status_code=404, detail="City not found")
+    if data.name is not None:
+        city.name = data.name.strip()
+    if data.price is not None:
+        city.price = data.price
+    if data.is_active is not None:
+        city.is_active = data.is_active
+    db.commit()
+    db.refresh(city)
+    return {"id": city.id, "name": city.name, "price": float(city.price), "is_active": city.is_active}
+
+
+@router.delete("/intercity/cities/{city_id}")
+def admin_delete_intercity_city(
+    city_id: int,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    city = db.query(IntercityCity).filter(IntercityCity.id == city_id).first()
+    if not city:
+        raise HTTPException(status_code=404, detail="City not found")
+    db.delete(city)
+    db.commit()
+    return {"ok": True}

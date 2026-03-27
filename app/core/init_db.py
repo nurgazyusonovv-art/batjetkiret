@@ -13,6 +13,7 @@ def _migrate(engine):
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS hidden_for_enterprise BOOLEAN DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_latitude FLOAT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_longitude FLOAT",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS intercity_city_id INTEGER",
     ]
     for sql in migrations:
         try:
