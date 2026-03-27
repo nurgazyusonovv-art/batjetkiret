@@ -7,13 +7,7 @@ class NotificationsService {
       StreamController<Map<String, dynamic>>.broadcast();
 
   /// Инициализация сервиса уведомлений
-  static Future<void> initialize() async {
-    try {
-      print('Notifications Service initialized (WebSocket-based)');
-    } catch (e) {
-      print('Error initializing notifications: $e');
-    }
-  }
+  static Future<void> initialize() async {}
 
   /// Stream уведомлений для слушания в UI
   static Stream<Map<String, dynamic>> get notificationStream =>

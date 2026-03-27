@@ -4,7 +4,7 @@ export interface User {
   unique_id?: string;
   phone: string;
   name: string;
-  role: 'user' | 'courier' | 'admin';
+  role: 'user' | 'courier' | 'admin' | 'bisnes';
   is_active: boolean;
   is_online?: boolean;
   is_courier: boolean;
@@ -93,13 +93,16 @@ export interface TopupRequest {
   id: number;
   user_id: number;
   unique_id?: string;
-  requested_amount: number;
-  screenshot_hash: string;
+  amount: number;
+  approved_amount?: number | null;
+  screenshot_hash?: string | null;
   screenshot_file_id?: string;
+  screenshot_url?: string | null;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   approved_at?: string | null;
-  admin_comment: string | null;
+  admin_note?: string | null;
+  admin_comment?: string | null;
   user?: User;
 }
 
@@ -168,6 +171,7 @@ export interface OrderFilters {
   status?: OrderStatus;
   user_id?: number;
   courier_id?: number;
+  enterprise_id?: number;
   date_from?: string;
   date_to?: string;
   today_only?: boolean;
@@ -178,4 +182,44 @@ export interface UserFilters {
   role?: 'user' | 'courier' | 'admin';
   is_active?: boolean;
   search?: string;
+}
+
+// Enterprise Types
+export interface Enterprise {
+  id: number;
+  name: string;
+  category: string;
+  phone?: string | null;
+  address?: string | null;
+  description?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  is_active: boolean;
+  owner_user_id: number;
+  owner_phone?: string | null;
+  owner_name?: string | null;
+  created_by_admin_id?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface EnterpriseCreate {
+  name: string;
+  category: string;
+  phone?: string;
+  address?: string;
+  description?: string;
+  lat?: number;
+  lon?: number;
+  owner_user_id: number;
+}
+
+export interface EnterpriseUpdate {
+  name?: string;
+  category?: string;
+  phone?: string;
+  address?: string;
+  description?: string;
+  lat?: number | null;
+  lon?: number | null;
 }

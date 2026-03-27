@@ -13,6 +13,7 @@ export default function TopupPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [previewLoadingId, setPreviewLoadingId] = useState<number | null>(null);
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
 
   const filteredHistory = useMemo(() => {
     const query = historySearch.trim().toLowerCase();
@@ -36,12 +37,12 @@ export default function TopupPage() {
   );
 
   const approvedHistorySum = useMemo(
-    () => approvedHistoryItems.reduce((sum, item) => sum + item.requested_amount, 0),
+    () => approvedHistoryItems.reduce((sum, item) => sum + item.amount, 0),
     [approvedHistoryItems]
   );
 
   const rejectedHistorySum = useMemo(
-    () => rejectedHistoryItems.reduce((sum, item) => sum + item.requested_amount, 0),
+    () => rejectedHistoryItems.reduce((sum, item) => sum + item.amount, 0),
     [rejectedHistoryItems]
   );
 
@@ -69,7 +70,7 @@ export default function TopupPage() {
     setPreviewLoadingId(topupId);
     try {
       const fileUrl = await topupService.fetchScreenshotUrl(topupId);
-      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      setScreenshotUrl(fileUrl);
     } catch (error: unknown) {
       alert(`Скриншот ачылган жок: ${getErrorMessage(error, 'Ката чыкты')}`);
     } finally {
@@ -77,12 +78,12 @@ export default function TopupPage() {
     }
   };
 
-  const handleApprove = async (topupId: number) => {
+  const handleApprove = async (topupId: number, requestedAmount: number) => {
     if (!confirm('Бул топапты тастыктагонго ишенесизби?')) return;
 
     setActionLoading(topupId);
     try {
-      await topupService.approveTopup(topupId);
+      await topupService.approveTopup(topupId, requestedAmount);
       await loadTopups();
     } catch (error: unknown) {
       console.error('Failed to approve topup:', error);
@@ -118,6 +119,20 @@ export default function TopupPage() {
   }
 
   return (
+    <>
+    {screenshotUrl && (
+      <div
+        className="screenshot-modal-overlay"
+        onClick={() => setScreenshotUrl(null)}
+      >
+        <div className="screenshot-modal-box" onClick={(e) => e.stopPropagation()}>
+          <button className="screenshot-modal-close" onClick={() => setScreenshotUrl(null)}>✕</button>
+          <img src={screenshotUrl} alt="Скриншот" className="screenshot-modal-img" />
+        </div>
+      </div>
+    )}
+    <div className="topup-page-wrap">
+
     <div className="topup-page">
       <div className="page-header">
         <h1>Топап Өтүнүчтөр</h1>
@@ -163,7 +178,7 @@ export default function TopupPage() {
         <div className="stat-item">
           <span className="stat-label">Жалпы суммасы:</span>
           <span className="stat-value">
-            {(activeTab === 'pending' ? topups : filteredHistory).reduce((sum, t) => sum + t.requested_amount, 0)} сом
+            {(activeTab === 'pending' ? topups : filteredHistory).reduce((sum, t) => sum + t.amount, 0)} сом
           </span>
         </div>
         {activeTab === 'history' && (
@@ -220,7 +235,7 @@ export default function TopupPage() {
 
                 <div className="amount-display">
                   <span className="amount-label">Суммасы:</span>
-                  <span className="amount-value">{topup.requested_amount} сом</span>
+                  <span className="amount-value">{topup.amount} сом</span>
                 </div>
 
                 <div className="screenshot-section">
@@ -261,7 +276,7 @@ export default function TopupPage() {
                 <div className="topup-actions">
                   <button
                     className="action-btn approve-btn"
-                    onClick={() => handleApprove(topup.id)}
+                    onClick={() => handleApprove(topup.id, topup.amount)}
                     disabled={actionLoading === topup.id}
                   >
                     <CheckCircle size={18} />
@@ -282,5 +297,7 @@ export default function TopupPage() {
         </div>
       )}
     </div>
+    </div>
+    </>
   );
 }

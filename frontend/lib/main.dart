@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:frontend/features/home/presentation/home_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'core/theme/app_theme.dart';
@@ -11,7 +13,6 @@ import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/cubit/auth_state.dart';
 import 'features/profile/presentation/profile_page.dart';
 import 'features/profile/presentation/cubit/profile_cubit.dart';
-import 'features/home/presentation/home_page.dart';
 import 'features/home/presentation/cubit/home_cubit.dart';
 import 'features/onboarding/presentation/onboarding_page.dart';
 import 'features/orders/presentation/cubit/orders_cubit.dart';
@@ -21,11 +22,11 @@ import 'features/splash/presentation/splash_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HiveService.initialize();
-  runApp(const BatJetkiretApp());
+  runApp(const BatkenExpressApp());
 }
 
-class BatJetkiretApp extends StatelessWidget {
-  const BatJetkiretApp({super.key});
+class BatkenExpressApp extends StatelessWidget {
+  const BatkenExpressApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -45,13 +46,21 @@ class BatJetkiretApp extends StatelessWidget {
         },
         child: BlocBuilder<AuthCubit, AuthState>(
           builder: (context, authState) {
-            return NotificationOverlay(
-              child: MaterialApp(
-                debugShowCheckedModeBanner: false,
-                title: 'BatJetkiret',
-                theme: AppTheme.light,
-                home: _AppStartFlow(authState: authState),
-              ),
+            return ScreenUtilInit(
+              designSize: const Size(390, 844),
+              minTextAdapt: true,
+              splitScreenMode: true,
+              builder: (context, child) {
+                return NotificationOverlay(
+                  child: MaterialApp(
+                    debugShowCheckedModeBanner: false,
+                    title: 'Batken Express',
+                    theme: AppTheme.light,
+                    home: child,
+                  ),
+                );
+              },
+              child: _AppStartFlow(authState: authState),
             );
           },
         ),

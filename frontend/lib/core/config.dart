@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart';
 
 class AppConfig {
+  // You can override with: flutter run --dart-define=API_BASE_URL=http://192.168.x.x:8000
   static const String _envBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: '',
+    defaultValue: 'https://batjetkiret-production.up.railway.app',
   );
 
   // Refresh interval configuration (seconds)
@@ -44,32 +45,19 @@ class AppConfig {
     defaultValue: '',
   );
 
-  // Yandex API key for geocoding and routing
+  // Yandex API key for geocoding and routing.
+  // Pass at build time: --dart-define=YANDEX_API_KEY=<key>
   static const String _envYandexApiKey = String.fromEnvironment(
     'YANDEX_API_KEY',
-    defaultValue: '815b5065-2f27-4e69-aab3-45df9fed1bda',
+    defaultValue: '',
   );
 
   static String get baseUrl {
-    if (_envBaseUrl.isNotEmpty) {
-      return _envBaseUrl;
-    }
-
-    if (kIsWeb) {
-      final host = Uri.base.host;
-      if (host.isNotEmpty && host != '0.0.0.0') {
-        return 'http://$host:8000';
-      }
-      return 'http://localhost:8000';
-    }
-
+    if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
+    // Android emulator: localhost = emulator itself, 10.0.2.2 = host machine
     if (defaultTargetPlatform == TargetPlatform.android) {
-      // For Android emulator use special gateway IP
       return 'http://10.0.2.2:8000';
     }
-
-    // For iOS simulator, try localhost first, then fallback to host IP
-    // The simulator should be able to reach localhost if properly configured
     return 'http://localhost:8000';
   }
 

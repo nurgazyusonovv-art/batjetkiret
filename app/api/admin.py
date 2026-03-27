@@ -23,9 +23,31 @@ from app.models.chat import ChatRoom
 from app.models.message import Message
 from app.models.password_reset import PasswordReset
 from app.services.order_status import apply_status_change
+from app.core.security import hash_password
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 logger = logging.getLogger(__name__)
+
+
+def _resolve_telegram_file_url(file_id: str | None) -> str | None:
+    """Return a public download URL for a Telegram file_id, or None on failure."""
+    if not file_id:
+        return None
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        return None
+    import urllib.request, json as _json
+    try:
+        with urllib.request.urlopen(
+            f"https://api.telegram.org/bot{token}/getFile?file_id={file_id}", timeout=10
+        ) as resp:
+            data = _json.loads(resp.read())
+        file_path = data.get("result", {}).get("file_path")
+        if file_path:
+            return f"https://api.telegram.org/file/bot{token}/{file_path}"
+    except Exception as e:
+        logger.warning(f"Telegram getFile failed: {e}")
+    return None
 
 USER_ORDER_SERVICE_FEE = 5.0
 COURIER_ORDER_SERVICE_FEE = 5.0
@@ -121,15 +143,39 @@ def support_chats(
         .all()
     )
 
-    return [
-        {
+    result = []
+    for c in chats:
+        user = db.query(User).filter(User.id == c.user_id).first()
+
+        last_msg = (
+            db.query(Message)
+            .filter(Message.chat_id == c.id)
+            .order_by(Message.created_at.desc())
+            .first()
+        )
+
+        unread_count = (
+            db.query(func.count(Message.id))
+            .filter(
+                Message.chat_id == c.id,
+                Message.is_read == False,  # noqa: E712
+                Message.sender_id != admin.id,
+            )
+            .scalar()
+        )
+
+        result.append({
             "chat_id": c.id,
             "user_id": c.user_id,
-            "courier_id": c.courier_id,
+            "user_name": user.name if user else None,
+            "user_phone": user.phone if user else None,
+            "last_message": last_msg.text if last_msg else None,
+            "last_message_at": last_msg.created_at.isoformat() if last_msg and last_msg.created_at else None,
+            "unread_count": int(unread_count or 0),
             "created_at": c.created_at,
-        }
-        for c in chats
-    ]
+        })
+
+    return result
 
 
 @router.post("/topups/{topup_id}/approve")
@@ -684,6 +730,57 @@ def revenue_trend(
         )
 
     return result
+
+class AdminCreateUserRequest(BaseModel):
+    phone: str
+    name: str
+    password: str
+    role: Literal["user", "courier", "admin"] = "user"
+
+
+@router.post("/users")
+def create_user(
+    data: AdminCreateUserRequest,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    if db.query(User).filter(User.phone == data.phone).first():
+        raise HTTPException(status_code=400, detail="Бул телефон номери катталган")
+
+    if len(data.password) < 6:
+        raise HTTPException(status_code=400, detail="Пароль кеминде 6 белги болушу керек")
+
+    # Generate unique BJ-ID
+    while True:
+        candidate = f"BJ{random.randint(1, 999999):06d}"
+        if not db.query(User).filter(User.unique_id == candidate).first():
+            break
+
+    user = User(
+        phone=data.phone,
+        name=data.name,
+        hashed_password=hash_password(data.password),
+        is_courier=(data.role == "courier"),
+        is_admin=(data.role == "admin"),
+        balance=0,
+        unique_id=candidate,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "id": user.id,
+        "unique_id": user.unique_id,
+        "phone": user.phone,
+        "name": user.name,
+        "is_active": user.is_active,
+        "is_courier": user.is_courier,
+        "is_admin": user.is_admin,
+        "balance": float(user.balance),
+        "created_at": user.created_at,
+    }
+
 
 @router.get("/users")
 def all_users(
@@ -1290,23 +1387,26 @@ def get_pending_topup_requests(
     
     result = []
     for req in requests:
-        # Get user info by unique_id
-        user = db.query(User).filter(User.unique_id == req.unique_id).first()
-        
+        user = db.query(User).filter(
+            (User.id == req.user_id) if req.user_id else (User.unique_id == req.unique_id)
+        ).first()
+
         result.append({
             "id": req.id,
             "unique_id": req.unique_id,
-            "user_id": user.id if user else None,
+            "user_id": user.id if user else req.user_id,
             "user_name": user.name if user else "Unknown",
             "user_phone": user.phone if user else "Unknown",
+            "user_balance": float(user.balance) if user else 0,
             "telegram_username": req.telegram_username,
             "telegram_user_id": req.telegram_user_id,
             "amount": float(req.amount),
             "screenshot_file_id": req.screenshot_file_id,
+            "has_screenshot": bool(req.screenshot_url or req.screenshot_file_id),
             "status": req.status,
             "created_at": req.created_at,
         })
-    
+
     return result
 
 
@@ -1335,7 +1435,9 @@ def get_topup_history(
 
     result = []
     for req in requests:
-        user = db.query(User).filter(User.unique_id == req.unique_id).first()
+        user = db.query(User).filter(
+            (User.id == req.user_id) if req.user_id else (User.unique_id == req.unique_id)
+        ).first()
         result.append(
             {
                 "id": req.id,
@@ -1343,10 +1445,12 @@ def get_topup_history(
                 "user_id": user.id if user else req.user_id,
                 "user_name": user.name if user else "Unknown",
                 "user_phone": user.phone if user else "Unknown",
+                "user_balance": float(user.balance) if user else 0,
                 "telegram_username": req.telegram_username,
                 "telegram_user_id": req.telegram_user_id,
                 "amount": float(req.amount),
                 "screenshot_file_id": req.screenshot_file_id,
+                "has_screenshot": bool(req.screenshot_url or req.screenshot_file_id),
                 "status": req.status,
                 "admin_note": req.admin_note,
                 "approved_at": req.approved_at,
@@ -1363,12 +1467,19 @@ def open_topup_screenshot(
     db: Session = Depends(get_db),
     admin=Depends(require_admin),
 ):
-    """Return Telegram-hosted screenshot URL for this top-up request."""
+    """Return screenshot URL for this top-up request (Telegram or web flow)."""
     topup_req = db.query(TopUpRequest).filter(TopUpRequest.id == request_id).first()
     if not topup_req:
         raise HTTPException(status_code=404, detail="Top-up request not found")
 
+    # Web flow: screenshot_url is a direct link
+    if topup_req.screenshot_url:
+        return {"file_url": topup_req.screenshot_url}
+
+    # Telegram bot flow: resolve via Telegram API
     file_url = _resolve_telegram_file_url(topup_req.screenshot_file_id)
+    if not file_url:
+        raise HTTPException(status_code=404, detail="Screenshot табылган жок")
     return {"file_url": file_url}
 
 

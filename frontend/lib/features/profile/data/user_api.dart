@@ -215,6 +215,18 @@ class UserApi {
     }
   }
 
+  Future<void> markAllNotificationsRead(String token) async {
+    try {
+      await http.post(
+        Uri.parse('${AppConfig.baseUrl}/notifications/mark-all-read'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+    } catch (_) {}
+  }
+
   Future<void> markNotificationRead(String token, int notificationId) async {
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/notifications/$notificationId/read'),
@@ -230,6 +242,19 @@ class UserApi {
     throw Exception(
       _extractError(data, fallback: 'Билдирмени белгилөөдө ката кетти'),
     );
+  }
+
+  Future<void> updateLocation(String token, double lat, double lon) async {
+    try {
+      await http.put(
+        Uri.parse('${AppConfig.baseUrl}/users/me/location'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'latitude': lat, 'longitude': lon}),
+      );
+    } catch (_) {}
   }
 
   Future<double> topupBalance(String token, double amount) async {

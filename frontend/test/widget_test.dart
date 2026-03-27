@@ -13,10 +13,10 @@ import 'package:frontend/main.dart';
 void main() {
   testWidgets('Auth page renders smoke test', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
-    await tester.pumpWidget(const BatJetkiretApp());
+    await tester.pumpWidget(const BatkenExpressApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('BATJETKIRET'), findsOneWidget);
+    expect(find.text('BATKEN EXPRESS'), findsOneWidget);
     expect(find.text('Кирүү'), findsWidgets);
     expect(find.text('Катталуу'), findsWidgets);
   });

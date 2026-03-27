@@ -51,13 +51,13 @@ class DistanceCalculator {
 /// Mock geocoder для MVP (real geocoding будет добавлено позже)
 class MockGeocoder {
   static const Map<String, LatLng> _mockAddresses = {
-    'бишкек правобережный': LatLng(latitude: 42.8746, longitude: 74.5698),
-    'бишкек центр': LatLng(latitude: 42.8700, longitude: 74.6000),
-    'чуй авеню': LatLng(latitude: 42.8750, longitude: 74.5750),
-    'панфилова': LatLng(latitude: 42.8700, longitude: 74.6100),
-    'ош': LatLng(latitude: 42.4872, longitude: 72.7981),
-    'нарын': LatLng(latitude: 41.4289, longitude: 76.1665),
-    'жалал абад': LatLng(latitude: 41.9328, longitude: 74.4968),
+    'баткен': LatLng(latitude: 40.060518, longitude: 70.819638),
+    'баткен шаары': LatLng(latitude: 40.060518, longitude: 70.819638),
+    'кызыл кыя': LatLng(latitude: 40.2567, longitude: 72.1272),
+    'кадамжай': LatLng(latitude: 39.8455, longitude: 69.5285),
+    'сулюкта': LatLng(latitude: 39.9353, longitude: 69.5680),
+    'исфана': LatLng(latitude: 40.1358, longitude: 71.7325),
+    'ош': LatLng(latitude: 40.5283, longitude: 72.7985),
   };
 
   /// Mock geocoding - находит координаты по названию адреса
@@ -107,7 +107,7 @@ class RealGeocoder {
         'geocode': address,
         'format': 'json',
         'results': '1',
-        'll': '74.6, 42.8', // Kyrgyzstan center for bias
+        'll': '70.819638, 40.060518', // Batken city center for bias
       };
 
       final uri = Uri.parse(
@@ -176,10 +176,12 @@ class RealGeocoder {
   static String _getMockAddressFromCoordinates(double latitude, double longitude) {
     // Check proximity to known cities
     const cities = {
-      'Бишкек': LatLng(latitude: 42.8746, longitude: 74.5698),
-      'Ош': LatLng(latitude: 42.4872, longitude: 72.7981),
-      'Нарын': LatLng(latitude: 41.4289, longitude: 76.1665),
-      'Жалал-Абад': LatLng(latitude: 41.9328, longitude: 74.4968),
+      'Баткен': LatLng(latitude: 40.060518, longitude: 70.819638),
+      'Кызыл-Кыя': LatLng(latitude: 40.2567, longitude: 72.1272),
+      'Кадамжай': LatLng(latitude: 39.8455, longitude: 69.5285),
+      'Сулюкта': LatLng(latitude: 39.9353, longitude: 69.5680),
+      'Исфана': LatLng(latitude: 40.1358, longitude: 71.7325),
+      'Ош': LatLng(latitude: 40.5283, longitude: 72.7985),
     };
 
     String closestCity = 'Тандалган жайгашкан жер';
@@ -301,7 +303,6 @@ class YandexRouter {
 
     // If no API key, fall back to straight line distance
     if (apiKey.isEmpty) {
-      print('⚠️ Yandex API key not set, using straight-line distance');
       return DistanceCalculator.calculateDistance(from: from, to: to);
     }
 
@@ -314,14 +315,10 @@ class YandexRouter {
         'apikey': apiKey,
         'start': startPoint,
         'end': endPoint,
-        'type': 'driving', // Автомобильный маршрут
+        'type': 'driving',
       };
 
       final uri = Uri.parse(_yandexRouterUrl).replace(queryParameters: params);
-
-      print('🚗 Requesting driving route from Yandex Router API...');
-      print('  From: $startPoint');
-      print('  To: $endPoint');
 
       final response = await http
           .get(uri)
@@ -330,19 +327,12 @@ class YandexRouter {
       if (response.statusCode == 200) {
         final distanceKm = _parseDistanceFromJson(response.body);
         if (distanceKm != null) {
-          print('  ✅ Driving distance: ${distanceKm.toStringAsFixed(2)} km');
           return distanceKm;
         }
-      } else {
-        print('  ❌ Yandex Router API error: ${response.statusCode}');
-        print('  Response: ${response.body}');
       }
-    } catch (e) {
-      print('  ❌ Yandex Router API exception: $e');
-    }
+    } catch (_) {}
 
     // Fallback to straight-line distance
-    print('  ⚠️ Falling back to straight-line distance');
     return DistanceCalculator.calculateDistance(from: from, to: to);
   }
 
@@ -384,8 +374,7 @@ class YandexRouter {
 
       // Convert meters to kilometers
       return meters / 1000.0;
-    } catch (e) {
-      print('  ❌ Error parsing distance from JSON: $e');
+    } catch (_) {
       return null;
     }
   }

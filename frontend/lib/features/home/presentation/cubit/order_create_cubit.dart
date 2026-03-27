@@ -11,25 +11,102 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
 
   final OrderApi _orderApi;
 
+  // ── Enterprise ──────────────────────────────────────────────────────────────
+
+  void selectEnterprise({
+    required int id,
+    required String name,
+    required String address,
+    double? lat,
+    double? lon,
+  }) {
+    emit(state.copyWith(
+      enterpriseId: id,
+      enterpriseName: name,
+      enterpriseAddress: address,
+      enterpriseLat: lat,
+      enterpriseLon: lon,
+      isEnterprisePath: true,
+      selectedItems: {},
+    ));
+  }
+
+  void clearEnterprise() {
+    emit(state.copyWith(
+      clearEnterprise: true,
+      selectedItems: {},
+    ));
+  }
+
+  /// Jump directly to enterprise menu step (called when enterprise card is tapped).
+  void goToEnterpriseMenuStep() {
+    emit(state.copyWith(currentStep: OrderCreateStep.enterpriseMenu));
+  }
+
+  /// Jump directly to pickup location step (manual path, "Башка ишкана").
+  void goToPickupStep() {
+    emit(state.copyWith(
+      currentStep: OrderCreateStep.pickupLocation,
+      clearEnterprise: true,
+      selectedItems: {},
+    ));
+  }
+
+  // ── Item selection (enterprise menu path) ──────────────────────────────────
+
+  void addItem(int productId) {
+    final updated = Map<int, int>.from(state.selectedItems);
+    updated[productId] = (updated[productId] ?? 0) + 1;
+    emit(state.copyWith(selectedItems: updated));
+  }
+
+  void removeItem(int productId) {
+    final updated = Map<int, int>.from(state.selectedItems);
+    final current = updated[productId] ?? 0;
+    if (current <= 1) {
+      updated.remove(productId);
+    } else {
+      updated[productId] = current - 1;
+    }
+    emit(state.copyWith(selectedItems: updated));
+  }
+
+  // ── Navigation ─────────────────────────────────────────────────────────────
+
+  /// Returns error message if validation fails, null on success.
   String? goToNextStep({
-    required String fromAddress,
-    required String toAddress,
+    String fromAddress = '',
+    String toAddress = '',
     LatLng? fromLocation,
     LatLng? toLocation,
   }) {
     switch (state.currentStep) {
-      case OrderCreateStep.pickupLocation:
-        if (fromAddress.trim().isEmpty) {
-          return 'Адресс киргизиңиз';
+      case OrderCreateStep.enterpriseSelection:
+        // Enterprise cards navigate directly; this branch handles "Башка ишкана"
+        emit(state.copyWith(
+          currentStep: OrderCreateStep.pickupLocation,
+          clearEnterprise: true,
+        ));
+        return null;
+
+      case OrderCreateStep.enterpriseMenu:
+        if (state.selectedItems.isEmpty) {
+          return 'Жок дегенде бир товар тандаңыз';
         }
         emit(state.copyWith(currentStep: OrderCreateStep.deliveryLocation));
         return null;
+
+      case OrderCreateStep.pickupLocation:
+        if (fromAddress.trim().isEmpty) {
+          return 'Жөнөтүүнүн адресин киргизиңиз';
+        }
+        emit(state.copyWith(currentStep: OrderCreateStep.deliveryLocation));
+        return null;
+
       case OrderCreateStep.deliveryLocation:
         if (toAddress.trim().isEmpty) {
-          return 'Адресс киргизиңиз';
+          return 'Жеткирүүнүн адресин киргизиңиз';
         }
-
-        // Use coordinates if available from map picker, otherwise use address-based geocoding
         _calculateDistanceAsync(
           fromAddress,
           toAddress,
@@ -38,10 +115,41 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
         );
         emit(state.copyWith(currentStep: OrderCreateStep.description));
         return null;
+
       case OrderCreateStep.description:
         return null;
     }
   }
+
+  /// Returns true if the page should be popped.
+  bool goToPreviousStep() {
+    switch (state.currentStep) {
+      case OrderCreateStep.enterpriseSelection:
+        return true;
+
+      case OrderCreateStep.enterpriseMenu:
+        emit(state.copyWith(currentStep: OrderCreateStep.enterpriseSelection));
+        return false;
+
+      case OrderCreateStep.pickupLocation:
+        emit(state.copyWith(currentStep: OrderCreateStep.enterpriseSelection));
+        return false;
+
+      case OrderCreateStep.deliveryLocation:
+        if (state.isEnterprisePath) {
+          emit(state.copyWith(currentStep: OrderCreateStep.enterpriseMenu));
+        } else {
+          emit(state.copyWith(currentStep: OrderCreateStep.pickupLocation));
+        }
+        return false;
+
+      case OrderCreateStep.description:
+        emit(state.copyWith(currentStep: OrderCreateStep.deliveryLocation));
+        return false;
+    }
+  }
+
+  // ── Distance calculation ───────────────────────────────────────────────────
 
   Future<void> _calculateDistanceAsync(
     String fromAddress,
@@ -50,77 +158,47 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
     LatLng? toLocation,
   }) async {
     try {
-      // If coordinates are provided from map picker, use them directly
       LatLng? fromCoords = fromLocation;
       LatLng? toCoords = toLocation;
 
-      // Debug: print coordinates
-      print('🗺️ Distance calculation:');
-      print('  From coords: $fromCoords');
-      print('  To coords: $toCoords');
-
-      // If coordinates available, use them
       if (fromCoords != null && toCoords != null) {
-        // Use Yandex Router API to calculate driving distance
         final distance = await YandexRouter.calculateDrivingDistance(
           from: fromCoords,
           to: toCoords,
         );
-        
         if (distance != null) {
-          print('  ✅ Calculated driving distance: ${distance.toStringAsFixed(2)} km');
           emit(state.copyWith(calculatedDistance: distance));
           return;
         }
       }
 
-      // Otherwise, try to geocode the addresses
-      print('  ⚠️ Coordinates missing, trying to geocode addresses...');
       fromCoords ??= await RealGeocoder.getCoordinates(fromAddress);
       toCoords ??= await RealGeocoder.getCoordinates(toAddress);
 
       if (fromCoords != null && toCoords != null) {
-        // Use Yandex Router API to calculate driving distance
         final distance = await YandexRouter.calculateDrivingDistance(
           from: fromCoords,
           to: toCoords,
         );
-        
         if (distance != null) {
-          print('  ✅ Geocoded and calculated driving distance: ${distance.toStringAsFixed(2)} km');
           emit(state.copyWith(calculatedDistance: distance));
           return;
         }
-      } else {
-        // Fallback: simple estimation if coordinates not found
-        print('  ❌ Geocoding failed, using fallback estimation');
-        final avgLength = (fromAddress.length + toAddress.length) / 2;
-        final estimatedDistance = (avgLength / 10).clamp(1.0, 100.0);
-        emit(state.copyWith(calculatedDistance: estimatedDistance));
+        final straight = DistanceCalculator.calculateDistance(
+          from: fromCoords,
+          to: toCoords,
+        );
+        emit(state.copyWith(
+          calculatedDistance: (straight * 1.4).clamp(0.5, 500.0),
+        ));
       }
-    } catch (e) {
-      // Use default estimate on error
-      print('  ❌ Distance calculation error: $e');
-      emit(state.copyWith(calculatedDistance: 10.0));
+      // If geocoding failed, leave calculatedDistance null → createOrder validates
+    } catch (_) {
+      // createOrder validates and shows error.
     }
   }
 
-  bool goToPreviousStep() {
-    if (state.currentStep == OrderCreateStep.pickupLocation) {
-      return true;
-    }
-
-    switch (state.currentStep) {
-      case OrderCreateStep.pickupLocation:
-        return true;
-      case OrderCreateStep.deliveryLocation:
-        emit(state.copyWith(currentStep: OrderCreateStep.pickupLocation));
-        return false;
-      case OrderCreateStep.description:
-        emit(state.copyWith(currentStep: OrderCreateStep.deliveryLocation));
-        return false;
-    }
-  }
+  // ── Order creation ─────────────────────────────────────────────────────────
 
   Future<void> createOrder({
     required String token,
@@ -130,20 +208,22 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
     required String description,
     LatLng? fromLocation,
     LatLng? toLocation,
+    int? enterpriseId,
   }) async {
     final normalizedFrom = fromAddress.trim();
     final normalizedTo = toAddress.trim();
     final normalizedDescription = description.trim();
 
-    if (normalizedFrom.isEmpty ||
-        normalizedTo.isEmpty ||
-        normalizedDescription.isEmpty) {
-      throw Exception('Бардык талаалар толтурулушу керек');
+    if (normalizedFrom.isEmpty || normalizedTo.isEmpty) {
+      throw Exception('Жөнөтүү жана жеткирүү адрестерин толтуруңуз');
+    }
+    if (normalizedDescription.isEmpty) {
+      throw Exception('Заказдын сыпаттамасын жазыңыз');
     }
 
     final distanceKm = state.calculatedDistance ?? 0;
     if (distanceKm <= 0) {
-      throw Exception('Аралык туура эсептелген жок');
+      throw Exception('Аралык туура эсептелген жок. Картадан тандап кайра аракет кылыңыз');
     }
 
     emit(state.copyWith(isLoading: true));
@@ -159,14 +239,10 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
         toLatitude: toLocation?.latitude,
         toLongitude: toLocation?.longitude,
         distanceKm: distanceKm,
+        enterpriseId: enterpriseId,
       );
     } finally {
       emit(state.copyWith(isLoading: false));
     }
   }
 }
-
-  // Calculate distance using RealGeocoder (Yandex API) with MockGeocoder fallback
-  // Use RealGeocoder with fallback to MockGeocoder if API key not set
-  //final fromCoords = await RealGeocoder.getCoordinates(fromAddress);
-  //final toCoords = await RealGeocoder.getCoordinates(toAddress);

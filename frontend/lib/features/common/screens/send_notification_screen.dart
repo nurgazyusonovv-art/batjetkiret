@@ -3,7 +3,9 @@ import '../../support/services/notifications_service.dart'
     as admin_notifications;
 
 class SendNotificationScreen extends StatefulWidget {
-  const SendNotificationScreen({Key? key}) : super(key: key);
+  const SendNotificationScreen({Key? key, required this.token}) : super(key: key);
+
+  final String token;
 
   @override
   State<SendNotificationScreen> createState() => _SendNotificationScreenState();
@@ -15,12 +17,12 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
   final _messageController = TextEditingController();
   bool _isLoading = false;
 
-  late final admin_notifications.NotificationsService _notificationsService;
+  late final admin_notifications.SupportNotificationsService _notificationsService;
 
   @override
   void initState() {
     super.initState();
-    _notificationsService = admin_notifications.NotificationsService();
+    _notificationsService = admin_notifications.SupportNotificationsService();
   }
 
   @override
@@ -39,6 +41,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
       await _notificationsService.sendNotificationToAdmin(
         title: _titleController.text.trim(),
         message: _messageController.text.trim(),
+        token: widget.token,
       );
 
       if (mounted) {

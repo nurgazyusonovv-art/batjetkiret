@@ -9,6 +9,8 @@ def _migrate(engine):
         "ALTER TABLE orders ADD COLUMN order_type VARCHAR DEFAULT 'delivery'",
         "ALTER TABLE orders ADD COLUMN table_number VARCHAR",
         "ALTER TABLE orders ADD COLUMN hidden_for_enterprise BOOLEAN DEFAULT FALSE NOT NULL",
+        "ALTER TABLE users ADD COLUMN current_latitude FLOAT",
+        "ALTER TABLE users ADD COLUMN current_longitude FLOAT",
     ]
     with engine.connect() as conn:
         for sql in migrations:

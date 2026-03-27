@@ -380,6 +380,8 @@ def get_order(
     if order.courier_id and order.courier:
         result["courier_name"] = order.courier.name
         result["courier_phone"] = order.courier.phone
+        result["courier_latitude"] = order.courier.current_latitude
+        result["courier_longitude"] = order.courier.current_longitude
 
     if order.enterprise_id:
         from app.models.enterprise import Enterprise

@@ -1,14 +1,17 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Package, 
-  Users, 
-  Wallet, 
+import {
+  LayoutDashboard,
+  Package,
+  Users,
+  Wallet,
   LogOut,
   BarChart3,
-  Bell
+  Bell,
+  Building2,
+  MessageSquare,
 } from 'lucide-react';
+import api from '@/services/api';
 import { authService } from '@/services/auth';
 import { notificationsService } from '@/services/notifications';
 import './DashboardLayout.css';
@@ -22,6 +25,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const user = authService.getStoredUser();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadSupportCount, setUnreadSupportCount] = useState(0);
 
   useEffect(() => {
     const checkUnread = async () => {
@@ -35,6 +39,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
     checkUnread();
     const interval = setInterval(checkUnread, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const checkSupportUnread = async () => {
+      try {
+        const res = await api.get<{ unread_count: number }[]>('/admin/support-chats', { params: { limit: 100 } });
+        const total = res.data.reduce((s, c) => s + (c.unread_count ?? 0), 0);
+        setUnreadSupportCount(total);
+      } catch (_) {}
+    };
+    checkSupportUnread();
+    const interval = setInterval(checkSupportUnread, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -55,13 +72,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { path: '/topup', icon: Wallet, label: 'Топап' },
     { path: '/stats', icon: BarChart3, label: 'Статистика' },
     { path: '/notifications', icon: Bell, label: 'Билдирүүлөр', badge: unreadCount },
+    { path: '/enterprises', icon: Building2, label: 'Ишканалар' },
+    { path: '/support-chats', icon: MessageSquare, label: 'Колдоо чаттары', badge: unreadSupportCount },
   ];
 
   return (
     <div className="dashboard-layout">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <h2>BATJETKIRET</h2>
+          <h2>BATKEN EXPRESS</h2>
           <p>Admin Panel</p>
         </div>
 

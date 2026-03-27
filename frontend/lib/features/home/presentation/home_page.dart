@@ -1,176 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/app_button.dart';
-import '../../../core/widgets/app_text_field.dart';
-import '../../../core/utils/distance_calculator.dart';
-import '../../orders/data/order_model.dart';
-import '../../orders/presentation/order_detail_page.dart';
-import '../../orders/presentation/cubit/orders_cubit.dart';
-import '../../profile/presentation/cubit/profile_cubit.dart';
-import '../../common/widgets/compact_map_preview.dart';
-import 'cubit/home_cubit.dart';
-import 'cubit/order_create_cubit.dart';
-import 'cubit/order_create_state.dart';
-import '../data/category_model.dart' as models;
+import 'package:frontend/core/theme/app_colors.dart';
+import 'package:frontend/core/utils/distance_calculator.dart';
+import 'package:frontend/core/widgets/app_button.dart';
+import 'package:frontend/core/widgets/app_text_field.dart';
+import 'package:frontend/features/common/widgets/compact_map_preview.dart';
+import 'package:frontend/features/home/data/category_model.dart' as models;
+import 'package:frontend/features/home/data/enterprise_api.dart';
+import 'package:frontend/features/home/data/enterprise_model.dart';
+import 'package:frontend/features/home/presentation/cubit/home_cubit.dart';
+import 'package:frontend/features/home/presentation/cubit/order_create_cubit.dart';
+import 'package:frontend/features/home/presentation/cubit/order_create_state.dart';
+import 'package:frontend/features/orders/presentation/cubit/orders_cubit.dart';
+import 'package:frontend/features/orders/presentation/order_detail_page.dart';
+import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.token});
-
   final String token;
+  const HomePage({super.key, required this.token});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  final _searchController = TextEditingController();
-  final _locationController = TextEditingController();
   int? _pressedCategoryIndex;
+  List<models.Category> _filteredCategories = [];
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      setState(() {});
-    });
+    // Restore categories from category_model.dart
+    _filteredCategories = models.categories;
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _locationController.dispose();
-    super.dispose();
-  }
-
-  void _showLocationBottomSheet() {
-    final user = context.read<ProfileCubit>().state.user;
-    final currentLocation =
-        user?.address ?? context.read<HomeCubit>().state.selectedLocation;
-    _locationController.text = currentLocation;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => SingleChildScrollView(
-        child: Padding(
-          padding: MediaQuery.of(context).viewInsets,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Адресс киргизиңиз',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                AppTextField(
-                  controller: _locationController,
-                  hintText: 'Мисалы: Бишкек, Чуй 122',
-                  prefixIcon: const Icon(Icons.location_on),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppButton.secondary(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        label: 'Отмена',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: AppButton.primary(
-                        onPressed: () async {
-                          if (_locationController.text.trim().isNotEmpty) {
-                            final newAddress = _locationController.text.trim();
-                            final homeCubit = this.context.read<HomeCubit>();
-                            final profileCubit = this.context
-                                .read<ProfileCubit>();
-                            final nav = Navigator.of(context);
-
-                            // Update location in HomeCubit for immediate UI update
-                            await homeCubit.updateLocation(newAddress);
-
-                            // Save to database via ProfileCubit
-                            try {
-                              await profileCubit.updateProfile(
-                                widget.token,
-                                address: newAddress,
-                              );
-                            } catch (e) {
-                              // Silent fail - address saved locally at least
-                            }
-
-                            if (!mounted) return;
-                            nav.pop();
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Адресс киргизиңиз'),
-                              ),
-                            );
-                          }
-                        },
-                        label: 'Сактоо',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  List<models.Category> get _filteredCategories {
-    final query = _searchController.text.toLowerCase();
-    if (query.isEmpty) {
-      return models.categories;
-    }
-    return models.categories
-        .where((cat) => cat.name.toLowerCase().contains(query))
-        .toList();
-  }
-
-  IconData _categoryIconFor(String categoryIdOrName) {
-    final normalized = categoryIdOrName.trim().toLowerCase();
-    for (final category in models.categories) {
-      if (category.id.toLowerCase() == normalized ||
-          category.name.toLowerCase() == normalized) {
-        return category.icon;
-      }
-    }
-    return Icons.category;
-  }
-
-  Future<void> _acceptOrder(Order order) async {
+  Future<void> _acceptOrder(order) async {
     try {
       await context.read<HomeCubit>().acceptOrder(widget.token, order.id);
-      if (!mounted) return;
-
-      // Menin ordersaryn obnovla
-      context.read<OrdersCubit>().loadOrders(widget.token);
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Заказ кабыл алынды')));
-    } catch (error) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
         ),
       );
     }
+  }
+
+  IconData _categoryIconFor(dynamic category) {
+    // Return an icon for the given category (stub)
+    return Icons.category;
   }
 
   @override
@@ -204,7 +84,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         SizedBox(width: 8),
                         Text(
-                          'BATJETKIRET',
+                          'BATKEN EXPRESS',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -235,17 +115,15 @@ class _HomePageState extends State<HomePage> {
                           ),
                           child: GestureDetector(
                             onTap: () async {
-                              await context
-                                  .read<ProfileCubit>()
-                                  .toggleOnlineStatus(
-                                    widget.token,
-                                    !user.isOnline,
-                                  );
+                              final profileCubit = context.read<ProfileCubit>();
+                              final homeCubit = context.read<HomeCubit>();
+                              await profileCubit.toggleOnlineStatus(
+                                widget.token,
+                                !user.isOnline,
+                              );
                               // Refresh available orders after status change
                               if (mounted) {
-                                context
-                                    .read<HomeCubit>()
-                                    .refreshAvailableOrders(widget.token);
+                                homeCubit.refreshAvailableOrders(widget.token);
                               }
                             },
                             child: Row(
@@ -273,67 +151,10 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                         )
-                      else
-                        // Location for regular users
-                        Flexible(
-                          child: GestureDetector(
-                            onTap: _showLocationBottomSheet,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.primarySoft,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppColors.border),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.location_on,
-                                    size: 14,
-                                    color: AppColors.primary,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      user.address ??
-                                          homeState.selectedLocation,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.primary,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Icon(
-                                    Icons.expand_more,
-                                    color: AppColors.primary,
-                                    size: 18,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
                   ],
                 ),
               ),
-              // Search bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: AppTextField(
-                  controller: _searchController,
-                  hintText: 'Издее (тамак-аш, товарлар...)',
-                  prefixIcon: const Icon(Icons.search),
-                ),
-              ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
               // Categories section for users / Waiting orders list for couriers
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -351,180 +172,180 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: homeState.isCourier
                     ? homeState.isCourierLoading
-                          ? const Center(child: CircularProgressIndicator())
-                          : homeState.courierError != null
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.error_outline,
-                                    size: 46,
-                                    color: Colors.grey[400],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
+                        ? const Center(child: CircularProgressIndicator())
+                        : homeState.courierError != null
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.error_outline,
+                                      size: 46,
+                                      color: Colors.grey[400],
                                     ),
-                                    child: Text(
-                                      homeState.courierError!,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(color: Colors.grey[600]),
+                                    const SizedBox(height: 12),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                      ),
+                                      child: Text(
+                                        homeState.courierError!,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(color: Colors.grey[600]),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  AppButton.primary(
-                                    onPressed: () => context
-                                        .read<HomeCubit>()
-                                        .loadCourierHomeData(widget.token),
-                                    label: 'Кайра жүктөө',
-                                  ),
-                                ],
-                              ),
-                            )
-                          : homeState.availableOrders.isEmpty
-                          ? Center(
-                              child: Text(
-                                'Азыр күтүүдөгү заказдар жок',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 16,
+                                    const SizedBox(height: 16),
+                                    AppButton.primary(
+                                      onPressed: () => context
+                                          .read<HomeCubit>()
+                                          .loadCourierHomeData(widget.token),
+                                      label: 'Кайра жүктөө',
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0,
-                              ),
-                              itemCount: homeState.availableOrders.length,
-                              itemBuilder: (context, index) {
-                                final order = homeState.availableOrders[index];
-                                final isAccepting = homeState.acceptingOrderIds
-                                    .contains(order.id);
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.all(14),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: AppColors.border),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            width: 40,
-                                            height: 40,
-                                            decoration: BoxDecoration(
-                                              color: AppColors.primarySoft,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Center(
-                                              child: Icon(
-                                                _categoryIconFor(
-                                                  order.category,
-                                                ),
-                                                size: 20,
-                                                color: AppColors.primary,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: Text(
-                                              order.categoryName,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                                color: AppColors.textPrimary,
-                                                fontSize: 16,
-                                              ),
-                                            ),
-                                          ),
-                                          Text(
-                                            '${(order.estimatedPrice ?? 0).toStringAsFixed(0)} сом',
-                                            style: const TextStyle(
-                                              color: AppColors.primary,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ],
+                              )
+                            : homeState.availableOrders.isEmpty
+                                ? Center(
+                                    child: Text(
+                                      'Азыр күтүүдөгү заказдар жок',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 16,
                                       ),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        '${order.fromAddress} → ${order.toAddress}',
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: AppColors.textSecondary,
-                                          height: 1.35,
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16.0,
+                                    ),
+                                    itemCount: homeState.availableOrders.length,
+                                    itemBuilder: (context, index) {
+                                      final order = homeState.availableOrders[index];
+                                      final isAccepting = homeState.acceptingOrderIds
+                                          .contains(order.id);
+                                      return Container(
+                                        margin: const EdgeInsets.only(bottom: 12),
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(color: AppColors.border),
                                         ),
-                                      ),
-                                      if (order.description
-                                          .trim()
-                                          .isNotEmpty) ...[
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          order.description,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: AppColors.textPrimary,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: OutlinedButton(
-                                              onPressed: () {
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute(
-                                                    builder: (context) =>
-                                                        OrderDetailPage(
-                                                          order: order,
-                                                          token: widget.token,
-                                                          isCourier: homeState
-                                                              .isCourier,
-                                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 40,
+                                                  height: 40,
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.primarySoft,
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
                                                   ),
-                                                );
-                                              },
-                                              style: OutlinedButton.styleFrom(
-                                                side: BorderSide(
-                                                  color: AppColors.border,
+                                                  child: Center(
+                                                    child: Icon(
+                                                      _categoryIconFor(
+                                                        order.category,
+                                                      ),
+                                                      size: 20,
+                                                      color: AppColors.primary,
+                                                    ),
+                                                  ),
                                                 ),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Text(
+                                                    order.categoryName,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w700,
+                                                      color: AppColors.textPrimary,
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  '${(order.estimatedPrice ?? 0).toStringAsFixed(0)} сом',
+                                                  style: const TextStyle(
+                                                    color: AppColors.primary,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 10),
+                                            Text(
+                                              '${order.fromAddress} → ${order.toAddress}',
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: AppColors.textSecondary,
+                                                height: 1.35,
+                                              ),
+                                            ),
+                                            if (order.description
+                                                .trim()
+                                                .isNotEmpty) ...[
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                order.description,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: AppColors.textPrimary,
+                                                  fontSize: 13,
                                                 ),
                                               ),
-                                              child: const Text('Деталь'),
+                                            ],
+                                            const SizedBox(height: 12),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: OutlinedButton(
+                                                    onPressed: () {
+                                                      Navigator.of(context).push(
+                                                        MaterialPageRoute(
+                                                          builder: (context) =>
+                                                              OrderDetailPage(
+                                                                order: order,
+                                                                token: widget.token,
+                                                                isCourier: homeState
+                                                                    .isCourier,
+                                                              ),
+                                                        ),
+                                                      );
+                                                    },
+                                                    style: OutlinedButton.styleFrom(
+                                                      side: BorderSide(
+                                                        color: AppColors.border,
+                                                      ),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(12),
+                                                      ),
+                                                    ),
+                                                    child: const Text('Деталь'),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: AppButton.primary(
+                                                    onPressed: isAccepting
+                                                        ? null
+                                                        : () => _acceptOrder(order),
+                                                    isLoading: isAccepting,
+                                                    label: 'Кабыл алуу',
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: AppButton.primary(
-                                              onPressed: isAccepting
-                                                  ? null
-                                                  : () => _acceptOrder(order),
-                                              isLoading: isAccepting,
-                                              label: 'Кабыл алуу',
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            )
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  )
                     : GridView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         gridDelegate:
@@ -645,10 +466,10 @@ class _HomePageState extends State<HomePage> {
                                                 ),
                                               ),
                                             ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                          
+                                        ),
+                                      ],
+                                      ),), 
                                     Positioned(
                                       right: 0,
                                       top: 0,
@@ -678,7 +499,7 @@ class _HomePageState extends State<HomePage> {
                         },
                       ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -709,8 +530,14 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// Order creation screen - Multi-step wizard
+
+// ── Order creation screen — Multi-step wizard ─────────────────────────────────
+
 class OrderCreatePage extends StatefulWidget {
+  final String token;
+  final models.Category selectedCategory;
+  final String? initialFromAddress;
+
   const OrderCreatePage({
     super.key,
     required this.token,
@@ -718,24 +545,35 @@ class OrderCreatePage extends StatefulWidget {
     this.initialFromAddress,
   });
 
-  final String token;
-  final models.Category selectedCategory;
-  final String? initialFromAddress;
-
   @override
   State<OrderCreatePage> createState() => _OrderCreatePageState();
 }
 
 class _OrderCreatePageState extends State<OrderCreatePage> {
-  late final OrderCreateCubit _orderCreateCubit;
+  late final OrderCreateCubit _cubit;
+
+  // Address controllers
   final _fromAddressController = TextEditingController();
   final _toAddressController = TextEditingController();
-  final _descriptionController = TextEditingController();
+  final _notesController = TextEditingController();
+
+  // Map coordinates
   LatLng? _selectedFromLocation;
   LatLng? _selectedToLocation;
 
-  // Common address suggestions
-  final List<String> _addressSuggestions = [
+  // Enterprise list
+  List<Enterprise>? _enterprises;
+  bool _isLoadingEnterprises = false;
+  String? _enterpriseError;
+
+  // Enterprise menu
+  EnterpriseMenu? _enterpriseMenu;
+  bool _isLoadingMenu = false;
+  String? _menuError;
+  int _menuFetchVersion = 0; // Version counter to discard stale responses
+
+  // Suggestion addresses
+  final List<String> _suggestions = [
     'Бишкек, ул. Жибек Жолу, 123',
     'Бишкек, пр. Чуй, 456',
     'Бишкек, ул. Боконбаева, 789',
@@ -744,624 +582,1196 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     'Бишкек, ул. Всемирная, 987',
   ];
 
-  List<String> _getFilteredSuggestions(String query) {
-    if (query.isEmpty) return _addressSuggestions;
-    return _addressSuggestions
-        .where((addr) => addr.toLowerCase().contains(query.toLowerCase()))
-        .toList();
-  }
-
   @override
   void initState() {
     super.initState();
-    _orderCreateCubit = OrderCreateCubit();
+    _cubit = OrderCreateCubit();
     if (widget.initialFromAddress != null) {
       _fromAddressController.text = widget.initialFromAddress!;
     }
+    // Rebuild when address text changes (for suggestions dropdown)
+    _fromAddressController.addListener(() => setState(() {}));
+    _toAddressController.addListener(() => setState(() {}));
+    _fetchEnterprises();
   }
 
   @override
   void dispose() {
-    _orderCreateCubit.close();
+    _cubit.close();
     _fromAddressController.dispose();
     _toAddressController.dispose();
-    _descriptionController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
-  void _goToNextStep() {
-    final message = _orderCreateCubit.goToNextStep(
-      fromAddress: _fromAddressController.text,
-      toAddress: _toAddressController.text,
+  // ── Data fetching ──────────────────────────────────────────────────────────
+
+  Future<void> _fetchEnterprises() async {
+    setState(() {
+      _isLoadingEnterprises = true;
+      _enterpriseError = null;
+    });
+    try {
+      final api = EnterpriseApi();
+      final list = await api.fetchEnterprises(
+        token: widget.token,
+        category: widget.selectedCategory.id,
+      );
+      if (!mounted) return;
+      setState(() {
+        _enterprises = list;
+        _isLoadingEnterprises = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _enterpriseError = e.toString();
+        _isLoadingEnterprises = false;
+      });
+    }
+  }
+
+  Future<void> _fetchEnterpriseMenu(int enterpriseId) async {
+    final version = ++_menuFetchVersion;
+    setState(() {
+      _isLoadingMenu = true;
+      _menuError = null;
+    });
+    try {
+      final api = EnterpriseApi();
+      final menu = await api.fetchEnterpriseMenu(
+        token: widget.token,
+        enterpriseId: enterpriseId,
+      );
+      if (!mounted || version != _menuFetchVersion) return;
+      setState(() {
+        _enterpriseMenu = menu;
+        _isLoadingMenu = false;
+      });
+    } catch (e) {
+      if (!mounted || version != _menuFetchVersion) return;
+      setState(() {
+        _menuError = e.toString();
+        _isLoadingMenu = false;
+      });
+    }
+  }
+
+  // ── Navigation ──────────────────────────────────────────────────────────────
+
+  void _goToNextStep({String? overrideFrom, String? overrideTo}) {
+    final message = _cubit.goToNextStep(
+      fromAddress: overrideFrom ?? _fromAddressController.text,
+      toAddress: overrideTo ?? _toAddressController.text,
       fromLocation: _selectedFromLocation,
       toLocation: _selectedToLocation,
     );
-
-    if (message != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+    if (message != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red.shade600),
+      );
     }
   }
 
   void _goToPreviousStep() {
-    final shouldPop = _orderCreateCubit.goToPreviousStep();
-    if (shouldPop) {
-      Navigator.of(context).pop();
+    final shouldPop = _cubit.goToPreviousStep();
+    if (shouldPop && mounted) Navigator.of(context).pop();
+  }
+
+  void _onEnterpriseSelected(Enterprise ent) {
+    // Set enterprise in cubit
+    _cubit.selectEnterprise(
+      id: ent.id,
+      name: ent.name,
+      address: ent.address ?? '',
+      lat: ent.lat,
+      lon: ent.lon,
+    );
+    // Auto-fill from address from enterprise
+    _fromAddressController.text = ent.address ?? '';
+    if (ent.lat != null && ent.lon != null) {
+      setState(() {
+        _selectedFromLocation = LatLng(latitude: ent.lat!, longitude: ent.lon!);
+      });
     }
+    // Mark loading before step change — avoids "Меню жок" flash
+    setState(() {
+      _isLoadingMenu = true;
+      _menuError = null;
+      _enterpriseMenu = null;
+    });
+    _cubit.goToEnterpriseMenuStep();
+    _fetchEnterpriseMenu(ent.id);
+  }
+
+  void _onManualEnterprise() {
+    _cubit.goToPickupStep();
+    _fromAddressController.clear();
+    setState(() => _selectedFromLocation = null);
+  }
+
+  // ── Order submission ────────────────────────────────────────────────────────
+
+  String _buildDescription() {
+    final state = _cubit.state;
+    if (!state.isEnterprisePath || _enterpriseMenu == null) {
+      return _notesController.text.trim();
+    }
+
+    // Build from selected items
+    final lines = <String>[];
+    for (final cat in _enterpriseMenu!.categories) {
+      for (final product in cat.products) {
+        final qty = state.selectedItems[product.id] ?? 0;
+        if (qty > 0) {
+          lines.add('${product.name} x$qty');
+        }
+      }
+    }
+    final itemsText = lines.join('\n');
+    final notes = _notesController.text.trim();
+    return notes.isEmpty ? itemsText : '$itemsText\n\n$notes';
+  }
+
+  double _buildItemsTotal() {
+    if (_enterpriseMenu == null) return 0;
+    double total = 0;
+    for (final cat in _enterpriseMenu!.categories) {
+      for (final product in cat.products) {
+        final qty = _cubit.state.selectedItems[product.id] ?? 0;
+        total += product.price * qty;
+      }
+    }
+    return total;
   }
 
   Future<void> _createOrder() async {
+    final description = _buildDescription();
+    if (description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Заказдын сыпаттамасын жазыңыз'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     try {
-      await _orderCreateCubit.createOrder(
+      await _cubit.createOrder(
         token: widget.token,
         category: widget.selectedCategory.id,
         fromAddress: _fromAddressController.text,
         toAddress: _toAddressController.text,
-        description: _descriptionController.text,
+        description: description,
         fromLocation: _selectedFromLocation,
         toLocation: _selectedToLocation,
+        enterpriseId: _cubit.state.enterpriseId,
       );
-
       if (!mounted) return;
-
-      // Reload orders list after successful creation
       context.read<OrdersCubit>().loadOrders(widget.token);
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Заказ түзүлдү!')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Заказ ийгиликтүү түзүлдү!'),
+          backgroundColor: Colors.green,
+        ),
+      );
       Navigator.of(context).pop();
     } catch (error) {
       if (!mounted) return;
-      final errorText = error.toString().replaceFirst('Exception: ', '');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка: $errorText')));
+      final msg = error.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.red),
+      );
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _orderCreateCubit,
-      child: BlocBuilder<OrderCreateCubit, OrderCreateState>(
-        builder: (context, state) {
-          return Scaffold(
-            appBar: AppBar(
-              title: Text('Жаңы заказ - ${widget.selectedCategory.name}'),
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  List<String> _filteredSuggestions(String query) {
+    if (query.isEmpty) return _suggestions;
+    return _suggestions
+        .where((a) => a.toLowerCase().contains(query.toLowerCase()))
+        .toList();
+  }
+
+  String _appBarTitle(OrderCreateState state) {
+    switch (state.currentStep) {
+      case OrderCreateStep.enterpriseSelection:
+        return 'Ишкана тандаңыз';
+      case OrderCreateStep.enterpriseMenu:
+        return state.enterpriseName ?? 'Меню';
+      case OrderCreateStep.pickupLocation:
+        return 'Жөнөтүүнүн адресси';
+      case OrderCreateStep.deliveryLocation:
+        return 'Жеткирүүнүн адресси';
+      case OrderCreateStep.description:
+        return 'Заказды тастыктоо';
+    }
+  }
+
+  // ── Step indicator ──────────────────────────────────────────────────────────
+
+  int _stepIndex(OrderCreateStep step, bool isEnterprisePath) {
+    if (isEnterprisePath) {
+      switch (step) {
+        case OrderCreateStep.enterpriseMenu:
+          return 1;
+        case OrderCreateStep.deliveryLocation:
+          return 2;
+        case OrderCreateStep.description:
+          return 3;
+        default:
+          return 0;
+      }
+    } else {
+      switch (step) {
+        case OrderCreateStep.pickupLocation:
+          return 1;
+        case OrderCreateStep.deliveryLocation:
+          return 2;
+        case OrderCreateStep.description:
+          return 3;
+        default:
+          return 0;
+      }
+    }
+  }
+
+  Widget _buildStepIndicator(OrderCreateState state) {
+    if (state.currentStep == OrderCreateStep.enterpriseSelection) {
+      return const SizedBox.shrink();
+    }
+    final idx = _stepIndex(state.currentStep, state.isEnterprisePath);
+    final labels = state.isEnterprisePath
+        ? ['Меню', 'Жеткирүү', 'Заказ']
+        : ['Жөнөтүү', 'Жеткирүү', 'Заказ'];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: List.generate(labels.length, (i) {
+          final stepNum = i + 1;
+          final isActive = stepNum == idx;
+          final isCompleted = stepNum < idx;
+          return Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? AppColors.primary
+                              : (isCompleted ? Colors.green : Colors.grey[300]),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: isCompleted
+                              ? const Icon(Icons.check, color: Colors.white, size: 16)
+                              : Text(
+                                  '$stepNum',
+                                  style: TextStyle(
+                                    color: isActive ? Colors.white : Colors.grey[600],
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        labels[i],
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isActive ? AppColors.primary : Colors.grey[600],
+                          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (i < labels.length - 1)
+                  Expanded(
+                    child: Container(
+                      height: 2,
+                      margin: const EdgeInsets.only(bottom: 18),
+                      color: isCompleted ? Colors.green : Colors.grey[300],
+                    ),
+                  ),
+              ],
             ),
-            body: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
+          );
+        }),
+      ),
+    );
+  }
+
+  // ── Address field with suggestions ──────────────────────────────────────────
+
+  Widget _buildAddressField({
+    required TextEditingController controller,
+    required String hint,
+    required String label,
+  }) {
+    // Note: controller listeners are added in initState for setState-driven suggestions
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppTextField(
+          controller: controller,
+          hintText: hint,
+          prefixIcon: const Icon(Icons.location_on),
+        ),
+        if (controller.text.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(8),
+                bottomRight: Radius.circular(8),
+              ),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4),
+              ],
+            ),
+            child: ListView(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: _filteredSuggestions(controller.text)
+                  .take(4)
+                  .map((addr) => ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.location_on, size: 16, color: AppColors.primary),
+                        title: Text(addr, style: const TextStyle(fontSize: 13)),
+                        onTap: () => setState(() => controller.text = addr),
+                      ))
+                  .toList(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMapSection({
+    required LatLng? location,
+    required String mapLabel,
+    required void Function(LatLng, String?) onChanged,
+    Color locationColor = Colors.green,
+  }) {
+    return Column(
+      children: [
+        CompactMapPreview(
+          initialLocation: location,
+          label: mapLabel,
+          onLocationChanged: (loc, addr) => onChanged(loc, addr),
+        ),
+        if (location != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: locationColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: locationColor.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.my_location, color: locationColor, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Координата: ${location.latitude.toStringAsFixed(5)}, ${location.longitude.toStringAsFixed(5)}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ── Step bodies ─────────────────────────────────────────────────────────────
+
+  Widget _buildEnterpriseSelectionBody() {
+    if (_isLoadingEnterprises) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_enterpriseError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_enterpriseError!, textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 16),
+              AppButton.primary(label: 'Кайра жүктөө', onPressed: _fetchEnterprises),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final enterprises = _enterprises ?? [];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Category badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(widget.selectedCategory.icon, size: 16, color: AppColors.primary),
+                const SizedBox(width: 6),
+                Text(widget.selectedCategory.name,
+                    style: const TextStyle(color: AppColors.primary, fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          if (enterprises.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Column(
+                  children: [
+                    Icon(Icons.store_outlined, size: 56, color: Colors.grey[300]),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Бул категорияда ишканалар жок',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 15),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else ...[
+            Text(
+              'Ишкана тандаңыз',
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.05,
+              ),
+              itemCount: enterprises.length,
+              itemBuilder: (_, i) {
+                final ent = enterprises[i];
+                return GestureDetector(
+                  onTap: () => _onEnterpriseSelected(ent),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.store, color: AppColors.primary, size: 22),
+                        ),
+                        const Spacer(),
+                        Text(
+                          ent.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (ent.address != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            ent.address!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // Manual / other enterprise button
+          AppButton.secondary(
+            label: enterprises.isEmpty ? 'Адрести кол менен киргизүү' : 'Башка ишкана',
+            onPressed: _onManualEnterprise,
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnterpriseMenuBody(OrderCreateState state) {
+    if (_isLoadingMenu) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_menuError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_menuError!, textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 16),
+              AppButton.primary(
+                label: 'Кайра жүктөө',
+                onPressed: () => _fetchEnterpriseMenu(_cubit.state.enterpriseId!),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_enterpriseMenu == null || !_enterpriseMenu!.hasProducts) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.menu_book_outlined, size: 56, color: Colors.grey[300]),
+              const SizedBox(height: 12),
+              Text(
+                'Меню азырынча жок',
+                style: TextStyle(color: Colors.grey[600], fontSize: 16),
+              ),
+              const SizedBox(height: 24),
+              AppButton.secondary(
+                label: 'Башка ишкана',
+                onPressed: _onManualEnterprise,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final menu = _enterpriseMenu!;
+    final ent = menu.enterprise;
+    final itemsTotal = _buildItemsTotal();
+
+    return Column(
+      children: [
+        // Enterprise info bar
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.primarySoft,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.store, color: AppColors.primary, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(ent.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    if (ent.address != null)
+                      Text(ent.address!,
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  ],
+                ),
+              ),
+              if (ent.phone != null)
+                Icon(Icons.phone, color: Colors.grey[400], size: 18),
+            ],
+          ),
+        ),
+
+        // Product list
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+            itemCount: menu.categories.length,
+            itemBuilder: (_, catIdx) {
+              final cat = menu.categories[catIdx];
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 24.0),
-                    child: Row(
-                      children: [
-                        _buildStepIndicator(
-                          step: 1,
-                          label: 'Жөнөтүү',
-                          isActive:
-                              state.currentStep ==
-                              OrderCreateStep.pickupLocation,
-                          isCompleted: state.currentStep.index > 0,
-                        ),
-                        const Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8.0),
-                            child: Divider(thickness: 2),
-                          ),
-                        ),
-                        _buildStepIndicator(
-                          step: 2,
-                          label: 'Жеткирүү',
-                          isActive:
-                              state.currentStep ==
-                              OrderCreateStep.deliveryLocation,
-                          isCompleted: state.currentStep.index > 1,
-                        ),
-                        const Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8.0),
-                            child: Divider(thickness: 2),
-                          ),
-                        ),
-                        _buildStepIndicator(
-                          step: 3,
-                          label: 'Сыпаттама',
-                          isActive:
-                              state.currentStep == OrderCreateStep.description,
-                          isCompleted: state.currentStep.index > 2,
-                        ),
-                      ],
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text(
+                      cat.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primarySoft,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          widget.selectedCategory.icon,
-                          size: 24,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          widget.selectedCategory.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  if (state.currentStep == OrderCreateStep.pickupLocation) ...[
-                    Text(
-                      'Кайдан жөнөтүүнүн адресси',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Адресс киргизиңиз же картадан тандаңыз',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                    ),
-                    const SizedBox(height: 24),
-                    AppTextField(
-                      controller: _fromAddressController,
-                      hintText: 'Мисал: ул. Жибек Жолу, 123',
-                      prefixIcon: const Icon(Icons.location_on),
-                    ),
-                    // Address suggestions
-                    if (_fromAddressController.text.isNotEmpty)
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(8),
-                            bottomRight: Radius.circular(8),
-                          ),
-                          border: Border.all(color: AppColors.border),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        child: ListView(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children:
-                              _getFilteredSuggestions(
-                                    _fromAddressController.text,
-                                  )
-                                  .take(5)
-                                  .map(
-                                    (address) => ListTile(
-                                      dense: true,
-                                      leading: const Icon(
-                                        Icons.location_on,
-                                        size: 16,
-                                        color: AppColors.primary,
-                                      ),
-                                      title: Text(
-                                        address,
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                      onTap: () {
-                                        setState(() {
-                                          _fromAddressController.text = address;
-                                        });
-                                      },
-                                    ),
-                                  )
-                                  .toList(),
-                        ),
-                      ),
-                    const SizedBox(height: 20),
-                    CompactMapPreview(
-                      initialLocation:
-                          _selectedFromLocation ??
-                          const LatLng(
-                            latitude: 40.060518,
-                            longitude: 70.819638,
-                          ),
-                      initialAddress: _fromAddressController.text.isNotEmpty
-                          ? _fromAddressController.text
-                          : null,
-                      label: 'Картадан координата тандаңыз',
-                      onLocationChanged: (location, address) {
-                        setState(() {
-                          _selectedFromLocation = location;
-                          // Координатаны гана сактайбыз, адресс текстик поля өзгөрбөйт
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    if (_selectedFromLocation != null)
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.green.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.my_location,
-                              color: Colors.green.shade700,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Координата: ${_selectedFromLocation!.latitude.toStringAsFixed(6)}, ${_selectedFromLocation!.longitude.toStringAsFixed(6)}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ] else if (state.currentStep ==
-                      OrderCreateStep.deliveryLocation) ...[
-                    Text(
-                      'Кайда жеткирүүнүн адресси',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Адресс киргизиңиз же картадан тандаңыз',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                    ),
-                    const SizedBox(height: 24),
-                    AppTextField(
-                      controller: _toAddressController,
-                      hintText: 'Мисал: пр. Чуй, 456',
-                      prefixIcon: const Icon(Icons.location_on),
-                    ),
-                    // Address suggestions
-                    if (_toAddressController.text.isNotEmpty)
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(8),
-                            bottomRight: Radius.circular(8),
-                          ),
-                          border: Border.all(color: AppColors.border),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        child: ListView(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children:
-                              _getFilteredSuggestions(_toAddressController.text)
-                                  .take(5)
-                                  .map(
-                                    (address) => ListTile(
-                                      dense: true,
-                                      leading: const Icon(
-                                        Icons.location_on,
-                                        size: 16,
-                                        color: AppColors.primary,
-                                      ),
-                                      title: Text(
-                                        address,
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                      onTap: () {
-                                        setState(() {
-                                          _toAddressController.text = address;
-                                        });
-                                      },
-                                    ),
-                                  )
-                                  .toList(),
-                        ),
-                      ),
-                    const SizedBox(height: 20),
-                    CompactMapPreview(
-                      initialLocation:
-                          _selectedToLocation ??
-                          const LatLng(
-                            latitude: 40.070518,
-                            longitude: 70.829638,
-                          ),
-                      initialAddress: _toAddressController.text.isNotEmpty
-                          ? _toAddressController.text
-                          : null,
-                      label: 'Картадан координата тандаңыз',
-                      onLocationChanged: (location, address) {
-                        setState(() {
-                          _selectedToLocation = location;
-                          // Координатаны гана сактайбыз, адресс текстик поля өзгөрбөйт
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    if (_selectedToLocation != null)
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.my_location,
-                              color: Colors.blue.shade700,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Координата: ${_selectedToLocation!.latitude.toStringAsFixed(6)}, ${_selectedToLocation!.longitude.toStringAsFixed(6)}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ] else if (state.currentStep ==
-                      OrderCreateStep.description) ...[
-                    Text(
-                      'Заказ сыпаттамасы',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // From Address Display
-                    Container(
+                  ...cat.products.map((product) {
+                    final qty = state.selectedItems[product.id] ?? 0;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.green.shade200),
+                        color: qty > 0 ? AppColors.primarySoft : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: qty > 0 ? AppColors.primary : AppColors.border,
+                          width: qty > 0 ? 1.5 : 1,
+                        ),
                       ),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.location_on,
-                            color: Colors.green.shade700,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Кайдан:',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
+                                Text(product.name,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600, fontSize: 14)),
+                                if (product.description != null &&
+                                    product.description!.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    product.description!,
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.grey[600]),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
+                                ],
                                 const SizedBox(height: 4),
                                 Text(
-                                  _fromAddressController.text.isNotEmpty
-                                      ? _fromAddressController.text
-                                      : 'Адрес тандалган жок',
+                                  '${product.price.toStringAsFixed(0)} сом',
                                   style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.black87,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
                                   ),
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // To Address Display
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.shade200),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.location_on,
-                            color: Colors.blue.shade700,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Кайда:',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _toAddressController.text.isNotEmpty
-                                      ? _toAddressController.text
-                                      : 'Адрес тандалган жок',
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.black87,
-                                  ),
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Distance Display
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.primarySoft,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.route,
-                            color: AppColors.primary,
-                            size: 24,
                           ),
                           const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          // Quantity control
+                          if (qty == 0)
+                            GestureDetector(
+                              onTap: () => _cubit.addItem(product.id),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text('+',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                            )
+                          else
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                GestureDetector(
+                                  onTap: () => _cubit.removeItem(product.id),
+                                  child: Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[200],
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.remove, size: 18),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 32,
+                                  child: Text('$qty',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold, fontSize: 16)),
+                                ),
+                                GestureDetector(
+                                  onTap: () => _cubit.addItem(product.id),
+                                  child: Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.add,
+                                        size: 18, color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              );
+            },
+          ),
+        ),
+
+        // Bottom bar: total + continue
+        if (state.totalItemCount > 0)
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${state.totalItemCount} товар',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                    Text(
+                      '${itemsTotal.toStringAsFixed(0)} сом',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: AppColors.primary),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: AppButton.primary(
+                    label: 'Улантуу →',
+                    onPressed: _goToNextStep,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPickupLocationBody() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Жөнөтүүнүн адресси',
+            style: Theme.of(context).textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Товар кайдан алынат?',
+            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+          ),
+          const SizedBox(height: 20),
+          _buildAddressField(
+            controller: _fromAddressController,
+            hint: 'Мисал: ул. Жибек Жолу, 123',
+            label: 'Жөнөтүүнүн адресси',
+          ),
+          const SizedBox(height: 16),
+          _buildMapSection(
+            location: _selectedFromLocation,
+            mapLabel: 'Картадан тандаңыз',
+            onChanged: (loc, addr) => setState(() => _selectedFromLocation = loc),
+            locationColor: Colors.green,
+          ),
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveryLocationBody() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Жеткирүүнүн адресси',
+            style: Theme.of(context).textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Кайда жеткирип берели?',
+            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+          ),
+          const SizedBox(height: 20),
+          _buildAddressField(
+            controller: _toAddressController,
+            hint: 'Мисал: пр. Чуй, 456',
+            label: 'Жеткирүүнүн адресси',
+          ),
+          const SizedBox(height: 16),
+          _buildMapSection(
+            location: _selectedToLocation,
+            mapLabel: 'Картадан тандаңыз',
+            onChanged: (loc, addr) => setState(() => _selectedToLocation = loc),
+            locationColor: Colors.blue,
+          ),
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescriptionBody(OrderCreateState state) {
+    final distKm = state.calculatedDistance;
+    final price = distKm != null ? (80 + distKm * 20) : null;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Route summary
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.green.shade200),
+            ),
+            child: Column(
+              children: [
+                _buildAddressRow(
+                  icon: Icons.location_on,
+                  label: 'Кайдан',
+                  value: _fromAddressController.text.isNotEmpty
+                      ? _fromAddressController.text
+                      : '—',
+                  color: Colors.green.shade700,
+                ),
+                Divider(color: Colors.green.shade200, height: 16),
+                _buildAddressRow(
+                  icon: Icons.flag,
+                  label: 'Кайда',
+                  value: _toAddressController.text.isNotEmpty
+                      ? _toAddressController.text
+                      : '—',
+                  color: Colors.blue.shade700,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Distance + price
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Аралык', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      Text(
+                        distKm != null ? '${distKm.toStringAsFixed(1)} км' : 'Эсептелүүдө...',
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      ),
+                    ],
+                  ),
+                ),
+                if (price != null)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('Болжолдуу баа',
+                          style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      Text(
+                        '${price.toStringAsFixed(0)} сом',
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Service fee notice
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.amber.shade700),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Заказ жаратылганда 5 сом сервис акы алынат',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Enterprise path: selected items list
+          if (state.isEnterprisePath && _enterpriseMenu != null) ...[
+            Text('Тандалган товарлар',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                children: [
+                  for (final cat in _enterpriseMenu!.categories)
+                    for (final product in cat.products)
+                      if ((state.selectedItems[product.id] ?? 0) > 0)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
                             children: [
-                              const Text(
-                                'Эсептелген аралык',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
+                              Expanded(
+                                child: Text(
+                                  '${product.name} × ${state.selectedItems[product.id]}',
+                                  style: const TextStyle(fontSize: 14),
                                 ),
                               ),
                               Text(
-                                '${state.calculatedDistance?.toStringAsFixed(1) ?? '0.0'} км',
+                                '${(product.price * (state.selectedItems[product.id] ?? 0)).toStringAsFixed(0)} сом',
                                 style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
-                                ),
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary),
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Сыпаттама',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    AppTextField(
-                      controller: _descriptionController,
-                      maxLines: 5,
-                      hintText: 'Заказ тууралуу төлөкөлүнүп жаз...',
-                    ),
-                  ],
-                  const SizedBox(height: 32),
+                        ),
+                  const Divider(),
                   Row(
                     children: [
-                      Expanded(
-                        child: AppButton.secondary(
-                          onPressed: _goToPreviousStep,
-                          label: 'Артка',
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: AppButton.primary(
-                          onPressed: state.isLoading
-                              ? null
-                              : (state.currentStep ==
-                                        OrderCreateStep.description
-                                    ? _createOrder
-                                    : _goToNextStep),
-                          isLoading: state.isLoading,
-                          label:
-                              state.currentStep == OrderCreateStep.description
-                              ? 'Түзүү'
-                              : 'Улантуу',
-                        ),
+                      const Text('Жалпы:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      Text(
+                        '${_buildItemsTotal().toStringAsFixed(0)} сом',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, color: AppColors.primary),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            Text('Кошумча маалымат (милдеттүү эмес)',
+                style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            AppTextField(
+              controller: _notesController,
+              maxLines: 3,
+              hintText: 'Жеткирүүчүгө эскертүү, унутпачу...',
+            ),
+          ]
+
+          // Manual path: description required
+          else ...[
+            Text(
+              'Сыпаттама (милдеттүү)',
+              style: Theme.of(context).textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            AppTextField(
+              controller: _notesController,
+              maxLines: 5,
+              hintText: 'Эмне жеткирип берүү керек? Деталдуу жаз...',
+            ),
+          ],
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddressRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+              Text(value,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Bottom navigation bar ───────────────────────────────────────────────────
+
+  Widget? _buildBottomBar(OrderCreateState state) {
+    // Enterprise selection: no bar (cards navigate directly; manual button at bottom of scroll)
+    if (state.currentStep == OrderCreateStep.enterpriseSelection) return null;
+
+    // Enterprise menu: custom bottom bar rendered inside the body
+    if (state.currentStep == OrderCreateStep.enterpriseMenu) return null;
+
+    final isLast = state.currentStep == OrderCreateStep.description;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: AppButton.secondary(
+              onPressed: _goToPreviousStep,
+              label: '← Артка',
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: AppButton.primary(
+              onPressed: state.isLoading
+                  ? null
+                  : (isLast ? _createOrder : _goToNextStep),
+              isLoading: state.isLoading,
+              label: isLast ? 'Заказ түзүү' : 'Улантуу →',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Build ───────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider.value(
+      value: _cubit,
+      child: BlocBuilder<OrderCreateCubit, OrderCreateState>(
+        builder: (context, state) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            appBar: AppBar(
+              title: Text(_appBarTitle(state)),
+              leading: BackButton(onPressed: _goToPreviousStep),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(60),
+                child: _buildStepIndicator(state),
+              ),
+            ),
+            body: switch (state.currentStep) {
+              OrderCreateStep.enterpriseSelection => _buildEnterpriseSelectionBody(),
+              OrderCreateStep.enterpriseMenu => _buildEnterpriseMenuBody(state),
+              OrderCreateStep.pickupLocation => _buildPickupLocationBody(),
+              OrderCreateStep.deliveryLocation => _buildDeliveryLocationBody(),
+              OrderCreateStep.description => _buildDescriptionBody(state),
+            },
+            bottomNavigationBar: _buildBottomBar(state),
           );
         },
       ),
     );
   }
 
-  Widget _buildStepIndicator({
-    required int step,
-    required String label,
-    required bool isActive,
-    required bool isCompleted,
-  }) {
-    return Column(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: isActive
-                ? AppColors.primary
-                : (isCompleted ? AppColors.accent2 : Colors.grey[300]),
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: isCompleted
-                ? const Icon(Icons.check, color: Colors.white, size: 20)
-                : Text(
-                    step.toString(),
-                    style: TextStyle(
-                      color: isActive ? Colors.white : Colors.grey[600],
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isActive ? AppColors.primary : Colors.grey[600],
-            fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
+
 }

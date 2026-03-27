@@ -1,5 +1,4 @@
-// ignore_for_file: avoid_print
-
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,12 +6,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/utils/distance_calculator.dart';
 import '../../orders/data/order_api.dart';
 import '../../orders/data/order_status_audit_entry.dart';
 import '../data/order_model.dart';
+import '../../profile/data/user_api.dart';
 import 'order_chat_page.dart';
 import 'cubit/order_detail_cubit.dart';
 import 'cubit/order_detail_state.dart';
@@ -43,6 +44,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   bool _isStatusAuditLoading = false;
   List<OrderStatusAuditEntry> _statusAudit = const [];
   String? _statusAuditError;
+  Position? _userPosition;
+  Timer? _locationTimer;
+  final _userApi = UserApi();
 
   @override
   void initState() {
@@ -51,15 +55,47 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       initialOrder: widget.order,
       orderApi: OrderApi(),
     );
-    print('DEBUG OrderDetailPage.initState: isCourier=${widget.isCourier}');
-    print(
-      'DEBUG initial order: courierName=${widget.order.courierName}, userName=${widget.order.userName}',
-    );
     _reloadCurrentOrderAndUnread();
+    if (widget.isCourier) {
+      _fetchUserLocation();
+      _startLocationTimer();
+    }
+  }
+
+  Future<void> _fetchUserLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return;
+      }
+      if (permission == LocationPermission.deniedForever) return;
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      if (mounted) setState(() => _userPosition = pos);
+    } catch (_) {}
+  }
+
+  void _startLocationTimer() {
+    _locationTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
+      final token = widget.token;
+      if (token == null) return;
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+        if (mounted) setState(() => _userPosition = pos);
+        await _userApi.updateLocation(token, pos.latitude, pos.longitude);
+      } catch (_) {}
+    });
   }
 
   @override
   void dispose() {
+    _locationTimer?.cancel();
     _detailCubit.close();
     super.dispose();
   }
@@ -119,6 +155,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         return 'Күтүүдө';
       case 'ACCEPTED':
         return 'Кабыл алынды';
+      case 'READY':
+        return 'Даяр';
       case 'IN_TRANSIT':
       case 'ON_THE_WAY':
       case 'PICKED_UP':
@@ -276,18 +314,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           // Local variables from state for easier access
           final currentOrder = state.currentOrder;
           final isUpdatingStatus = state.isUpdatingStatus;
-
-          print('DEBUG OrderDetailPage.build:');
-          print('  currentOrder: id=${currentOrder.id}');
-          print('  isCourier=${widget.isCourier}');
-          print('  courierName=${currentOrder.courierName}');
-          print('  userName=${currentOrder.userName}');
-          print(
-            '  Will show courier info: ${!widget.isCourier && currentOrder.courierName != null}',
-          );
-          print(
-            '  Will show user info: ${widget.isCourier && currentOrder.userName != null}',
-          );
 
           final statusColor = _getCardColor(currentOrder.status);
           final accentColor = _getAccentColorForStatus(currentOrder.status);
@@ -521,7 +547,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       icon: Icons.currency_exchange,
                       label: 'Баланасы',
                       value:
-                          '${currentOrder.estimatedPrice?.toStringAsFixed(2)} сом',
+                          '${currentOrder.estimatedPrice?.round()} сом',
                       color: accentColor,
                     ),
                   const SizedBox(height: 24),
@@ -649,16 +675,50 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       currentOrder.toLatitude != null &&
                       currentOrder.toLongitude != null) ...[
                     const SizedBox(height: 12),
-                    SizedBox(
-                      height: 220,
-                      child: _OrderRouteMap(
-                        from: LatLng(
-                          latitude: currentOrder.fromLatitude!,
-                          longitude: currentOrder.fromLongitude!,
-                        ),
-                        to: LatLng(
-                          latitude: currentOrder.toLatitude!,
-                          longitude: currentOrder.toLongitude!,
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => _FullScreenMapPage(
+                            from: LatLng(
+                              latitude: currentOrder.fromLatitude!,
+                              longitude: currentOrder.fromLongitude!,
+                            ),
+                            to: LatLng(
+                              latitude: currentOrder.toLatitude!,
+                              longitude: currentOrder.toLongitude!,
+                            ),
+                          ),
+                        ));
+                      },
+                      child: SizedBox(
+                        height: 220,
+                        child: Stack(
+                          children: [
+                            _OrderRouteMap(
+                              from: LatLng(
+                                latitude: currentOrder.fromLatitude!,
+                                longitude: currentOrder.fromLongitude!,
+                              ),
+                              to: LatLng(
+                                latitude: currentOrder.toLatitude!,
+                                longitude: currentOrder.toLongitude!,
+                              ),
+                              userLat: _userPosition?.latitude,
+                              userLon: _userPosition?.longitude,
+                            ),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.fullscreen, size: 20, color: Colors.black87),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -1883,159 +1943,63 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   Future<void> _showRatingDialog(Order currentOrder) async {
     final commentController = TextEditingController();
-    int selectedRating = 5;
-    bool isSubmitting = false;
-
     try {
-      await showDialog<void>(
+      await showModalBottomSheet<void>(
         context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) {
-          return StatefulBuilder(
-            builder: (context, setDialogState) {
-              return AlertDialog(
-                title: Text(
-                  widget.isCourier
-                      ? 'Колдонуучунун маданияттуулугун баалаңыз'
-                      : 'Курьердин ишин баалаңыз',
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.5),
+        builder: (sheetCtx) => _RatingBottomSheet(
+          isCourier: widget.isCourier,
+          onSubmit: (rating, comment) async {
+            if (widget.isCourier) {
+              await _orderApi.rateUser(
+                token: widget.token!,
+                orderId: currentOrder.id,
+                rating: rating,
+                comment: comment,
+              );
+            } else {
+              await _orderApi.rateCourier(
+                token: widget.token!,
+                orderId: currentOrder.id,
+                rating: rating,
+                comment: comment,
+              );
+            }
+          },
+          onSuccess: () {
+            if (!mounted) return;
+            setState(() => _isOrderAlreadyRated = true);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(5, (index) {
-                        final starValue = index + 1;
-                        return IconButton(
-                          onPressed: isSubmitting
-                              ? null
-                              : () {
-                                  setDialogState(() {
-                                    selectedRating = starValue;
-                                  });
-                                },
-                          icon: Icon(
-                            starValue <= selectedRating
-                                ? Icons.star
-                                : Icons.star_border,
-                            color: Colors.amber,
-                          ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: commentController,
-                      enabled: !isSubmitting,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        hintText: 'Комментарий (кааласаңыз)',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
+                    Icon(Icons.check_circle_rounded,
+                        color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text('Баалоо ийгиликтүү сакталды'),
                   ],
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: isSubmitting
-                        ? null
-                        : () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Кийин'),
-                  ),
-                  ElevatedButton(
-                    onPressed: isSubmitting
-                        ? null
-                        : () async {
-                            final messenger = ScaffoldMessenger.of(context);
-
-                            setDialogState(() {
-                              isSubmitting = true;
-                            });
-
-                            try {
-                              if (widget.isCourier) {
-                                await _orderApi.rateUser(
-                                  token: widget.token!,
-                                  orderId: currentOrder.id,
-                                  rating: selectedRating,
-                                  comment: commentController.text,
-                                );
-                              } else {
-                                await _orderApi.rateCourier(
-                                  token: widget.token!,
-                                  orderId: currentOrder.id,
-                                  rating: selectedRating,
-                                  comment: commentController.text,
-                                );
-                              }
-
-                              if (!mounted || !dialogContext.mounted) return;
-                              setState(() {
-                                _isOrderAlreadyRated = true;
-                              });
-                              Navigator.of(dialogContext).pop();
-                              messenger.showSnackBar(
-                                const SnackBar(
-                                  content: Text('Баалоо ийгиликтүү сакталды'),
-                                  backgroundColor: AppColors.accent4,
-                                ),
-                              );
-                            } catch (error) {
-                              if (!mounted || !dialogContext.mounted) return;
-
-                              final message = error.toString().replaceFirst(
-                                'Exception: ',
-                                '',
-                              );
-                              if (message.toLowerCase().contains(
-                                'already rated',
-                              )) {
-                                setState(() {
-                                  _isOrderAlreadyRated = true;
-                                });
-                                Navigator.of(dialogContext).pop();
-                                messenger.showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Бул заказ буга чейин бааланган',
-                                    ),
-                                  ),
-                                );
-                                return;
-                              }
-
-                              setDialogState(() {
-                                isSubmitting = false;
-                              });
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(message),
-                                  backgroundColor: AppColors.accent5,
-                                ),
-                              );
-                            }
-                          },
-                    child: isSubmitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Баалоо'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
+                backgroundColor: AppColors.accent4,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            );
+          },
+          onAlreadyRated: () {
+            if (!mounted) return;
+            setState(() => _isOrderAlreadyRated = true);
+          },
+        ),
       );
     } finally {
-      // Safely dispose the controller, catching any errors
       try {
         commentController.dispose();
-      } catch (_) {
-        // Ignore errors on disposal - controller may have been disposed by widget disposal
-      }
+      } catch (_) {}
     }
   }
 
@@ -2143,37 +2107,132 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 }
 
-class _OrderRouteMap extends StatefulWidget {
-  const _OrderRouteMap({required this.from, required this.to});
+class _FullScreenMapPage extends StatefulWidget {
+  const _FullScreenMapPage({required this.from, required this.to});
 
   final LatLng from;
   final LatLng to;
+
+  @override
+  State<_FullScreenMapPage> createState() => _FullScreenMapPageState();
+}
+
+class _FullScreenMapPageState extends State<_FullScreenMapPage> {
+  Position? _userPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLocation();
+  }
+
+  Future<void> _fetchLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return;
+      }
+      if (permission == LocationPermission.deniedForever) return;
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      if (mounted) setState(() => _userPosition = pos);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          _OrderRouteMap(
+            from: widget.from,
+            to: widget.to,
+            userLat: _userPosition?.latitude,
+            userLon: _userPosition?.longitude,
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 8,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.arrow_back, size: 22, color: Colors.black87),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderRouteMap extends StatefulWidget {
+  const _OrderRouteMap({
+    required this.from,
+    required this.to,
+    this.userLat,
+    this.userLon,
+    this.courierLat,
+    this.courierLon,
+  });
+
+  final LatLng from;
+  final LatLng to;
+  final double? userLat;
+  final double? userLon;
+  final double? courierLat;
+  final double? courierLon;
 
   @override
   State<_OrderRouteMap> createState() => _OrderRouteMapState();
 }
 
 class _OrderRouteMapState extends State<_OrderRouteMap> {
-  late final WebViewController _controller;
+  late WebViewController _controller;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _buildController();
+  }
+
+  @override
+  void didUpdateWidget(_OrderRouteMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userLat != widget.userLat ||
+        oldWidget.userLon != widget.userLon ||
+        oldWidget.courierLat != widget.courierLat ||
+        oldWidget.courierLon != widget.courierLon) {
+      _buildController();
+    }
+  }
+
+  void _buildController() {
+    _isLoading = true;
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (_) {
-            if (mounted) {
-              setState(() => _isLoading = false);
-            }
+            if (mounted) setState(() => _isLoading = false);
           },
         ),
       )
       ..loadRequest(
         Uri.dataFromString(
-          _buildHtml(widget.from, widget.to),
+          _buildHtml(widget.from, widget.to, widget.userLat, widget.userLon,
+              widget.courierLat, widget.courierLon),
           mimeType: 'text/html',
           encoding: Encoding.getByName('utf-8'),
         ),
@@ -2197,9 +2256,28 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
     );
   }
 
-  String _buildHtml(LatLng from, LatLng to) {
+  String _buildHtml(LatLng from, LatLng to, double? userLat, double? userLon,
+      [double? courierLat, double? courierLon]) {
     final centerLat = (from.latitude + to.latitude) / 2;
     final centerLon = (from.longitude + to.longitude) / 2;
+    final hasUser = userLat != null && userLon != null;
+    final userPlacemark = hasUser
+        ? '''
+      var userPos = [$userLat, $userLon];
+      map.geoObjects.add(new ymaps.Placemark(userPos,
+        { hintContent: 'Менин жайгашкан жерим' },
+        { preset: 'islands#blueCircleDotIcon' }
+      ));'''
+        : '';
+    final hasCourier = courierLat != null && courierLon != null;
+    final courierPlacemark = hasCourier
+        ? '''
+      var courierPos = [$courierLat, $courierLon];
+      map.geoObjects.add(new ymaps.Placemark(courierPos,
+        { hintContent: 'Курьер' },
+        { preset: 'islands#orangeDeliveryIcon' }
+      ));'''
+        : '';
 
     return '''
 <!DOCTYPE html>
@@ -2228,17 +2306,272 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
       map.geoObjects.add(new ymaps.Placemark(from, { hintContent: 'Чыгаруу' }, { preset: 'islands#greenDotIcon' }));
       map.geoObjects.add(new ymaps.Placemark(to, { hintContent: 'Жеткирүү' }, { preset: 'islands#redDotIcon' }));
       map.geoObjects.add(new ymaps.Polyline([from, to], {}, { strokeColor: '#1E88E5', strokeWidth: 4, opacity: 0.8 }));
+      $userPlacemark
+      $courierPlacemark
 
+      var boundsPoints = [new ymaps.Placemark(from), new ymaps.Placemark(to)];
       map.setBounds(new ymaps.GeoObjectCollection(null, {
-        geoObjects: [
-          new ymaps.Placemark(from),
-          new ymaps.Placemark(to)
-        ]
+        geoObjects: boundsPoints
       }).getBounds(), { checkZoomRange: true, zoomMargin: 24 });
     });
   </script>
 </body>
 </html>
   ''';
+  }
+}
+
+// ─── Rating Bottom Sheet ─────────────────────────────────────────────────────
+
+class _RatingBottomSheet extends StatefulWidget {
+  const _RatingBottomSheet({
+    required this.isCourier,
+    required this.onSubmit,
+    required this.onSuccess,
+    required this.onAlreadyRated,
+  });
+
+  final bool isCourier;
+  final Future<void> Function(int rating, String comment) onSubmit;
+  final VoidCallback onSuccess;
+  final VoidCallback onAlreadyRated;
+
+  @override
+  State<_RatingBottomSheet> createState() => _RatingBottomSheetState();
+}
+
+class _RatingBottomSheetState extends State<_RatingBottomSheet> {
+  int _selectedRating = 0;
+  bool _isSubmitting = false;
+  final _commentCtrl = TextEditingController();
+
+  static const _labels = ['Жаман', 'Начар', 'Жакшы', 'Абдан жакшы', 'Мыкты!'];
+  static const _starColor = Color(0xFFFFB800);
+
+  @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_selectedRating == 0 || _isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await widget.onSubmit(_selectedRating, _commentCtrl.text.trim());
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      widget.onSuccess();
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      if (msg.toLowerCase().contains('already rated')) {
+        Navigator.of(context).pop();
+        widget.onAlreadyRated();
+        return;
+      }
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg),
+        backgroundColor: AppColors.accent5,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE0E0E0),
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Icon
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: _starColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.star_rounded, color: _starColor, size: 34),
+          ),
+          const SizedBox(height: 16),
+
+          // Title
+          Text(
+            widget.isCourier
+                ? 'Колдонуучуну баалаңыз'
+                : 'Курьерди баалаңыз',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1A1A2E),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            widget.isCourier
+                ? 'Колдонуучунун маданияттуулугу кандай болду?'
+                : 'Курьердин кызматы кандай болду?',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF7B7B93)),
+          ),
+          const SizedBox(height: 28),
+
+          // Stars
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (i) {
+              final val = i + 1;
+              final filled = val <= _selectedRating;
+              return GestureDetector(
+                onTap: _isSubmitting
+                    ? null
+                    : () {
+                        setState(() => _selectedRating = val);
+                      },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutBack,
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Transform.scale(
+                    scale: filled ? 1.15 : 1.0,
+                    child: Icon(
+                      filled ? Icons.star_rounded : Icons.star_outline_rounded,
+                      size: 44,
+                      color: filled ? _starColor : const Color(0xFFD0D0D0),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+
+          // Label
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _selectedRating > 0
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      _labels[_selectedRating - 1],
+                      key: ValueKey(_selectedRating),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _starColor,
+                      ),
+                    ),
+                  )
+                : const SizedBox(height: 34, key: ValueKey(0)),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Comment field
+          TextField(
+            controller: _commentCtrl,
+            enabled: !_isSubmitting,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Комментарий жазыңыз (милдеттүү эмес)',
+              hintStyle:
+                  const TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+              filled: true,
+              fillColor: const Color(0xFFF7F7F9),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Buttons
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed:
+                      _isSubmitting ? null : () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    side: const BorderSide(color: Color(0xFFE0E0E0)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    foregroundColor: const Color(0xFF7B7B93),
+                  ),
+                  child: const Text('Кийин',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  decoration: BoxDecoration(
+                    color: _selectedRating > 0
+                        ? AppColors.primary
+                        : const Color(0xFFD0D0D0),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: _selectedRating > 0 ? _submit : null,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        child: Center(
+                          child: _isSubmitting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Жиберүү',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

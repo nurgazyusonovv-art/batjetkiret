@@ -292,11 +292,6 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                                       (order.status == 'cancelled' ||
                                           order.status == 'completed');
 
-                                  // Debug log
-                                  print(
-                                    'Order #${order.id}: status="${order.status}", isCourier=${state.isCourier}, canDelete=$canDelete',
-                                  );
-
                                   return _HistoryOrderCard(
                                     order: order,
                                     isCourier: state.isCourier,
@@ -401,7 +396,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${totalAmount.toStringAsFixed(2)} сом',
+                  '${totalAmount.round()} сом',
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 16,
@@ -778,7 +773,7 @@ class _HistoryOrderCard extends StatelessWidget {
                   style: const TextStyle(color: AppColors.textSecondary),
                 ),
                 Text(
-                  '${order.estimatedPrice?.toStringAsFixed(2) ?? '0.00'} сом',
+                  '${order.estimatedPrice?.round() ?? 0} сом',
                   style: TextStyle(
                     color: accentColor,
                     fontWeight: FontWeight.bold,

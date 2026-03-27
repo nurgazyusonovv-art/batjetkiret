@@ -36,7 +36,7 @@ class SplashScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               const Text(
-                'BatJetkiret',
+                'Batken Express',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 34,

@@ -28,7 +28,7 @@ export default function LoginPage() {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <h1>BATJETKIRET</h1>
+          <h1>BATKEN EXPRESS</h1>
           <p>Admin Panel</p>
         </div>
 

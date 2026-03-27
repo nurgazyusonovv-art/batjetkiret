@@ -1,13 +1,9 @@
-// ignore_for_file: use_build_context_synchronously, deprecated_member_use
-
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'dart:convert';
 import '../../../core/utils/distance_calculator.dart';
 import 'map_picker.dart';
 
-/// Compact map preview widget - small embedded map that opens full MapPickerWidget on tap
-/// Shows selected location with address and coordinates
+/// Compact map location selector — shows selected address info and opens
+/// full MapPickerWidget on tap. No embedded WebView to avoid platform issues.
 class CompactMapPreview extends StatefulWidget {
   final LatLng? initialLocation;
   final String? initialAddress;
@@ -27,123 +23,14 @@ class CompactMapPreview extends StatefulWidget {
 }
 
 class _CompactMapPreviewState extends State<CompactMapPreview> {
-  late WebViewController _webViewController;
   LatLng? _selectedLocation;
   String? _selectedAddress;
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _selectedLocation = widget.initialLocation ?? const LatLng(latitude: 40.060518, longitude: 70.819638);
-    _selectedAddress = widget.initialAddress ?? 'Тандаңыз';
-    _initWebView();
-  }
-
-  void _initWebView() {
-    _webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.white)
-      ..addJavaScriptChannel(
-        'FlutterMap',
-        onMessageReceived: (JavaScriptMessage message) {
-          // We don't handle clicks in preview mode
-        },
-      )
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (String url) {
-            setState(() => _isLoading = false);
-            if (_selectedLocation != null) {
-              _moveToLocation(_selectedLocation!);
-            }
-          },
-        ),
-      )
-      ..loadRequest(Uri.dataFromString(_getHtmlContent(), mimeType: 'text/html', encoding: Encoding.getByName('utf-8')));
-  }
-
-  void _moveToLocation(LatLng location) {
-    try {
-      _webViewController.runJavaScript(
-        'if (typeof moveToLocation !== "undefined") { moveToLocation(${location.latitude}, ${location.longitude}); }',
-      );
-      _updateMarker(location);
-    } catch (e) {
-      // Ignore JavaScript errors during initialization
-    }
-  }
-
-  void _updateMarker(LatLng location) {
-    try {
-      _webViewController.runJavaScript(
-        'if (typeof updateMarker !== "undefined") { updateMarker(${location.latitude}, ${location.longitude}); }',
-      );
-    } catch (e) {
-      // Ignore JavaScript errors during initialization
-    }
-  }
-
-  String _getHtmlContent() {
-    final lat = _selectedLocation?.latitude ?? 40.060518;
-    final lon = _selectedLocation?.longitude ?? 70.819638;
-    
-    return '''
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU" type="text/javascript"></script>
-    <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; }
-        #map { width: 100%; height: 100%; }
-    </style>
-</head>
-<body>
-    <div id="map"></div>
-    <script type="text/javascript">
-        let myMap;
-        let placemark;
-        
-        ymaps.ready(init);
-        
-        function init() {
-            myMap = new ymaps.Map("map", {
-                center: [$lat, $lon],
-                zoom: 13,
-                controls: []
-            });
-            
-            // Initial marker
-            updateMarker($lat, $lon);
-        }
-        
-        function moveToLocation(lat, lon) {
-            if (myMap) {
-                myMap.setCenter([lat, lon], 13, {
-                    duration: 300
-                });
-            }
-        }
-        
-        function updateMarker(lat, lon) {
-            if (myMap) {
-                if (placemark) {
-                    myMap.geoObjects.remove(placemark);
-                }
-                placemark = new ymaps.Placemark([lat, lon], {
-                    hintContent: 'Жайгашкан жер'
-                }, {
-                    preset: 'islands#redDotIcon'
-                });
-                myMap.geoObjects.add(placemark);
-            }
-        }
-    </script>
-</body>
-</html>
-    ''';
+    _selectedLocation = widget.initialLocation;
+    _selectedAddress = widget.initialAddress;
   }
 
   Future<void> _openFullMap() async {
@@ -153,9 +40,7 @@ class _CompactMapPreviewState extends State<CompactMapPreview> {
           initialLocation: _selectedLocation,
           initialAddress: _selectedAddress,
           title: widget.label,
-          onLocationSelected: (location, address) {
-            // Callback handled in pop
-          },
+          onLocationSelected: (location, address) {},
         ),
         fullscreenDialog: true,
       ),
@@ -164,23 +49,21 @@ class _CompactMapPreviewState extends State<CompactMapPreview> {
     if (result != null && mounted) {
       final location = result['location'] as LatLng;
       final address = result['address'] as String;
-
       setState(() {
         _selectedLocation = location;
         _selectedAddress = address;
       });
-
-      _moveToLocation(location);
       widget.onLocationChanged(location, address);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasLocation = _selectedLocation != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Label
         if (widget.label != null) ...[
           Text(
             widget.label!,
@@ -191,114 +74,92 @@ class _CompactMapPreviewState extends State<CompactMapPreview> {
           const SizedBox(height: 12),
         ],
 
-        // Map preview container
         GestureDetector(
           onTap: _openFullMap,
           child: Container(
-            height: 200,
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
+              color: hasLocation ? Colors.blue.shade50 : Colors.grey.shade50,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.grey[300]!,
+                color: hasLocation ? Colors.blue.shade300 : Colors.grey.shade300,
                 width: 1.5,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
-            child: Stack(
+            child: Row(
               children: [
-                // Map WebView
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: WebViewWidget(controller: _webViewController),
-                ),
-
-                // Loading indicator
-                if (_isLoading)
-                  Container(
-                    color: Colors.black12,
-                    child: const Center(child: CircularProgressIndicator()),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: hasLocation ? Colors.blue : Colors.grey.shade400,
+                    shape: BoxShape.circle,
                   ),
-
-                // Click to edit overlay
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.edit, color: Colors.white, size: 16),
-                        const SizedBox(width: 4),
-                        const Text(
-                          'Өзгөрт',
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hasLocation
+                            ? (_selectedAddress ?? 'Адрес белгисиз')
+                            : 'Адрес тандалган жок',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: hasLocation
+                              ? Colors.black87
+                              : Colors.grey.shade600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (hasLocation) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_selectedLocation!.latitude.toStringAsFixed(4)}, ${_selectedLocation!.longitude.toStringAsFixed(4)}',
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
                           ),
                         ),
                       ],
-                    ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.map, color: Colors.white, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        hasLocation ? 'Өзгөрт' : 'Тандоо',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ),
-
-        // Address info below map
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[200]!),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Тандалган адрес:',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _selectedAddress ?? 'Адрес тандалган жок',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (_selectedLocation != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  '${_selectedLocation!.latitude.toStringAsFixed(4)}, ${_selectedLocation!.longitude.toStringAsFixed(4)}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ],
           ),
         ),
       ],

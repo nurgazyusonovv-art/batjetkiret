@@ -55,6 +55,19 @@ def mark_read(
 
 
 
+@router.post("/mark-all-read")
+def mark_all_read(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    db.query(Notification).filter(
+        Notification.user_id == current_user.id,
+        Notification.is_read == False,
+    ).update({"is_read": True})
+    db.commit()
+    return {"message": "All marked as read"}
+
+
 @router.post("/support-message")
 def send_support_message(
     title: str,

@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
+import base64
 import hashlib
-import os
-import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -9,17 +8,20 @@ from app.api.deps import get_db, get_current_user
 from app.models.topup import TopUpRequest
 from app.models.user import User
 from app.models.notification import Notification
-from app.core.config import settings
 
 
 class TopupRequestBody(BaseModel):
     amount: float
     screenshot_url: str
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads", "screenshots")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 router = APIRouter(prefix="/topup", tags=["TopUp"])
+
+_MIME_BY_EXT = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".png": "image/png", ".webp": "image/webp",
+    ".gif": "image/gif", ".heic": "image/heic", ".heif": "image/heif",
+}
+_ALLOWED_TYPES = set(_MIME_BY_EXT.values())
 
 
 @router.post("/upload-screenshot")
@@ -27,26 +29,23 @@ async def upload_screenshot(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
 ):
-    allowed_types = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"}
-    allowed_exts = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif"}
+    import os
     ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
-
-    content_ok = (file.content_type or "").lower() in allowed_types
-    ext_ok = ext in allowed_exts
-    if not content_ok and not ext_ok:
+    mime = (file.content_type or "").lower()
+    if mime not in _ALLOWED_TYPES and ext not in _MIME_BY_EXT:
         raise HTTPException(status_code=400, detail="Only image files are allowed")
-    filename = f"{uuid.uuid4().hex}{ext}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
 
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:  # 10 MB limit
         raise HTTPException(status_code=400, detail="File too large (max 10MB)")
 
-    with open(file_path, "wb") as f:
-        f.write(content)
+    # Resolve mime type from extension if content_type is missing
+    if mime not in _ALLOWED_TYPES:
+        mime = _MIME_BY_EXT.get(ext, "image/jpeg")
 
-    url = f"{settings.BASE_URL}/uploads/screenshots/{filename}"
-    return {"url": url}
+    encoded = base64.b64encode(content).decode("ascii")
+    data_url = f"data:{mime};base64,{encoded}"
+    return {"url": data_url}
 
 
 @router.post("/request")

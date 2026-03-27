@@ -9,9 +9,7 @@ import 'order_status_audit_entry.dart';
 
 class OrderApi {
   String _mapServerDetail(String detail) {
-    if (detail == 'Insufficient balance') {
-      return 'Балансыңыз жетишсиз. Заказ үчүн баланста 10 сомдон көп болушу керек жана 5 сом сервис акы алынат.';
-    }
+    // Backend already returns Kyrgyz error messages — pass them through as-is.
     return detail;
   }
 
@@ -68,25 +66,29 @@ class OrderApi {
     double? toLatitude,
     double? toLongitude,
     required double distanceKm,
+    int? enterpriseId,
   }) async {
     try {
+      final body = <String, dynamic>{
+        'category': category,
+        'description': description,
+        'from_address': fromAddress,
+        'to_address': toAddress,
+        'from_latitude': fromLatitude,
+        'from_longitude': fromLongitude,
+        'to_latitude': toLatitude,
+        'to_longitude': toLongitude,
+        'distance_km': distanceKm,
+      };
+      if (enterpriseId != null) body['enterprise_id'] = enterpriseId;
+
       final response = await http.post(
         Uri.parse('${AppConfig.baseUrl}/orders/'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'category': category,
-          'description': description,
-          'from_address': fromAddress,
-          'to_address': toAddress,
-          'from_latitude': fromLatitude,
-          'from_longitude': fromLongitude,
-          'to_latitude': toLatitude,
-          'to_longitude': toLongitude,
-          'distance_km': distanceKm,
-        }),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -97,8 +99,8 @@ class OrderApi {
         throw Exception('Сессия бүттү. Кайра кириңиз.');
       }
 
-      final dynamic body = jsonDecode(response.body);
-      final detail = body is Map<String, dynamic> ? body['detail'] : null;
+      final dynamic decoded = jsonDecode(response.body);
+      final detail = decoded is Map<String, dynamic> ? decoded['detail'] : null;
       if (detail is String) {
         throw Exception(_mapServerDetail(detail));
       }
@@ -777,23 +779,26 @@ class OrderApi {
   }
 
   Uri buildChatWebSocketUri({required int chatId, required String token}) {
-    final base = Uri.parse(AppConfig.baseUrl);
-    final wsScheme = base.scheme == 'https' ? 'wss' : 'ws';
-
-    return base.replace(
-      scheme: wsScheme,
-      path: '/chat/ws/$chatId',
-      queryParameters: {'token': token},
-    );
+    return _buildWebSocketUri(path: '/chat/ws/$chatId', token: token);
   }
 
   Uri buildMyOrdersWebSocketUri({required String token}) {
+    return _buildWebSocketUri(path: '/orders/ws/my', token: token);
+  }
+
+  Uri _buildWebSocketUri({required String path, required String token}) {
     final base = Uri.parse(AppConfig.baseUrl);
     final wsScheme = base.scheme == 'https' ? 'wss' : 'ws';
 
-    return base.replace(
+    // Some runtimes may surface an invalid explicit ':0' port.
+    // Keep only real custom ports and let ws/wss defaults apply otherwise.
+    final int? port = (base.hasPort && base.port > 0) ? base.port : null;
+
+    return Uri(
       scheme: wsScheme,
-      path: '/orders/ws/my',
+      host: base.host,
+      port: port,
+      path: path,
       queryParameters: {'token': token},
     );
   }

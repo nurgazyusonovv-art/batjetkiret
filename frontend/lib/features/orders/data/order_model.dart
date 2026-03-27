@@ -19,6 +19,8 @@ class Order {
   final int? userId;
   final String createdAt;
   final String? verificationCode;
+  final double? courierLatitude;
+  final double? courierLongitude;
 
   Order({
     required this.id,
@@ -41,6 +43,8 @@ class Order {
     this.userId,
     required this.createdAt,
     this.verificationCode,
+    this.courierLatitude,
+    this.courierLongitude,
   });
 
   String get categoryName {
@@ -88,6 +92,8 @@ class Order {
     int? userId,
     String? createdAt,
     String? verificationCode,
+    double? courierLatitude,
+    double? courierLongitude,
   }) {
     return Order(
       id: id ?? this.id,
@@ -110,18 +116,22 @@ class Order {
       userId: userId ?? this.userId,
       createdAt: createdAt ?? this.createdAt,
       verificationCode: verificationCode ?? this.verificationCode,
+      courierLatitude: courierLatitude ?? this.courierLatitude,
+      courierLongitude: courierLongitude ?? this.courierLongitude,
     );
   }
 
   factory Order.fromJson(Map<String, dynamic> json) {
     final rawStatus = (json['status'] ?? '').toString();
-    final normalizedStatus = switch (rawStatus) {
+    final normalizedStatus = switch (rawStatus.toUpperCase()) {
       'WAITING_COURIER' => 'pending',
       'ACCEPTED' => 'accepted',
+      'READY' => 'ready',
       'IN_TRANSIT' => 'in_transit',
       'ON_THE_WAY' => 'in_transit',
-      'COMPLETED' => 'completed',
+      'PICKED_UP' => 'picked_up',
       'DELIVERED' => 'delivered',
+      'COMPLETED' => 'completed',
       'CANCELLED' => 'cancelled',
       _ => rawStatus.toLowerCase(),
     };
@@ -152,6 +162,8 @@ class Order {
       userId: user?['id'],
       createdAt: (json['created_at'] ?? '').toString(),
       verificationCode: json['verification_code'],
+      courierLatitude: (json['courier_latitude'] as num?)?.toDouble(),
+      courierLongitude: (json['courier_longitude'] as num?)?.toDouble(),
     );
   }
 }

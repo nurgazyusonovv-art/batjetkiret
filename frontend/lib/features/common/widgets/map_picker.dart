@@ -69,8 +69,9 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
     try {
       final data = jsonDecode(message);
       if (data['type'] == 'click') {
-        final lat = data['lat'] as double;
-        final lon = data['lon'] as double;
+        final lat = (data['lat'] as num?)?.toDouble();
+        final lon = (data['lon'] as num?)?.toDouble();
+        if (lat == null || lon == null) return;
         _handleMapTap(LatLng(latitude: lat, longitude: lon));
       }
     } catch (e) {
@@ -276,23 +277,28 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
               child: Row(
                 children: [
                   _cityButton(
-                    'Бишкек',
-                    const LatLng(latitude: 42.8746, longitude: 74.5698),
+                    'Баткен',
+                    const LatLng(latitude: 40.060518, longitude: 70.819638),
                   ),
                   const SizedBox(width: 8),
                   _cityButton(
                     'Ош',
-                    const LatLng(latitude: 42.4872, longitude: 72.7981),
+                    const LatLng(latitude: 40.5283, longitude: 72.7985),
                   ),
                   const SizedBox(width: 8),
                   _cityButton(
-                    'Нарын',
-                    const LatLng(latitude: 41.4289, longitude: 76.1665),
+                    'Кадамжай',
+                    const LatLng(latitude: 40.1358, longitude: 71.7325),
                   ),
                   const SizedBox(width: 8),
                   _cityButton(
-                    'Жалал-Абад',
-                    const LatLng(latitude: 41.9328, longitude: 74.4968),
+                    'Сулюкта',
+                    const LatLng(latitude: 39.9353, longitude: 69.5680),
+                  ),
+                  const SizedBox(width: 8),
+                  _cityButton(
+                    'Исфана',
+                    const LatLng(latitude: 39.8455, longitude: 69.5285),
                   ),
                 ],
               ),

@@ -106,10 +106,10 @@ class ProfileCubit extends Cubit<ProfileState> {
   }
 
   Future<void> toggleOnlineStatus(String token, bool isOnline) async {
+    // Update backend first; only persist locally if it succeeds.
     await _userApi.updateProfile(token, isOnline: isOnline);
-    // Save courier online status to Hive for persistence
     await HiveService.saveCourierOnlineStatus(isOnline);
-    await loadUser(token);
+    await loadUser(token, silent: true);
   }
 
   Future<void> loadCourierStats(String token, {bool silent = false}) async {

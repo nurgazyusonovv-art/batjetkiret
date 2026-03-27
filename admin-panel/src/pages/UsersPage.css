@@ -2,6 +2,35 @@
   max-width: 1600px;
 }
 
+.users-page .page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.create-user-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.create-user-btn:hover {
+  background: #5a67d8;
+}
+
 .role-filters {
   display: flex;
   gap: 8px;

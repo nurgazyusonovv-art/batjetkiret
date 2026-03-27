@@ -37,6 +37,9 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
   StreamSubscription<dynamic>? _ordersSocketSubscription;
   Timer? _ordersSocketReconnectTimer;
   bool _isOrdersSocketConnected = false;
+  int _ordersSocketRetryCount = 0;
+  static const int _maxSocketRetries = 10;
+  static const int _baseRetrySeconds = 2;
 
   @override
   void initState() {
@@ -75,6 +78,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       if (!mounted) return;
       setState(() {
         _isOrdersSocketConnected = true;
+        _ordersSocketRetryCount = 0;
       });
     } catch (_) {
       _onOrdersSocketClosed();
@@ -88,8 +92,14 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       _isOrdersSocketConnected = false;
     });
 
+    if (_ordersSocketRetryCount >= _maxSocketRetries) return;
+
+    // Exponential backoff: 2s, 4s, 8s, … capped at 64s
+    final delaySec = _baseRetrySeconds << _ordersSocketRetryCount.clamp(0, 5);
+    _ordersSocketRetryCount++;
+
     _ordersSocketReconnectTimer?.cancel();
-    _ordersSocketReconnectTimer = Timer(const Duration(seconds: 2), () {
+    _ordersSocketReconnectTimer = Timer(Duration(seconds: delaySec), () {
       _connectOrdersSocket();
     });
   }
@@ -133,9 +143,9 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       unreadByOrderId[orderId] =
           (normalized['unread_count'] as num?)?.toInt() ?? 0;
 
-      final status = normalized['status']?.toString();
-      if (status != null && status.isNotEmpty) {
-        statusByOrderId[orderId] = status;
+      final rawStatus = normalized['status']?.toString();
+      if (rawStatus != null && rawStatus.isNotEmpty) {
+        statusByOrderId[orderId] = _normalizeStatus(rawStatus);
       }
     }
 
@@ -202,8 +212,36 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
     });
   }
 
+  static String _normalizeStatus(String raw) {
+    switch (raw.toUpperCase()) {
+      case 'WAITING_COURIER': return 'pending';
+      case 'ACCEPTED': return 'accepted';
+      case 'READY': return 'ready';
+      case 'IN_TRANSIT': return 'in_transit';
+      case 'ON_THE_WAY': return 'in_transit';
+      case 'PICKED_UP': return 'picked_up';
+      case 'DELIVERED': return 'delivered';
+      case 'COMPLETED': return 'completed';
+      case 'CANCELLED': return 'cancelled';
+      default: return raw.toLowerCase();
+    }
+  }
+
+  static bool _isActiveStatus(String status) =>
+      status == 'accepted' ||
+      status == 'ready' ||
+      status == 'in_transit' ||
+      status == 'delivered' ||
+      status == 'picked_up';
+
   List<Order> _filteredOrders(OrdersState state) {
-    var orders = state.orders.where(_isOrderFromToday).toList();
+    // Show all orders, but filter completed ones to today only
+    var orders = state.orders.where((o) {
+      if (o.status == 'completed' || o.status == 'cancelled') {
+        return _isOrderFromToday(o);
+      }
+      return true; // always show active/pending orders regardless of date
+    }).toList();
 
     // Apply advanced filters first
     if (_advancedFilterOptions != null &&
@@ -220,16 +258,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
           return orders.where((o) => o.status == 'completed').toList();
         case OrderFilterStatus.active:
         default:
-          return orders
-              .where(
-                (o) =>
-                    o.status == 'accepted' ||
-                    o.status == 'in_transit' ||
-                    o.status == 'delivered' ||
-                    o.status == 'on_the_way' ||
-                    o.status == 'picked_up',
-              )
-              .toList();
+          return orders.where((o) => _isActiveStatus(o.status)).toList();
       }
     }
 
@@ -241,16 +270,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       case OrderFilterStatus.pending:
         return orders.where((o) => o.status == 'pending').toList();
       case OrderFilterStatus.active:
-        return orders
-            .where(
-              (o) =>
-                  o.status == 'accepted' ||
-                  o.status == 'in_transit' ||
-                  o.status == 'delivered' ||
-                  o.status == 'on_the_way' ||
-                  o.status == 'picked_up',
-            )
-            .toList();
+        return orders.where((o) => _isActiveStatus(o.status)).toList();
       case OrderFilterStatus.completed:
         return orders.where((o) => o.status == 'completed').toList();
       default:
@@ -769,7 +789,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                         ),
                       ),
                       Text(
-                        '${order.estimatedPrice?.toStringAsFixed(2)} сом',
+                        '${order.estimatedPrice?.round()} сом',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -871,6 +891,15 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
         label = 'Күтүүде';
         break;
       case 'accepted':
+        bgColor = AppColors.accent3;
+        textColor = Colors.white;
+        label = 'Кабыл алынды';
+        break;
+      case 'ready':
+        bgColor = const Color(0xFF059669);
+        textColor = Colors.white;
+        label = 'Даяр';
+        break;
       case 'in_transit':
       case 'picked_up':
         bgColor = AppColors.accent3;
@@ -916,6 +945,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       case 'pending':
         return AppColors.accent2;
       case 'accepted':
+      case 'ready':
       case 'in_transit':
       case 'picked_up':
         return AppColors.accent3;
@@ -934,6 +964,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       case 'pending':
         return AppColors.accent2;
       case 'accepted':
+      case 'ready':
       case 'in_transit':
       case 'picked_up':
         return AppColors.accent3;

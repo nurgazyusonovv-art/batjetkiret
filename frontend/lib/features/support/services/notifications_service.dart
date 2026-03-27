@@ -2,16 +2,22 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../../core/config.dart';
 
-class NotificationsService {
+class SupportNotificationsService {
   Future<void> sendNotificationToAdmin({
     required String title,
     required String message,
+    required String token,
   }) async {
     try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/notifications/support-message').replace(
+        queryParameters: {'title': title, 'message': message},
+      );
       final response = await http.post(
-        Uri.parse('${AppConfig.baseUrl}/notifications'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'title': title, 'message': message}),
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {

@@ -13,6 +13,11 @@ class UpdateUserRequest(BaseModel):
     address: str | None = None
     is_online: bool | None = None
 
+
+class UpdateLocationRequest(BaseModel):
+    latitude: float
+    longitude: float
+
 @router.get("/me")
 def get_me(
     db: Session = Depends(get_db),
@@ -73,3 +78,18 @@ def update_me(
         "is_online": user.is_online,
         "created_at": user.created_at,
     }
+
+
+@router.put("/me/location")
+def update_location(
+    request: UpdateLocationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.current_latitude = request.latitude
+    user.current_longitude = request.longitude
+    db.commit()
+    return {"ok": True}

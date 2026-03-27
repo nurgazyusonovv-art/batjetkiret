@@ -66,6 +66,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Төлөм скриншотун жүктөө үчүн</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Төлөм скриншотун тартуу үчүн</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Бул колдонмо сиздин жайгашкан жериңизди аныктоо үчүн колдонот</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

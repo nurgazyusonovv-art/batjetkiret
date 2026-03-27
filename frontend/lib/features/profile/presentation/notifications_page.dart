@@ -43,6 +43,22 @@ class _NotificationsPageState extends State<NotificationsPage> {
       setState(() {
         _notifications = items;
       });
+
+      // Mark all as read silently after displaying
+      await _userApi.markAllNotificationsRead(widget.token);
+      if (!mounted) return;
+      setState(() {
+        _notifications = _notifications
+            .map((n) => NotificationItem(
+                  id: n.id,
+                  title: n.title,
+                  message: n.message,
+                  chatId: n.chatId,
+                  isRead: true,
+                  createdAt: n.createdAt,
+                ))
+            .toList();
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {

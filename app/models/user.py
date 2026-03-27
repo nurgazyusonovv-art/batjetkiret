@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Numeric, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, Numeric, DateTime, Float
 from sqlalchemy.sql import func
 from app.core.database import Base
 
@@ -21,5 +21,8 @@ class User(Base):
     is_online = Column(Boolean, default=False)
     is_enterprise = Column(Boolean, default=False)  # enterprise portal user
     enterprise_id = Column(Integer, nullable=True)  # linked enterprise (no FK to avoid circular dep)
+
+    current_latitude = Column(Float, nullable=True)
+    current_longitude = Column(Float, nullable=True)
 
     created_at = Column(DateTime, server_default=func.now())

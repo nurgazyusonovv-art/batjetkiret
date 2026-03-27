@@ -1,6 +1,6 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:frontend/core/theme/app_colors.dart';
 import 'package:frontend/core/widgets/app_button.dart';
@@ -8,11 +8,9 @@ import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart'
 import 'package:frontend/features/profile/presentation/notifications_page.dart';
 import 'package:frontend/features/profile/presentation/transaction_history_page.dart';
 import 'package:frontend/features/common/screens/send_notification_screen.dart';
+import 'package:frontend/features/profile/presentation/topup_page.dart';
 
 import '../data/user_model.dart';
-
-// ignore: unused_import
-import 'dart:async';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, required this.token, required this.onLogout});
@@ -30,7 +28,6 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    // Load courier stats when page loads if user is courier
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = _profileCubit.state.user;
       if (user != null && user.isCourier) {
@@ -45,404 +42,296 @@ class _ProfilePageState extends State<ProfilePage> {
     final User? user = profileState.user;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF4F6F8),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: const Text(
+          'Профиль',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => NotificationsPage(token: widget.token),
+                    ),
+                  );
+                  if (mounted) _profileCubit.loadUser(widget.token, silent: true);
+                },
+              ),
+              if (profileState.unreadNotifications > 0)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    child: Text(
+                      profileState.unreadNotifications > 99
+                          ? '99+'
+                          : '${profileState.unreadNotifications}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: AppColors.textPrimary),
+            onPressed: _showEditBottomSheet,
+          ),
+        ],
+      ),
       body: profileState.isLoading
           ? const Center(child: CircularProgressIndicator())
           : profileState.error != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 48,
-                      color: AppColors.danger,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      profileState.error!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.danger),
-                    ),
-                    const SizedBox(height: 16),
-                    AppButton.primary(
-                      onPressed: () => _profileCubit.loadUser(widget.token),
-                      label: 'Кайра жүктөө',
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : user != null
-          ? SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    // Clean minimalist header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user.name,
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              user.isCourier
-                                  ? 'Курьер'
-                                  : user.isAdmin
-                                  ? 'Администратор'
-                                  : 'Колдонуучу',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        // Quick action icons in header
-                        Row(
-                          children: [
-                            IconButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        NotificationsPage(token: widget.token),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(
-                                Icons.notifications_outlined,
-                                color: AppColors.textPrimary,
-                              ),
-                              tooltip: 'Билдирүүлөр',
-                            ),
-                            IconButton(
-                              onPressed: _showEditDialog,
-                              icon: const Icon(
-                                Icons.edit_outlined,
-                                color: AppColors.textPrimary,
-                              ),
-                              tooltip: 'Өзгөртүү',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    // Balance card - prominent but minimal
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.primary.withOpacity(0.1),
-                        ),
-                      ),
+              ? _buildError(profileState.error!)
+              : user != null
+                  ? SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Баланс',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.5,
-                            ),
+                          _buildProfileCard(
+                            user,
+                            ratingAverage: profileState.ratingAverage,
+                            ratingTotal: profileState.ratingTotalReviews,
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${user.balance.toStringAsFixed(0)} сом',
-                            style: const TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
-                              letterSpacing: -1,
-                            ),
-                          ),
+                          const SizedBox(height: 14),
+                          _buildBalanceCard(user),
+                          const SizedBox(height: 14),
+                          if (user.isCourier) ...[
+                            _buildStatsSection(profileState),
+                            const SizedBox(height: 14),
+                          ],
+                          _buildMenuSection(user),
+                          const SizedBox(height: 14),
+                          _buildLogoutButton(),
+                          const SizedBox(height: 24),
                         ],
                       ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Courier Statistics Card - shown only for couriers
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 260),
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeIn,
-                      child: user.isCourier
-                          ? Column(
-                              key: const ValueKey('courier-stats-visible'),
-                              children: [
-                                _buildCourierStatsCard(profileState),
-                                const SizedBox(height: 20),
-                              ],
-                            )
-                          : const SizedBox.shrink(
-                              key: ValueKey('courier-stats-hidden'),
-                            ),
-                    ),
-
-                    // Phone info - minimal
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border, width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.textSecondary.withAlpha(20),
-                            ),
-                            child: const Icon(
-                              Icons.phone,
-                              color: AppColors.textSecondary,
-                              size: 16,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Телефон номери',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  user.phone,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Action buttons in clean 2x2 grid
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 1.6,
-                      children: [
-                        _buildActionButton(
-                          icon: Icons.add_card,
-                          label: 'Толуктоо',
-                          onPressed: _showTopupDialog,
-                          isPrimary: true,
-                        ),
-                        _buildActionButton(
-                          icon: Icons.history,
-                          label: 'Тарыхы',
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    TransactionHistoryPage(token: widget.token),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildActionButton(
-                          icon: Icons.mail_outline,
-                          label: 'Админге',
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const SendNotificationScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildActionButton(
-                          icon: Icons.people,
-                          label: 'Достор',
-                          onPressed: () {
-                            // Share action
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Become a courier button (only if not a courier)
-                    if (!user.isCourier) ...[
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            _showBecomeCourierDialog();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accent3,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(Icons.delivery_dining, size: 22),
-                              SizedBox(width: 8),
-                              Text(
-                                'Курьер болуу',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Remove courier status button (only if is a courier)
-                    if (user.isCourier) ...[
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: OutlinedButton(
-                          onPressed: () {
-                            _showRemoveCourierDialog();
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.accent3,
-                            side: BorderSide(
-                              color: AppColors.accent3,
-                              width: 1.5,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(Icons.close, size: 22),
-                              SizedBox(width: 8),
-                              Text(
-                                'Курер болуунду токтоо',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Logout button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: OutlinedButton(
-                        onPressed: _showLogoutDialog,
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: AppColors.danger, width: 1.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Чыгуу',
-                          style: TextStyle(
-                            color: AppColors.danger,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            )
-          : const SizedBox.shrink(),
+                    )
+                  : const SizedBox.shrink(),
     );
   }
 
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+  // ── Profile card ────────────────────────────────────────────────────────────
+
+  Widget _buildProfileCard(User user,
+      {double ratingAverage = 0, int ratingTotal = 0}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
-          title: const Text(
-            'Чыгуу',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Avatar
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.person, color: Colors.white, size: 44),
           ),
-          content: const Text(
-            'Сиз чындап эле чыккыңыз келеби?',
-            style: TextStyle(fontSize: 15),
+          const SizedBox(height: 12),
+          // Name
+          Text(
+            user.name,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text(
-                'Жок',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+          const SizedBox(height: 4),
+          // Phone
+          Text(
+            user.phone,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 10),
+          // ID badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F0F0),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'ID: ${user.uniqueId}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
               ),
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                widget.onLogout();
-              },
+          ),
+          const SizedBox(height: 14),
+          // Rating row
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBF0),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFFFE082)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 20),
+                const SizedBox(width: 6),
+                Text(
+                  ratingTotal > 0
+                      ? ratingAverage.toStringAsFixed(1)
+                      : '—',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF7A5800),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  ratingTotal > 0
+                      ? '$ratingTotal баалоо'
+                      : 'Баалоо жок',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF9E7C00),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Balance card ─────────────────────────────────────────────────────────────
+
+  Widget _buildBalanceCard(User user) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'УЧУРДАГЫ БАЛАНС',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.account_balance_wallet,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _formatBalance(user.balance),
+                style: const TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                  letterSpacing: -1,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(left: 6, bottom: 5),
+                child: Text(
+                  'сом',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TopupPage(token: widget.token),
+                ),
+              ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.danger,
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -450,63 +339,393 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               child: const Text(
-                'Ооба',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                'Балансты толуктоо',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatBalance(double balance) {
+    final intBalance = balance.toInt();
+    if (intBalance >= 1000) {
+      final thousands = intBalance ~/ 1000;
+      final remainder = intBalance % 1000;
+      return '$thousands,${remainder.toString().padLeft(3, '0')}';
+    }
+    return intBalance.toString();
+  }
+
+  // ── Stats section ─────────────────────────────────────────────────────────────
+
+  Widget _buildStatsSection(profileState) {
+    final stats = profileState.courierStats;
+    final isLoading = profileState.isCourierStatsLoading;
+
+    if (isLoading) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (stats == null) return const SizedBox.shrink();
+
+    final todayCompleted = (stats['today_completed_orders'] as num?)?.toInt() ?? 0;
+    final todayEarnings = (stats['today_earnings'] as num?)?.toDouble() ?? 0.0;
+    final totalCompleted = (stats['total_completed_orders'] as num?)?.toInt() ?? 0;
+    final totalEarnings = (stats['total_earnings'] as num?)?.toDouble() ?? 0.0;
+
+    return Column(
+      children: [
+        _buildStatCard(
+          title: 'БҮГҮНКҮ СТАТИСТИКА',
+          items: [
+            _StatItem(
+              icon: Icons.shopping_bag_outlined,
+              value: todayCompleted.toString(),
+              label: 'ЗАКАЗДАР',
+            ),
+            _StatItem(
+              icon: Icons.account_balance_wallet_outlined,
+              value: todayEarnings.toStringAsFixed(0),
+              label: 'ТАПКАН АКЧА (С)',
+            ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 14),
+        _buildStatCard(
+          title: 'ЖАЛПЫ СТАТИСТИКА',
+          items: [
+            _StatItem(
+              icon: Icons.local_shipping_outlined,
+              value: _formatLargeNumber(totalCompleted),
+              label: 'ЖАЛПЫ ЗАКАЗДАР',
+            ),
+            _StatItem(
+              icon: Icons.attach_money,
+              value: _formatLargeNumber(totalEarnings.toInt()),
+              label: 'ЖАЛПЫ КИРЕШЕ',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _formatLargeNumber(int value) {
+    if (value >= 1000) {
+      final thousands = value ~/ 1000;
+      final remainder = value % 1000;
+      return '$thousands,${remainder.toString().padLeft(3, '0')}';
+    }
+    return value.toString();
+  }
+
+  Widget _buildStatCard({required String title, required List<_StatItem> items}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: items.map((item) {
+              return Expanded(
+                child: Container(
+                  margin: EdgeInsets.only(
+                    right: item == items.last ? 0 : 10,
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F6F8),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(item.icon, color: AppColors.primary, size: 22),
+                      const SizedBox(height: 8),
+                      Text(
+                        item.value,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.label,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSecondary,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Menu section ──────────────────────────────────────────────────────────────
+
+  Widget _buildMenuSection(User user) {
+    final items = [
+      _MenuItem(
+        icon: Icons.receipt_long_outlined,
+        label: 'Транзакциялардын тарыхы',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TransactionHistoryPage(token: widget.token),
+          ),
+        ),
+      ),
+      _MenuItem(
+        icon: Icons.support_agent_outlined,
+        label: 'Администраторго жазуу',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SendNotificationScreen(token: widget.token),
+          ),
+        ),
+      ),
+      _MenuItem(
+        icon: Icons.share_outlined,
+        label: 'Достор менен бөлүшүү',
+        onTap: () {},
+      ),
+      _MenuItem(
+        icon: user.isCourier
+            ? Icons.person_off_outlined
+            : Icons.delivery_dining_outlined,
+        label: user.isCourier
+            ? 'Курьер болуунду токтоо'
+            : 'Колдонуучунун режимине өтүү',
+        onTap: user.isCourier ? _showRemoveCourierDialog : _showBecomeCourierDialog,
+      ),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: items.asMap().entries.map((entry) {
+          final i = entry.key;
+          final item = entry.value;
+          final isLast = i == items.length - 1;
+          return Column(
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F6F8),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(item.icon, size: 20, color: AppColors.primary),
+                ),
+                title: Text(
+                  item.label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AppColors.textSecondary,
+                ),
+                onTap: item.onTap,
+              ),
+              if (!isLast)
+                Divider(
+                  height: 1,
+                  indent: 68,
+                  color: const Color(0xFFF0F0F0),
+                ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ── Logout button ──────────────────────────────────────────────────────────────
+
+  Widget _buildLogoutButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton.icon(
+        onPressed: _showLogoutDialog,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFFF0F0),
+          foregroundColor: AppColors.danger,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        icon: Icon(Icons.logout, size: 20, color: AppColors.danger),
+        label: Text(
+          'Чыгуу',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.danger,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Error state ───────────────────────────────────────────────────────────────
+
+  Widget _buildError(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
+            const SizedBox(height: 12),
+            Text(
+              error,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.danger),
+            ),
+            const SizedBox(height: 16),
+            AppButton.primary(
+              onPressed: () => _profileCubit.loadUser(widget.token),
+              label: 'Кайра жүктөө',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Dialogs ────────────────────────────────────────────────────────────────────
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Чыгуу',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+        content: const Text('Сиз чындап эле чыккыңыз келеби?',
+            style: TextStyle(fontSize: 15)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Жок',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 16)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              widget.onLogout();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Ооба',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
     );
   }
 
   void _showBecomeCourierDialog() {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'Курьер болуу',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-          ),
-          content: const Text(
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Курьер болуу',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+        content: const Text(
             'Сиз курьер болууну каалайсызбы? Бул сизге заказдорду кабыл алуу мүмкүнчүлүгүн берет.',
-            style: TextStyle(fontSize: 15),
+            style: TextStyle(fontSize: 15)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Жок',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 16)),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text(
-                'Жок',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-              ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _becomeCourier();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent3,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await _becomeCourier();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent3,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Ооба',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        );
-      },
+            child: const Text('Ооба',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -514,85 +733,58 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       await _profileCubit.becomeCourier(widget.token);
       if (!mounted) return;
-
-      // Load courier stats after becoming a courier
       await _profileCubit.loadCourierStats(widget.token);
       if (!mounted) return;
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Сиз ийгиликтүү курьер болдуңуз! 🎉'),
-          backgroundColor: AppColors.accent3,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Сиз ийгиликтүү курьер болдуңуз! 🎉'),
+        backgroundColor: AppColors.accent3,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
     } catch (error) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: AppColors.accent5,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(error.toString().replaceFirst('Exception: ', '')),
+        backgroundColor: AppColors.danger,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
     }
   }
 
   void _showRemoveCourierDialog() {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Курьер болуунду токтоо',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+        content: const Text(
+            'Курьер статусун алып салуу менен заказдорду кабыл ала албасыз.',
+            style: TextStyle(fontSize: 15)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Жок',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 16)),
           ),
-          title: const Text(
-            'Курер болуунду токтоо',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-          ),
-          content: const Text(
-            'Сиз курер статусун отклонить каалайсызбы? Андан кийин заказдорду кабыл ала албасыз.',
-            style: TextStyle(fontSize: 15),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text(
-                'Жок',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-              ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _removeCourier();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await _removeCourier();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent3,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Ооба',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        );
-      },
+            child: const Text('Ооба',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -600,711 +792,175 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       await _profileCubit.removeCourier(widget.token);
       if (!mounted) return;
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Курер статусу отклонилди'),
-          backgroundColor: AppColors.accent3,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Курьер статусу алынды'),
+        backgroundColor: AppColors.accent3,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
     } catch (error) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: AppColors.accent5,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(error.toString().replaceFirst('Exception: ', '')),
+        backgroundColor: AppColors.danger,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
     }
   }
 
-  void _showTopupDialog() {
-    final user = _profileCubit.state.user;
-    if (user == null) return;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withAlpha(30),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.account_balance_wallet,
-                  color: AppColors.primary,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Балансты толуктоо',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withAlpha(20),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.primary.withAlpha(100),
-                      width: 1,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: const [
-                          Icon(
-                            Icons.info_outline,
-                            size: 18,
-                            color: AppColors.primary,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Сиздин жеке номериңиз',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              user.uniqueId,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'monospace',
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.copy, size: 20),
-                              onPressed: () {
-                                // Copy to clipboard (implement later)
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Номер көчүрүлдү'),
-                                    duration: Duration(seconds: 1),
-                                  ),
-                                );
-                              },
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  '📱 Баланс Telegram бот аркылуу толукталат',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Кадамдар:\n'
-                  '1️⃣ Төмөнкү баскычты басып ботко өтүңүз\n'
-                  '2️⃣ Жеке номериңизди жөнөтүңүз\n'
-                  '3️⃣ Толуктоо суммасын жазыңыз\n'
-                  '4️⃣ Төлөм жүргүзүп скриншот жөнөтүңүз',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text(
-                'Жокко чыгаруу',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                // Open Telegram bot
-                _openTelegramBot();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0088cc), // Telegram blue
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: const Icon(Icons.telegram, size: 20),
-              label: const Text(
-                'Ботко өтүү',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _openTelegramBot() async {
-    // Open Telegram bot
-    const botUsername = 'batjetkiret_bot';
-    final url = Uri.parse('https://t.me/$botUsername');
-
-    try {
-      final canLaunch = await canLaunchUrl(url);
-      if (canLaunch) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Telegram ботту ачуу мүмкүн эмес'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ката: $e'),
-          backgroundColor: AppColors.danger,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-    }
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-    bool isPrimary = false,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isPrimary
-                ? AppColors.primary.withOpacity(0.08)
-                : AppColors.textSecondary.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isPrimary
-                  ? AppColors.primary.withOpacity(0.2)
-                  : AppColors.border,
-              width: 1,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: isPrimary ? AppColors.primary : AppColors.textSecondary,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: isPrimary ? AppColors.primary : AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showEditDialog() {
+  void _showEditBottomSheet() {
     final currentUser = context.read<ProfileCubit>().state.user;
     final nameController = TextEditingController(text: currentUser?.name ?? '');
-    final phoneController = TextEditingController(
-      text: currentUser?.phone ?? '',
-    );
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'Профилин отун-сатын',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Аты',
-                    hintText: 'Өзүнүн атыңызды киргизиңиз',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: phoneController,
-                  decoration: InputDecoration(
-                    labelText: 'Телефон',
-                    hintText: 'Өз номериңизди киргизиңиз',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text(
-                'Жокко чыгаруу',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _updateProfile(nameController.text, phoneController.text);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent3,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Сактоо',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _updateProfile(String name, String phone) async {
-    if (name.isEmpty && phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Өзгөрүүлөр кирип каалаганыңызды сүрөтүңүз'),
-          backgroundColor: AppColors.accent5,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
         ),
-      );
-      return;
-    }
-
-    try {
-      await _profileCubit.updateProfile(
-        widget.token,
-        name: name.isNotEmpty ? name : null,
-        phone: phone.isNotEmpty ? phone : null,
-      );
-      if (!mounted) return;
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Профил ийгиликтүү жаңыланды'),
-          backgroundColor: AppColors.accent3,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: AppColors.accent5,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-    }
-  }
-
-  Widget _buildCourierStatsCard(profileState) {
-    final stats = profileState.courierStats;
-    final isLoading = profileState.isCourierStatsLoading;
-    final DateTime? updatedAt = profileState.courierStatsUpdatedAt;
-
-    if (isLoading) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (stats == null) {
-      return const SizedBox.shrink();
-    }
-
-    final totalCompleted =
-        (stats['total_completed_orders'] as num?)?.toInt() ?? 0;
-    final todayEarnings = (stats['today_earnings'] as num?)?.toDouble() ?? 0.0;
-    final todayCompleted =
-        (stats['today_completed_orders'] as num?)?.toInt() ?? 0;
-    final activeOrders = (stats['active_orders'] as num?)?.toInt() ?? 0;
-    final totalEarnings = (stats['total_earnings'] as num?)?.toDouble() ?? 0.0;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.accent3.withAlpha(40),
-            AppColors.accent4.withAlpha(30),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.accent3.withAlpha(80), width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.accent3,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.analytics_outlined,
-                  color: Colors.white,
-                  size: 24,
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0E0E0),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Курьер статистикасы',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    if (updatedAt != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Акыркы жаңыртуу: ${_formatStatsUpdatedAt(updatedAt)}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
+              const SizedBox(height: 20),
+              const Text(
+                'Профилди өзгөртүү',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Аты-жөнү',
+                  hintText: 'Атыңызды киргизиңиз',
+                  filled: true,
+                  fillColor: const Color(0xFFF4F6F8),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(sheetCtx),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: AppColors.border),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-
-          // Today's stats
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Бүгүн',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
+                      child: Text(
+                        'Жокко чыгаруу',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                    Icon(Icons.today, size: 16, color: AppColors.accent3),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatItem(
-                        'Табыш',
-                        '${todayEarnings.toStringAsFixed(0)} сом',
-                        Icons.payments,
-                        AppColors.accent4,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatItem(
-                        'Заказдар',
-                        todayCompleted.toString(),
-                        Icons.check_circle_outline,
-                        AppColors.accent3,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Total stats
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Жалпы',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Icon(
-                      Icons.history,
-                      size: 16,
-                      color: AppColors.textSecondary,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatItem(
-                        'Жалпы табыш',
-                        '${totalEarnings.toStringAsFixed(0)} сом',
-                        Icons.account_balance_wallet,
-                        AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatItem(
-                        'Аткарылды',
-                        totalCompleted.toString(),
-                        Icons.verified,
-                        AppColors.accent4,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          if (activeOrders > 0) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.accent2.withAlpha(25),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.accent2, width: 1),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.local_shipping,
-                    color: AppColors.accent2,
-                    size: 20,
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Активдүү заказдар: $activeOrders',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.accent2.withAlpha(220),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(sheetCtx);
+                        _updateProfile(nameController.text);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Сактоо',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  String _formatStatsUpdatedAt(DateTime value) {
-    final now = DateTime.now();
-    final isToday =
-        value.year == now.year &&
-        value.month == now.month &&
-        value.day == now.day;
-
-    final hh = value.hour.toString().padLeft(2, '0');
-    final mm = value.minute.toString().padLeft(2, '0');
-    final ss = value.second.toString().padLeft(2, '0');
-
-    if (isToday) {
-      return '$hh:$mm:$ss';
+  Future<void> _updateProfile(String name) async {
+    if (name.isEmpty) return;
+    try {
+      await _profileCubit.updateProfile(widget.token, name: name);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Профил жаңыланды'),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(error.toString().replaceFirst('Exception: ', '')),
+        backgroundColor: AppColors.danger,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
     }
-
-    final dd = value.day.toString().padLeft(2, '0');
-    final mo = value.month.toString().padLeft(2, '0');
-    return '$dd.$mo $hh:$mm';
   }
+}
 
-  Widget _buildStatItem(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 14, color: color.withAlpha(180)),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
+// ── Helper classes ─────────────────────────────────────────────────────────────
+
+class _StatItem {
+  final IconData icon;
+  final String value;
+  final String label;
+  const _StatItem({required this.icon, required this.value, required this.label});
+}
+
+class _MenuItem {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _MenuItem({required this.icon, required this.label, required this.onTap});
 }

@@ -6,6 +6,8 @@ import UsersPage from './pages/UsersPage';
 import TopupPage from './pages/TopupPage';
 import StatsPage from './pages/StatsPage';
 import NotificationsPage from './pages/NotificationsPage';
+import EnterprisesPage from './pages/EnterprisesPage';
+import SupportChatsPage from './pages/SupportChatsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 
@@ -76,6 +78,28 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <NotificationsPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/enterprises"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <EnterprisesPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/support-chats"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <SupportChatsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

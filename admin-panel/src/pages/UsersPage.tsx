@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Search, Ban, CheckCircle, XCircle, Trash2, UserCog, Pencil, Lock } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
-import { userService } from '@/services/users';
-import { User } from '@/types';
-import './UsersPage.css';
+import { userService } from "@/services/users";
+import { User } from "@/types";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Search, CheckCircle, XCircle, Ban, Pencil, UserCog, Lock, Trash2, UserPlus } from "lucide-react";
+import "./UsersPage.css";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -21,12 +21,20 @@ export default function UsersPage() {
   const [editTarget, setEditTarget] = useState<User | null>(null);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
-  const [editRole, setEditRole] = useState<'user' | 'courier' | 'admin'>('user');
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [passwordTarget, setPasswordTarget] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [editRole, setEditRole] = useState<'user' | 'courier' | 'admin'>('user');
+
+  // Create user modal
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createPhone, setCreatePhone] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  const [createRole, setCreateRole] = useState<'user' | 'courier' | 'admin'>('user');
+  const [createLoading, setCreateLoading] = useState(false);
 
   useEffect(() => {
     const role = searchParams.get('role');
@@ -136,7 +144,9 @@ export default function UsersPage() {
     setEditTarget(user);
     setEditName(user.name || '');
     setEditPhone(user.phone || '');
-    setEditRole(user.role);
+    if (user.role === 'user' || user.role === 'courier' || user.role === 'admin') {
+      setEditRole(user.role);
+    }
     setEditModalOpen(true);
   };
 
@@ -238,6 +248,47 @@ export default function UsersPage() {
     }
   };
 
+  const openCreateModal = () => {
+    setCreateName('');
+    setCreatePhone('');
+    setCreatePassword('');
+    setCreateRole('user');
+    setCreateModalOpen(true);
+  };
+
+  const closeCreateModal = () => {
+    if (createLoading) return;
+    setCreateModalOpen(false);
+  };
+
+  const submitCreateUser = async () => {
+    if (!createName.trim() || !createPhone.trim() || !createPassword.trim()) {
+      alert('Бардык талааларды толтуруңуз');
+      return;
+    }
+    if (createPassword.length < 6) {
+      alert('Пароль кеминде 6 белги болушу керек');
+      return;
+    }
+
+    setCreateLoading(true);
+    try {
+      await userService.createUser({
+        name: createName.trim(),
+        phone: createPhone.trim(),
+        password: createPassword,
+        role: createRole,
+      });
+      await loadUsers();
+      closeCreateModal();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      alert(msg || 'Колдонуучу түзүлгөн жок');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -250,8 +301,14 @@ export default function UsersPage() {
   return (
     <div className="users-page">
       <div className="page-header">
-        <h1>Колдонуучулар</h1>
-        <p className="subtitle">Колдонуучуларды башкаруу жана модерация</p>
+        <div>
+          <h1>Колдонуучулар</h1>
+          <p className="subtitle">Колдонуучуларды башкаруу жана модерация</p>
+        </div>
+        <button className="create-user-btn" onClick={openCreateModal}>
+          <UserPlus size={18} />
+          Жаңы колдонуучу
+        </button>
       </div>
 
       <div className="filters-bar">
@@ -569,6 +626,71 @@ export default function UsersPage() {
               </button>
               <button className="save-edit-btn" onClick={submitEditUser} disabled={actionLoading}>
                 {actionLoading ? 'Сакталууда...' : 'Сактоо'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {createModalOpen && (
+        <div className="edit-user-modal-overlay" onClick={closeCreateModal}>
+          <div className="edit-user-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="edit-user-header">
+              <h3>Жаңы колдонуучу кошуу</h3>
+              <button className="close-detail" onClick={closeCreateModal}>×</button>
+            </div>
+
+            <div className="edit-user-form">
+              <label>
+                <span>Аты-жөнү</span>
+                <input
+                  type="text"
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                  placeholder="Аты-жөнүн киргизиңиз"
+                  autoFocus
+                />
+              </label>
+
+              <label>
+                <span>Телефон</span>
+                <input
+                  type="text"
+                  value={createPhone}
+                  onChange={(e) => setCreatePhone(e.target.value)}
+                  placeholder="+996xxxxxxxxx"
+                />
+              </label>
+
+              <label>
+                <span>Пароль</span>
+                <input
+                  type="password"
+                  value={createPassword}
+                  onChange={(e) => setCreatePassword(e.target.value)}
+                  placeholder="Кеминде 6 белги"
+                />
+              </label>
+
+              <label>
+                <span>Роль</span>
+                <select
+                  value={createRole}
+                  onChange={(e) => setCreateRole(e.target.value as 'user' | 'courier' | 'admin')}
+                >
+                  <option value="user">Колдонуучу</option>
+                  <option value="courier">Курьер</option>
+                  <option value="admin">Админ</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="edit-user-actions">
+              <button className="cancel-edit-btn" onClick={closeCreateModal} disabled={createLoading}>
+                Жабуу
+              </button>
+              <button className="save-edit-btn" onClick={submitCreateUser} disabled={createLoading}>
+                {createLoading ? 'Түзүлүүдө...' : 'Кошуу'}
               </button>
             </div>
           </div>

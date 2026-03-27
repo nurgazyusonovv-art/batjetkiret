@@ -42,6 +42,17 @@ post_install do |installer|
       config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
       config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'
       config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      # Fix Swift type metadata crash (swift_getObjectType SIGSEGV) on iOS 26 simulator.
+      # Forces all ObjC/Swift symbols from static libraries to be loaded at startup.
+      config.build_settings['OTHER_LDFLAGS'] = '$(inherited) -ObjC -all_load'
+      # Ensure Swift module maps are generated so type metadata is registered.
+      config.build_settings['DEFINES_MODULE'] = 'YES'
+    end
+  end
+  # Runner-specific linker flags
+  installer.pods_project.targets.select { |t| t.name == 'Runner' }.each do |runner|
+    runner.build_configurations.each do |config|
+      config.build_settings['OTHER_LDFLAGS'] ||= ['$(inherited)']
     end
   end
 end

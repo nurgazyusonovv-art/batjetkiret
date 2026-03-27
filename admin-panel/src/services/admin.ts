@@ -4,9 +4,9 @@ import { TopupRequest, SystemStats, RevenueByDate, PaymentStats } from '@/types'
 interface BackendPendingTopup {
   id: number;
   amount?: number;
-  requested_amount?: number;
   unique_id?: string;
   screenshot_file_id?: string;
+  screenshot_url?: string;
   screenshot_hash?: string;
   status?: string;
   admin_note?: string | null;
@@ -15,6 +15,7 @@ interface BackendPendingTopup {
   user_phone?: string;
   user_name?: string;
   user_id?: number;
+  user_balance?: number;
 }
 
 function mapTopup(item: BackendPendingTopup): TopupRequest {
@@ -22,9 +23,10 @@ function mapTopup(item: BackendPendingTopup): TopupRequest {
     id: item.id,
     user_id: item.user_id ?? 0,
     unique_id: item.unique_id,
-    requested_amount: item.requested_amount ?? item.amount ?? 0,
-    screenshot_hash: item.screenshot_hash ?? item.screenshot_file_id ?? '',
+    amount: item.amount ?? 0,
+    screenshot_hash: item.screenshot_hash ?? item.screenshot_file_id ?? item.screenshot_url ?? '',
     screenshot_file_id: item.screenshot_file_id,
+    screenshot_url: item.screenshot_url,
     status: ((item.status ?? 'PENDING').toLowerCase() as TopupRequest['status']),
     created_at: item.created_at,
     approved_at: item.approved_at ?? null,
@@ -37,7 +39,7 @@ function mapTopup(item: BackendPendingTopup): TopupRequest {
           role: 'user',
           is_active: true,
           is_courier: false,
-          balance: 0,
+          balance: item.user_balance ?? 0,
           created_at: item.created_at,
         }
       : undefined,
@@ -63,13 +65,15 @@ export const topupService = {
     return response.data.file_url;
   },
 
-  async approveTopup(topupId: number): Promise<void> {
-    await api.post(`/admin/topup-requests/${topupId}/approve`);
+  async approveTopup(topupId: number, approvedAmount: number): Promise<void> {
+    await api.post(`/admin/topups/${topupId}/approve`, null, {
+      params: { approved_amount: approvedAmount },
+    });
   },
 
   async rejectTopup(topupId: number, comment: string): Promise<void> {
-    await api.post(`/admin/topup-requests/${topupId}/reject`, null, {
-      params: { admin_note: comment },
+    await api.post(`/admin/topups/${topupId}/reject`, null, {
+      params: { note: comment },
     });
   },
 };

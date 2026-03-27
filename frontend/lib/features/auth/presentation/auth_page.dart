@@ -91,7 +91,7 @@ class _AuthPageState extends State<AuthPage> {
           ),
           const Expanded(
             child: Text(
-              'BATJETKIRET',
+              'BATKEN EXPRESS',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.primary,
@@ -109,7 +109,7 @@ class _AuthPageState extends State<AuthPage> {
     return const Column(
       children: [
         Text(
-          'BATJETKIRET',
+          'BATKEN EXPRESS',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.primary,
@@ -298,13 +298,6 @@ class _AuthPageState extends State<AuthPage> {
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: AppColors.success),
                           ),
-                        ),
-                      ],
-                      if (state.token != null) ...[
-                        const SizedBox(height: 10),
-                        SelectableText(
-                          'Token: ${state.token}',
-                          style: const TextStyle(fontSize: 12),
                         ),
                       ],
                       const SizedBox(height: 14),

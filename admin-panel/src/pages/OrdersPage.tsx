@@ -31,9 +31,11 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [deletingOrderIds, setDeletingOrderIds] = useState<Set<number>>(new Set());
   const [statusDraft, setStatusDraft] = useState<OrderStatus>('WAITING_COURIER');
   const [statusNote, setStatusNote] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
   const [todayOnly, setTodayOnly] = useState(false);
@@ -87,6 +89,7 @@ export default function OrdersPage() {
   ) => {
     try {
       setLoading(true);
+      setLoadError('');
       const data = await orderService.getOrders({
         limit: 100,
         today_only: date || from || to ? false : onlyToday,
@@ -97,6 +100,7 @@ export default function OrdersPage() {
       setOrders(data);
     } catch (err) {
       console.error('Failed to load orders:', err);
+      setLoadError('Заказдарды жүктөө мүмкүн болгон жок. Баракты кайта жүктөп көрүңүз.');
     } finally {
       setLoading(false);
     }
@@ -197,9 +201,10 @@ export default function OrdersPage() {
   };
 
   const quickDeleteOrder = async (orderId: number) => {
+    if (deletingOrderIds.has(orderId)) return;
     if (!confirm(`Заказ #${orderId} базадан толук өчүрүлсүнбү?`)) return;
 
-    setActionLoading(true);
+    setDeletingOrderIds((prev) => new Set(prev).add(orderId));
     try {
       await orderService.deleteOrder(orderId);
       if (selectedOrder?.id === orderId) {
@@ -210,7 +215,11 @@ export default function OrdersPage() {
       console.error('Failed to delete order:', err);
       alert('Заказды өчүрүү мүмкүн болгон жок');
     } finally {
-      setActionLoading(false);
+      setDeletingOrderIds((prev) => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
+      });
     }
   };
 
@@ -275,6 +284,11 @@ export default function OrdersPage() {
 
   return (
     <div className="orders-page">
+      {loadError && (
+        <div className="error-banner">
+          {loadError}
+        </div>
+      )}
       <div className="page-header">
         <h1>Заказдар</h1>
         <p className="subtitle">Бардык заказдарды башкаруу</p>
@@ -484,7 +498,7 @@ export default function OrdersPage() {
                         e.stopPropagation();
                         quickDeleteOrder(order.id);
                       }}
-                      disabled={actionLoading}
+                      disabled={deletingOrderIds.has(order.id)}
                       title="Базадан өчүрүү"
                     >
                       <Trash2 size={16} />

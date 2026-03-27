@@ -26,6 +26,13 @@ interface AdminUserUpdatePayload {
   is_active?: boolean;
 }
 
+interface AdminCreateUserPayload {
+  phone: string;
+  name: string;
+  password: string;
+  role: 'user' | 'courier' | 'admin';
+}
+
 function mapUser(item: BackendAdminUser): User {
   return {
     id: item.id,
@@ -95,5 +102,10 @@ export const userService = {
     await api.post(`/admin/users/${userId}/change-password`, null, {
       params: { new_password: newPassword },
     });
+  },
+
+  async createUser(payload: AdminCreateUserPayload): Promise<User> {
+    const response = await api.post<BackendAdminUser>('/admin/users', payload);
+    return mapUser(response.data);
   },
 };

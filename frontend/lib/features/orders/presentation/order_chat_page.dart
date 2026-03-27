@@ -26,7 +26,8 @@ class OrderChatPage extends StatefulWidget {
   State<OrderChatPage> createState() => _OrderChatPageState();
 }
 
-class _OrderChatPageState extends State<OrderChatPage> {
+class _OrderChatPageState extends State<OrderChatPage>
+    with WidgetsBindingObserver {
   final OrderApi _orderApi = OrderApi();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -45,11 +46,20 @@ class _OrderChatPageState extends State<OrderChatPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeChat();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _markAsRead();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _reconnectTimer?.cancel();
     _socketSubscription?.cancel();
     _socket?.sink.close();

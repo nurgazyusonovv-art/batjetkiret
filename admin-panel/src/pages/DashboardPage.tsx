@@ -281,7 +281,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <div className="topup-amount">
-                  {topup.requested_amount} сом
+                  {topup.amount} сом
                 </div>
               </div>
             ))}
