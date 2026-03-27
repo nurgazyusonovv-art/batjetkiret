@@ -835,6 +835,7 @@ def all_users(
                 "total_orders": int(total_orders or 0),
                 "average_rating": float(average_rating) if average_rating is not None else None,
                 "created_at": u.created_at,
+                "fcm_token": u.fcm_token,
             }
         )
 
@@ -1149,6 +1150,7 @@ def user_detail(
         "completed_orders": int(completed_orders or 0),
         "average_rating": float(average_rating) if average_rating is not None else None,
         "created_at": user.created_at,
+        "fcm_token": user.fcm_token,
         "recent_orders": [
             {
                 "id": o.id,
@@ -1650,3 +1652,19 @@ def admin_delete_intercity_city(
     db.delete(city)
     db.commit()
     return {"ok": True}
+
+
+class TestPushRequest(BaseModel):
+    fcm_token: str
+    title: str = "Test notification"
+    body: str = "Firebase is working!"
+
+
+@router.post("/test-push")
+def test_push(
+    payload: TestPushRequest,
+    admin=Depends(require_admin),
+):
+    """Send a test FCM push to a specific token. Use to verify Firebase Admin SDK is working."""
+    success = fcm_service.send_push(payload.fcm_token, payload.title, payload.body)
+    return {"sent": success}
