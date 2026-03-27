@@ -15,11 +15,20 @@ class _KyrgyzPhoneFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final digits =
-        newValue.text.replaceAll(RegExp(r'\D'), '').substring(
-          0,
-          newValue.text.replaceAll(RegExp(r'\D'), '').length.clamp(0, 9),
-        );
+    final oldDigits = oldValue.text.replaceAll(RegExp(r'\D'), '');
+    final newRaw = newValue.text.replaceAll(RegExp(r'\D'), '');
+
+    String digits;
+    if (newValue.text.length < oldValue.text.length &&
+        newRaw.length == oldDigits.length) {
+      // User deleted a mask character (e.g. ')' or '-') → remove last digit
+      digits = oldDigits.isEmpty
+          ? ''
+          : oldDigits.substring(0, oldDigits.length - 1);
+    } else {
+      digits = newRaw.length > 9 ? newRaw.substring(0, 9) : newRaw;
+    }
+
     final formatted = _applyMask(digits);
     return TextEditingValue(
       text: formatted,
