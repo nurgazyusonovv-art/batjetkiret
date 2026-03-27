@@ -1,7 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { History, Trash2, X, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 import { ordersService, EnterpriseOrder } from '../services/orders';
+import { parseUtc, bishkekDateKey } from '../utils/date';
 import './HistoryPage.css';
+
+const TZ = 'Asia/Bishkek';
 
 const STATUS_LABELS: Record<string, string> = {
   COMPLETED: 'Аяктады',
@@ -17,21 +20,20 @@ const STATUS_COLORS: Record<string, string> = {
 
 // Дата жарлыгын кайтарат: Бүгүн / Кечээ / 12 март жана т.б.
 function dateGroupLabel(dateStr: string): string {
-  const d = new Date(dateStr);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-
-  const isSameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-
-  if (isSameDay(d, today)) return 'Бүгүн';
-  if (isSameDay(d, yesterday)) return 'Кечээ';
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  const d = parseUtc(dateStr);
+  if (!d) return dateStr;
+  const todayKey = new Date().toLocaleDateString('sv-SE', { timeZone: TZ });
+  const yest = new Date();
+  yest.setDate(yest.getDate() - 1);
+  const yesterdayKey = yest.toLocaleDateString('sv-SE', { timeZone: TZ });
+  const key = bishkekDateKey(dateStr);
+  if (key === todayKey) return 'Бүгүн';
+  if (key === yesterdayKey) return 'Кечээ';
+  return d.toLocaleDateString('ru-RU', { timeZone: TZ, day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function getDateKey(dateStr: string): string {
-  return new Date(dateStr).toISOString().slice(0, 10); // YYYY-MM-DD
+  return bishkekDateKey(dateStr); // YYYY-MM-DD in Bishkek time
 }
 
 // Заказдарды датага жараша топтоо
@@ -122,7 +124,7 @@ export default function HistoryPage() {
                 <span>{order.to_address}</span>
               )}
               <span className="ep-history-time">
-                {new Date(order.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                {parseUtc(order.created_at)?.toLocaleTimeString('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
           </div>

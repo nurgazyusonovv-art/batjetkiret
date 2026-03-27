@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { statsService } from '@/services/admin';
 import { RevenueByDate, SystemStats, PaymentStats } from '@/types';
+import { fmtDate } from '@/utils/date';
 import './StatsPage.css';
 
 export default function StatsPage() {
@@ -78,7 +79,7 @@ export default function StatsPage() {
           {revenue.map((point) => {
             const ratio = point.revenue / maxRevenue;
             const height = Math.max(12, Math.round(ratio * 180));
-            const day = new Date(point.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+            const day = fmtDate(point.date).slice(0, 5); // DD.MM
             return (
               <div className="revenue-bar-col" key={point.date}>
                 <div className="revenue-bar-value">{point.revenue} сом</div>

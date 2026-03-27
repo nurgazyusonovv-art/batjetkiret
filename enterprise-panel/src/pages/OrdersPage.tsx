@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Package, Search, X, RefreshCw, CheckCircle, XCircle, Truck } from 'lucide-react';
 import { ordersService, EnterpriseOrder } from '../services/orders';
+import { fmtDate } from '../utils/date';
 import './OrdersPage.css';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -201,7 +202,7 @@ export default function OrdersPage() {
                     </span>
                     <span className="ep-order-price">{Number(order.price).toFixed(0)} сом</span>
                     <span className="ep-order-date">
-                      {new Date(order.created_at).toLocaleDateString('ru-RU')}
+                      {fmtDate(order.created_at)}
                     </span>
                   </div>
                 </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { notificationsService } from '@/services/notifications';
 import { Notification } from '@/types';
 import { Trash2, Check, Send } from 'lucide-react';
+import { fmtDateTime } from '@/utils/date';
 import api from '@/services/api';
 import './NotificationsPage.css';
 
@@ -159,7 +160,7 @@ export default function NotificationsPage() {
                 <div className="notification-header">
                   <h3 className="notification-title">{notif.title}</h3>
                   <span className="notification-time">
-                    {new Date(notif.created_at).toLocaleString('ru-RU')}
+                    {fmtDateTime(notif.created_at)}
                   </span>
                 </div>
                 <p className="notification-message">{notif.message}</p>

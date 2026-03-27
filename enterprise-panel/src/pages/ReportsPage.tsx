@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BarChart2, TrendingUp, Package, CheckCircle, XCircle, Smartphone, Store, UtensilsCrossed, Loader } from 'lucide-react';
 import { ordersService, ReportData } from '../services/orders';
+import { fmtDate } from '../utils/date';
 import './ReportsPage.css';
 
 type Period = 1 | 7 | 30;
@@ -137,7 +138,7 @@ export default function ReportsPage() {
                 <div className="ep-bar-chart">
                   {data.daily.map(day => {
                     const heightPct = maxRevenue > 0 ? (day.revenue / maxRevenue) * 100 : 0;
-                    const dateLabel = new Date(day.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+                    const dateLabel = fmtDate(day.date).slice(0, 5); // DD.MM
                     return (
                       <div key={day.date} className="ep-bar-col">
                         <div className="ep-bar-value">{day.revenue > 0 ? day.revenue.toFixed(0) : ''}</div>
@@ -157,7 +158,7 @@ export default function ReportsPage() {
                 <div className="ep-bar-chart orders-chart">
                   {data.daily.map(day => {
                     const heightPct = maxOrders > 0 ? (day.orders / maxOrders) * 100 : 0;
-                    const dateLabel = new Date(day.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+                    const dateLabel = fmtDate(day.date).slice(0, 5); // DD.MM
                     return (
                       <div key={day.date} className="ep-bar-col">
                         <div className="ep-bar-value">{day.orders > 0 ? day.orders : ''}</div>

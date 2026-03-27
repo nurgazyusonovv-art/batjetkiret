@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Enterprise, EnterpriseCreate, EnterpriseUpdate } from '@/types';
 import { enterprisesService, EnterpriseCredentials } from '@/services/enterprises';
+import { fmtDate } from '@/utils/date';
 import './EnterprisesPage.css';
 
 // ── Yandex Maps types ──────────────────────────────────────────────────────
@@ -467,7 +468,7 @@ export default function EnterprisesPage() {
                         : <span className="ent-status-pending">Күтүүдө</span>
                       }
                     </td>
-                    <td>{e.created_at ? new Date(e.created_at).toLocaleDateString('ru-RU') : '—'}</td>
+                    <td>{fmtDate(e.created_at)}</td>
                     <td>
                       <div className="ent-actions">
                         <button

@@ -3,6 +3,7 @@ import { Search, Filter, Eye, Trash2, CalendarDays, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { orderService } from '@/services/orders';
 import { Order, OrderStatus } from '@/types';
+import { fmtDate, fmtDateTime } from '@/utils/date';
 import './OrdersPage.css';
 
 const ITEMS_PER_PAGE = 10;
@@ -46,11 +47,7 @@ export default function OrdersPage() {
 
   const formatDateLabel = (value: string) => {
     if (!value) return 'Күндү тандаңыз';
-    return new Date(value).toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+    return fmtDate(value);
   };
 
   const clearDateFilters = () => {
@@ -493,7 +490,7 @@ export default function OrdersPage() {
                   </span>
                 </td>
                 <td className="date-cell">
-                  {new Date(order.created_at).toLocaleDateString('ru-RU')}
+                  {fmtDate(order.created_at)}
                 </td>
                 <td>
                   <div className="row-action-buttons">
@@ -574,7 +571,7 @@ export default function OrdersPage() {
                 <p><strong>Маршрут:</strong> {selectedOrder.pickup_location} → {selectedOrder.delivery_location}</p>
                 <p><strong>Дистанция:</strong> {selectedOrder.distance_km.toFixed(2)} км</p>
                 <p><strong>Баасы:</strong> {selectedOrder.estimated_price} сом</p>
-                <p><strong>Түзүлгөн убакыт:</strong> {new Date(selectedOrder.created_at).toLocaleString('ru-RU')}</p>
+                <p><strong>Түзүлгөн убакыт:</strong> {fmtDateTime(selectedOrder.created_at)}</p>
                 <p><strong>Админ эскертмеси:</strong> {selectedOrder.admin_note || '-'}</p>
 
                 <div className="detail-section">
@@ -613,7 +610,7 @@ export default function OrdersPage() {
                       {selectedOrder.status_audit.map((log, idx) => (
                         <div key={idx} className="mini-item">
                           <div>{log.from_status || '-'} → {log.to_status}</div>
-                          <div className="muted">{new Date(log.at).toLocaleString('ru-RU')}</div>
+                          <div className="muted">{fmtDateTime(log.at)}</div>
                         </div>
                       ))}
                     </div>

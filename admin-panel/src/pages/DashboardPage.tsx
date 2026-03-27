@@ -3,6 +3,7 @@ import { Package, Users, Wallet, TrendingUp, AlertCircle } from 'lucide-react';
 import { statsService, topupService } from '@/services/admin';
 import { RevenueByDate, SystemStats, TopupRequest } from '@/types';
 import { getErrorMessage } from '@/utils/error';
+import { fmtDate, fmtDateTime, parseUtc } from '@/utils/date';
 import { useNavigate } from 'react-router-dom';
 import './DashboardPage.css';
 
@@ -189,10 +190,7 @@ export default function DashboardPage() {
           {revenueTrend.map((point) => {
             const ratio = point.revenue / maxRevenue;
             const height = Math.max(12, Math.round(ratio * 160));
-            const day = new Date(point.date).toLocaleDateString('ru-RU', {
-              day: '2-digit',
-              month: '2-digit',
-            });
+            const day = fmtDate(point.date).slice(0, 5); // DD.MM
             const isSelected = selectedDate === point.date;
 
             return (
@@ -218,7 +216,8 @@ export default function DashboardPage() {
           <h2>
             {selectedDate ? (
               <>
-                {new Date(selectedDate).toLocaleDateString('ru-RU', {
+                {parseUtc(selectedDate)?.toLocaleDateString('ru-RU', {
+                  timeZone: 'Asia/Bishkek',
                   day: 'numeric',
                   month: 'long',
                   year: 'numeric',
@@ -277,7 +276,7 @@ export default function DashboardPage() {
                 <div className="topup-info">
                   <p className="topup-user">{topup.user?.phone}</p>
                   <p className="topup-date">
-                    {new Date(topup.created_at).toLocaleString('ru-RU')}
+                    {fmtDateTime(topup.created_at)}
                   </p>
                 </div>
                 <div className="topup-amount">

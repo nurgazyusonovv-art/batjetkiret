@@ -3,6 +3,7 @@ import { CheckCircle, XCircle, Image as ImageIcon } from 'lucide-react';
 import { topupService } from '@/services/admin';
 import { TopupRequest } from '@/types';
 import { getErrorMessage } from '@/utils/error';
+import { fmtDateTime } from '@/utils/date';
 import './TopupPage.css';
 
 export default function TopupPage() {
@@ -218,7 +219,7 @@ export default function TopupPage() {
               <div className="topup-header">
                 <div className="topup-id">Өтүнүч #{topup.id}</div>
                 <div className="topup-date">
-                  {new Date(topup.created_at).toLocaleString('ru-RU')}
+                  {fmtDateTime(topup.created_at)}
                 </div>
               </div>
 

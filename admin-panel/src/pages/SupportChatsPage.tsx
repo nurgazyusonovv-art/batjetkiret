@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MessageSquare, Send, RefreshCw } from 'lucide-react';
 import api from '@/services/api';
+import { parseUtc } from '@/utils/date';
 import './SupportChatsPage.css';
 
 interface SupportChat {
@@ -42,7 +43,7 @@ export default function SupportChatsPage() {
       setChats(res.data.sort((a, b) => {
         const ta = a.last_message_at ?? a.created_at;
         const tb = b.last_message_at ?? b.created_at;
-        return new Date(tb).getTime() - new Date(ta).getTime();
+        return (parseUtc(tb)?.getTime() ?? 0) - (parseUtc(ta)?.getTime() ?? 0);
       }));
     } catch (e) {
       console.error('Failed to load support chats', e);
@@ -130,18 +131,22 @@ export default function SupportChatsPage() {
   }, [selectedChatId]);
 
   // ── Format date ─────────────────────────────────────────────────
+  const TZ = 'Asia/Bishkek';
   const fmt = (iso: string | null) => {
     if (!iso) return '';
-    const d = new Date(iso);
-    const now = new Date();
+    const d = parseUtc(iso);
+    if (!d) return '';
+    const nowBishkek = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
+    const dBishkek = new Date(d.toLocaleString('en-US', { timeZone: TZ }));
     const isToday =
-      d.getDate() === now.getDate() &&
-      d.getMonth() === now.getMonth() &&
-      d.getFullYear() === now.getFullYear();
+      dBishkek.getDate() === nowBishkek.getDate() &&
+      dBishkek.getMonth() === nowBishkek.getMonth() &&
+      dBishkek.getFullYear() === nowBishkek.getFullYear();
     if (isToday) {
-      return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleTimeString('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
     }
     return d.toLocaleString('ru-RU', {
+      timeZone: TZ,
       day: '2-digit',
       month: '2-digit',
       hour: '2-digit',
