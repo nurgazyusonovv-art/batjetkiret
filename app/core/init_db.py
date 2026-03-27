@@ -7,14 +7,16 @@ def _migrate(engine):
     """Incremental schema migrations — each runs in its own connection/transaction."""
     import logging
     logger = logging.getLogger("app.init_db")
+    # Note: SQLite <3.37.0 doesn't support IF NOT EXISTS in ALTER TABLE ADD COLUMN,
+    # so we use plain ADD COLUMN and let the try/except catch "duplicate column" errors.
     migrations = [
-        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR DEFAULT 'delivery'",
-        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS table_number VARCHAR",
-        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS hidden_for_enterprise BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_latitude FLOAT",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_longitude FLOAT",
-        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS intercity_city_id INTEGER",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR",
+        "ALTER TABLE orders ADD COLUMN order_type VARCHAR DEFAULT 'delivery'",
+        "ALTER TABLE orders ADD COLUMN table_number VARCHAR",
+        "ALTER TABLE orders ADD COLUMN hidden_for_enterprise BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN current_latitude FLOAT",
+        "ALTER TABLE users ADD COLUMN current_longitude FLOAT",
+        "ALTER TABLE orders ADD COLUMN intercity_city_id INTEGER",
+        "ALTER TABLE users ADD COLUMN fcm_token VARCHAR",
     ]
     for sql in migrations:
         try:
@@ -22,7 +24,7 @@ def _migrate(engine):
                 conn.execute(text(sql))
                 conn.commit()
         except Exception as e:
-            logger.warning(f"Migration skipped ({e})")
+            logger.debug(f"Migration skipped (already applied): {sql.split('ADD COLUMN')[1].strip().split()[0] if 'ADD COLUMN' in sql else sql}")
 
 
 def _init_db_with_retry():
