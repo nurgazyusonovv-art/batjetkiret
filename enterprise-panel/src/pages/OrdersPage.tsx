@@ -223,6 +223,12 @@ export default function OrdersPage() {
                           <span>№{order.table_number}</span>
                         </div>
                       )}
+                      {order.courier_name && (
+                        <div className="ep-detail-item">
+                          <span className="ep-detail-label">Курьер</span>
+                          <span>🚴 {order.courier_name}{order.courier_phone ? ` · ${order.courier_phone}` : ''}</span>
+                        </div>
+                      )}
                       <div className="ep-detail-item">
                         <span className="ep-detail-label">Категория</span>
                         <span>{order.category}</span>

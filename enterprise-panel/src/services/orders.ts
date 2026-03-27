@@ -4,6 +4,8 @@ export interface EnterpriseOrder {
   id: number;
   user_phone: string;
   user_name: string;
+  courier_name?: string | null;
+  courier_phone?: string | null;
   from_address: string;
   to_address: string;
   table_number: string | null;

@@ -531,15 +531,6 @@ class _ProfilePageState extends State<ProfilePage> {
         label: 'Достор менен бөлүшүү',
         onTap: () {},
       ),
-      _MenuItem(
-        icon: user.isCourier
-            ? Icons.person_off_outlined
-            : Icons.delivery_dining_outlined,
-        label: user.isCourier
-            ? 'Курьер болуунду токтоо'
-            : 'Колдонуучунун режимине өтүү',
-        onTap: user.isCourier ? _showRemoveCourierDialog : _showBecomeCourierDialog,
-      ),
     ];
 
     return Container(
@@ -691,122 +682,6 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
-  }
-
-  void _showBecomeCourierDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Курьер болуу',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-        content: const Text(
-            'Сиз курьер болууну каалайсызбы? Бул сизге заказдорду кабыл алуу мүмкүнчүлүгүн берет.',
-            style: TextStyle(fontSize: 15)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Жок',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 16)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _becomeCourier();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent3,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Ооба',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _becomeCourier() async {
-    try {
-      await _profileCubit.becomeCourier(widget.token);
-      if (!mounted) return;
-      await _profileCubit.loadCourierStats(widget.token);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Сиз ийгиликтүү курьер болдуңуз! 🎉'),
-        backgroundColor: AppColors.accent3,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ));
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(error.toString().replaceFirst('Exception: ', '')),
-        backgroundColor: AppColors.danger,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ));
-    }
-  }
-
-  void _showRemoveCourierDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Курьер болуунду токтоо',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-        content: const Text(
-            'Курьер статусун алып салуу менен заказдорду кабыл ала албасыз.',
-            style: TextStyle(fontSize: 15)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Жок',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 16)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _removeCourier();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Ооба',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _removeCourier() async {
-    try {
-      await _profileCubit.removeCourier(widget.token);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Курьер статусу алынды'),
-        backgroundColor: AppColors.accent3,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ));
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(error.toString().replaceFirst('Exception: ', '')),
-        backgroundColor: AppColors.danger,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ));
-    }
   }
 
   void _showEditBottomSheet() {

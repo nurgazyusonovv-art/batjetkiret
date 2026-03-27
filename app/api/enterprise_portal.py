@@ -296,6 +296,8 @@ def _order_dict(o: Order) -> dict:
         "id": o.id,
         "user_phone": o.user.phone if o.user else None,
         "user_name": o.user.name if o.user else None,
+        "courier_name": o.courier.name if o.courier else None,
+        "courier_phone": o.courier.phone if o.courier else None,
         "from_address": o.from_address,
         "to_address": o.to_address,
         "table_number": getattr(o, 'table_number', None),

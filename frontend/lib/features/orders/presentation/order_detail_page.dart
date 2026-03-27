@@ -120,6 +120,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
     final targetOrderId = orderId ?? _detailCubit.state.currentOrder.id;
 
+    if (!mounted) return;
     setState(() {
       _isStatusAuditLoading = true;
       _statusAuditError = null;
@@ -1279,6 +1280,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   Widget _buildStatusActionButtons(Order currentOrder, bool isUpdatingStatus) {
     final isPending = currentOrder.status == 'pending';
+    final isReady = currentOrder.status == 'ready'; // enterprise order ready for pickup
     final isAccepted = currentOrder.status == 'accepted';
     final isInTransit = currentOrder.status == 'in_transit';
     final isDelivered = currentOrder.status == 'delivered';
@@ -1287,7 +1289,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (isPending)
+        if (isPending || isReady)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: AppButton.primary(
@@ -1626,6 +1628,16 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         textColor = Colors.white;
         label = 'Күтүүде';
         break;
+      case 'preparing':
+        bgColor = Colors.amber[700]!;
+        textColor = Colors.white;
+        label = 'Даярдалууда';
+        break;
+      case 'ready':
+        bgColor = Colors.orange;
+        textColor = Colors.white;
+        label = 'Даяр — алып кетүү';
+        break;
       case 'accepted':
         bgColor = AppColors.accent3;
         textColor = Colors.white;
@@ -1688,6 +1700,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     switch (status) {
       case 'pending':
         return AppColors.accent2;
+      case 'preparing':
+        return Colors.amber[700]!;
+      case 'ready':
+        return Colors.orange;
       case 'accepted':
       case 'in_transit':
       case 'picked_up':
@@ -2092,6 +2108,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     switch (status) {
       case 'pending':
         return AppColors.accent2;
+      case 'preparing':
+        return Colors.amber[700]!;
+      case 'ready':
+        return Colors.orange;
       case 'accepted':
       case 'in_transit':
       case 'picked_up':
@@ -2305,14 +2325,25 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
 
       map.geoObjects.add(new ymaps.Placemark(from, { hintContent: 'Чыгаруу' }, { preset: 'islands#greenDotIcon' }));
       map.geoObjects.add(new ymaps.Placemark(to, { hintContent: 'Жеткирүү' }, { preset: 'islands#redDotIcon' }));
-      map.geoObjects.add(new ymaps.Polyline([from, to], {}, { strokeColor: '#1E88E5', strokeWidth: 4, opacity: 0.8 }));
       $userPlacemark
       $courierPlacemark
 
-      var boundsPoints = [new ymaps.Placemark(from), new ymaps.Placemark(to)];
-      map.setBounds(new ymaps.GeoObjectCollection(null, {
-        geoObjects: boundsPoints
-      }).getBounds(), { checkZoomRange: true, zoomMargin: 24 });
+      ymaps.route([
+        { type: 'wayPoint', point: from },
+        { type: 'wayPoint', point: to }
+      ], { mapStateAutoApply: false }).then(function (route) {
+        route.getPaths().options.set({
+          strokeColor: '#1E88E5',
+          strokeWidth: 4,
+          opacity: 0.85
+        });
+        map.geoObjects.add(route);
+        map.setBounds(route.getBounds(), { checkZoomRange: true, zoomMargin: 32 });
+      }, function () {
+        // fallback: straight line if routing fails
+        map.geoObjects.add(new ymaps.Polyline([from, to], {}, { strokeColor: '#1E88E5', strokeWidth: 4, opacity: 0.8 }));
+        map.setBounds(map.geoObjects.getBounds(), { checkZoomRange: true, zoomMargin: 24 });
+      });
     });
   </script>
 </body>
