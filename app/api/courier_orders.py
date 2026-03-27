@@ -107,10 +107,14 @@ def available_orders(
     if not current_user.is_courier:
         raise HTTPException(status_code=403, detail="Not a courier")
 
+    from sqlalchemy import or_
     orders = (
         db.query(Order)
         .filter(
-            Order.status == "WAITING_COURIER",
+            or_(
+                Order.status == "WAITING_COURIER",
+                (Order.status == "READY") & (Order.enterprise_id.isnot(None)),
+            ),
             Order.category != "intercity",
         )
         .order_by(Order.created_at.desc())
@@ -153,7 +157,8 @@ def accept_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.status != "WAITING_COURIER":
+    is_enterprise_ready = order.status == "READY" and order.enterprise_id is not None
+    if order.status != "WAITING_COURIER" and not is_enterprise_ready:
         raise HTTPException(status_code=409, detail="Order is not available")
 
     if order.courier_id is not None and order.courier_id != current_user.id:
