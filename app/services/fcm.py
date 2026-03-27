@@ -89,3 +89,9 @@ def send_push_to_user(user, title: str, body: str, data: dict | None = None) -> 
     if user is None or not getattr(user, "fcm_token", None):
         return False
     return send_push(user.fcm_token, title, body, data)
+
+
+def is_initialized() -> bool:
+    """Return True if Firebase Admin SDK is ready to send pushes."""
+    _init()
+    return _messaging is not None

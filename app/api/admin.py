@@ -1666,5 +1666,10 @@ def test_push(
     admin=Depends(require_admin),
 ):
     """Send a test FCM push to a specific token. Use to verify Firebase Admin SDK is working."""
+    firebase_ready = fcm_service.is_initialized()
+    if not firebase_ready:
+        return {"sent": False, "error": "Firebase Admin SDK not initialized — set FIREBASE_SERVICE_ACCOUNT_JSON env var on Railway"}
     success = fcm_service.send_push(payload.fcm_token, payload.title, payload.body)
-    return {"sent": success}
+    if not success:
+        return {"sent": False, "error": "FCM token rejected (invalid or expired token)"}
+    return {"sent": True}
