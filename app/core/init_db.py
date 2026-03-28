@@ -27,6 +27,20 @@ def _migrate(engine):
         except Exception as e:
             logger.debug(f"Migration skipped (already applied): {sql.split('ADD COLUMN')[1].strip().split()[0] if 'ADD COLUMN' in sql else sql}")
 
+    # Data migration: backfill items_total for existing enterprise local/dine-in orders
+    # For these orders price was already set to items total (not delivery fee)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(
+                "UPDATE orders SET items_total = price "
+                "WHERE items_total IS NULL AND enterprise_id IS NOT NULL "
+                "AND source IN ('local', 'dine_in')"
+            ))
+            conn.commit()
+            logger.info("Backfilled items_total for existing enterprise local/dine-in orders")
+    except Exception as e:
+        logger.warning(f"items_total backfill failed: {e}")
+
 
 def _init_db_with_retry():
     import time
