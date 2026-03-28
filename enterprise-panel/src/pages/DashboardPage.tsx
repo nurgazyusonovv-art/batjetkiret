@@ -41,7 +41,7 @@ function ActiveOrderCard({ order }: { order: EnterpriseOrder }) {
       <div className="aoc-address">{order.to_address}</div>
       <div className="aoc-bottom">
         <span>{order.user_phone}</span>
-        <span className="aoc-price">{Number(order.price).toFixed(0)} сом</span>
+        <span className="aoc-price">{order.items_total != null ? `${Number(order.items_total).toFixed(0)} сом` : '—'}</span>
       </div>
     </div>
   );
@@ -126,8 +126,8 @@ export default function DashboardPage() {
                 </div>
                 <div className="dsc-divider" />
                 <div className="dsc-stat">
-                  <span className="dsc-num">{stats.online_revenue.toFixed(0)}</span>
-                  <span className="dsc-lbl">Сом (жеткирүү)</span>
+                  <span className="dsc-num">{stats.online_revenue > 0 ? stats.online_revenue.toFixed(0) : '—'}</span>
+                  <span className="dsc-lbl">Сом</span>
                 </div>
               </div>
             </div>

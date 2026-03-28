@@ -548,10 +548,9 @@ def get_stats(db: Session = Depends(get_db), auth: Tuple = Depends(require_enter
     cancelled = status_map.get("CANCELLED", 0)
 
     completed_orders = [o for o in today_orders if o.status in ("COMPLETED", "DELIVERED")]
-    # total_revenue = жергиликтүү + столдогу заказдардын суммасы (онлайн жеткирүү акысы кирбейт)
-    local_revenue = sum(float(o.price) for o in completed_orders if o.source in ("local", "dine_in"))
-    online_revenue = sum(float(o.price) for o in completed_orders if o.source == "online")
-    revenue_q = local_revenue
+    local_revenue = sum(float(o.items_total or o.price) for o in completed_orders if o.source in ("local", "dine_in"))
+    online_revenue = sum(float(o.items_total) for o in completed_orders if o.source == "online" and o.items_total is not None)
+    revenue_q = local_revenue + online_revenue
 
     # Active orders list (ongoing, not filtered by date)
     active_orders = (db.query(Order)
@@ -613,16 +612,15 @@ def get_reports(
     cancelled = [o for o in all_orders if o.status == "CANCELLED"]
     active = [o for o in all_orders if o.status not in ("COMPLETED", "DELIVERED", "CANCELLED")]
 
-    # total_revenue = жергиликтүү + столдогу заказдардын суммасы (онлайн жеткирүү акысы кирбейт)
-    local_revenue = sum(float(o.price) for o in completed if o.source in ("local", "dine_in"))
-    online_revenue = sum(float(o.price) for o in completed if o.source == "online")
-    total_revenue = local_revenue
+    local_revenue = sum(float(o.items_total or o.price) for o in completed if o.source in ("local", "dine_in"))
+    online_revenue = sum(float(o.items_total) for o in completed if o.source == "online" and o.items_total is not None)
+    total_revenue = local_revenue + online_revenue
 
     online_orders = [o for o in all_orders if o.source == "online"]
     local_orders = [o for o in all_orders if o.source in ("local", "dine_in")]
     dine_in_orders = [o for o in all_orders if o.source == "dine_in"]
 
-    # Daily breakdown (one entry per calendar day)
+    # Daily breakdown
     daily: dict[str, dict] = {}
     for i in range(days):
         d = (today_local - timedelta(days=days - 1 - i)).date()
@@ -632,9 +630,11 @@ def get_reports(
         d = str(o.created_at.date()) if o.created_at else None
         if d and d in daily:
             daily[d]["orders"] += 1
-            # revenue = жергиликтүү + столдогу заказдар гана (онлайн жеткирүү акысы кирбейт)
-            if o.status in ("COMPLETED", "DELIVERED") and o.source in ("local", "dine_in"):
-                daily[d]["revenue"] += float(o.price)
+            if o.status in ("COMPLETED", "DELIVERED"):
+                if o.source in ("local", "dine_in"):
+                    daily[d]["revenue"] += float(o.items_total or o.price)
+                elif o.source == "online" and o.items_total is not None:
+                    daily[d]["revenue"] += float(o.items_total)
             if o.status == "CANCELLED":
                 daily[d]["cancelled"] += 1
 

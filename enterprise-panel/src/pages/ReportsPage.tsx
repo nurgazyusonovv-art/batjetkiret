@@ -108,7 +108,7 @@ export default function ReportsPage() {
                 <div className="esc-value">{data.online_orders}</div>
                 <div className="esc-label">Онлайн заказ</div>
               </div>
-              <div className="esc-revenue" title="Жеткирүү акысы (киреше катары эсептелбейт)">{data.online_revenue.toFixed(0)} сом*</div>
+              <div className="esc-revenue">{data.online_revenue > 0 ? `${data.online_revenue.toFixed(0)} сом` : '—'}</div>
             </div>
             <div className="ep-source-card">
               <Store size={18} color="#059669" />
