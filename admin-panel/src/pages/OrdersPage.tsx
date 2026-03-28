@@ -570,7 +570,38 @@ export default function OrdersPage() {
                 <p><strong>Категория:</strong> {selectedOrder.category || '-'}</p>
                 <p><strong>Маршрут:</strong> {selectedOrder.pickup_location} → {selectedOrder.delivery_location}</p>
                 <p><strong>Дистанция:</strong> {selectedOrder.distance_km.toFixed(2)} км</p>
-                <p><strong>Баасы:</strong> {selectedOrder.estimated_price} сом</p>
+
+                {selectedOrder.description && (
+                  <div className="detail-section">
+                    <h4>Товарлар</h4>
+                    <div className="order-items-list">
+                      {selectedOrder.description.split('\n').map((line, i) => (
+                        <div key={i} className="order-item-line">{line}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="detail-section">
+                  <h4>Сумма</h4>
+                  <div className="order-price-breakdown">
+                    <div className="price-row">
+                      <span>Товарлардын суммасы</span>
+                      <span>{selectedOrder.estimated_price} сом</span>
+                    </div>
+                    {(selectedOrder.user_commission ?? 0) > 0 && (
+                      <div className="price-row">
+                        <span>Кызмат акысы</span>
+                        <span>{selectedOrder.user_commission} сом</span>
+                      </div>
+                    )}
+                    <div className="price-row price-total">
+                      <span>Жалпы сумма</span>
+                      <span>{(selectedOrder.estimated_price + (selectedOrder.user_commission ?? 0)).toFixed(0)} сом</span>
+                    </div>
+                  </div>
+                </div>
+
                 <p><strong>Түзүлгөн убакыт:</strong> {fmtDateTime(selectedOrder.created_at)}</p>
                 <p><strong>Админ эскертмеси:</strong> {selectedOrder.admin_note || '-'}</p>
 

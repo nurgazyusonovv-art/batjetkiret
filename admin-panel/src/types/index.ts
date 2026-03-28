@@ -70,6 +70,8 @@ export interface Order {
   delivery_lon: number;
   distance_km: number;
   estimated_price: number;
+  user_commission?: number;
+  courier_commission?: number;
   status: OrderStatus;
   user_id: number;
   user_phone?: string | null;
