@@ -21,6 +21,8 @@ class Order {
   final String? verificationCode;
   final double? courierLatitude;
   final double? courierLongitude;
+  final int? enterpriseId;
+  final double? itemsTotal;
 
   Order({
     required this.id,
@@ -45,6 +47,8 @@ class Order {
     this.verificationCode,
     this.courierLatitude,
     this.courierLongitude,
+    this.enterpriseId,
+    this.itemsTotal,
   });
 
   String get categoryName {
@@ -94,6 +98,8 @@ class Order {
     String? verificationCode,
     double? courierLatitude,
     double? courierLongitude,
+    int? enterpriseId,
+    double? itemsTotal,
   }) {
     return Order(
       id: id ?? this.id,
@@ -118,6 +124,8 @@ class Order {
       verificationCode: verificationCode ?? this.verificationCode,
       courierLatitude: courierLatitude ?? this.courierLatitude,
       courierLongitude: courierLongitude ?? this.courierLongitude,
+      enterpriseId: enterpriseId ?? this.enterpriseId,
+      itemsTotal: itemsTotal ?? this.itemsTotal,
     );
   }
 
@@ -165,6 +173,8 @@ class Order {
       verificationCode: json['verification_code'],
       courierLatitude: (json['courier_latitude'] as num?)?.toDouble(),
       courierLongitude: (json['courier_longitude'] as num?)?.toDouble(),
+      enterpriseId: json['enterprise_id'] as int?,
+      itemsTotal: (json['items_total'] as num?)?.toDouble(),
     );
   }
 }

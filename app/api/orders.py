@@ -301,6 +301,8 @@ def my_orders(
             "courier_id": o.courier_id,
             "verification_code": o.verification_code,
             "created_at": o.created_at,
+            "enterprise_id": o.enterprise_id,
+            "items_total": float(o.items_total) if o.items_total is not None else None,
         }
         
         # Include courier info if assigned
@@ -388,6 +390,7 @@ def get_order(
         "distance_km": float(order.distance_km) if order.distance_km is not None else None,
         "created_at": order.created_at,
         "enterprise_id": order.enterprise_id,
+        "items_total": float(order.items_total) if order.items_total is not None else None,
     }
 
     # Only show verification code to the order owner when status is DELIVERED

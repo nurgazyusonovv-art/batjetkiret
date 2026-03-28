@@ -13,6 +13,7 @@ import '../../orders/data/order_api.dart';
 import '../../orders/data/order_status_audit_entry.dart';
 import '../data/order_model.dart';
 import '../../profile/data/user_api.dart';
+import '../../home/presentation/order_payment_sheet.dart';
 import 'order_chat_page.dart';
 import 'cubit/order_detail_cubit.dart';
 import 'cubit/order_detail_state.dart';
@@ -430,6 +431,47 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
+
+                  // Payment button — shown for enterprise orders that are still pending
+                  if (!widget.isCourier &&
+                      currentOrder.enterpriseId != null &&
+                      currentOrder.status == 'pending' &&
+                      widget.token != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            await showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => OrderPaymentSheet(
+                                token: widget.token!,
+                                orderId: currentOrder.id,
+                                enterpriseId: currentOrder.enterpriseId!,
+                                amount: currentOrder.itemsTotal ?? currentOrder.estimatedPrice ?? 0,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.qr_code, size: 20),
+                          label: const Text(
+                            'Төлөмдү тастыктоо',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4f46e5),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
 
                   // Verification code section - shown only to regular users when order is delivered
                   if (!widget.isCourier &&
