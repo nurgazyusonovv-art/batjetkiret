@@ -5,16 +5,16 @@ import { fmtDate } from '../utils/date';
 import './OrdersPage.css';
 
 const STATUS_LABELS: Record<string, string> = {
-  PREPARING: 'Даярдалууда',
   WAITING_COURIER: 'Курьер күтүүдө',
   ACCEPTED: 'Кабыл алынды',
+  PREPARING: 'Даярдалып жатат',
+  READY: 'Даяр',
   IN_TRANSIT: 'Жолдо',
   ON_THE_WAY: 'Жолдо',
   PICKED_UP: 'Алынды',
   DELIVERED: 'Жеткирилди',
   COMPLETED: 'Аяктады',
   CANCELLED: 'Жокко чыгарылды',
-  READY: 'Даяр',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -52,15 +52,21 @@ const FILTER_OPTIONS = [
   { value: 'IN_TRANSIT', label: 'Жолдо' },
 ];
 
-// Statuses shown when order is still being prepared (not yet sent to couriers)
-const PREPARING_STATUSES = [
-  { value: 'WAITING_COURIER', label: 'Даяр — курьер чакыруу' },
+// ACCEPTED → enterprise starts preparing
+const ACCEPTED_STATUSES = [
+  { value: 'PREPARING', label: 'Даярдалып жатат' },
   { value: 'CANCELLED', label: 'Жокко чыгаруу' },
 ];
 
-const DELIVERY_STATUSES = [
+// PREPARING → enterprise marks ready for courier
+const PREPARING_STATUSES = [
+  { value: 'READY', label: 'Даяр — курьер чакыруу' },
+  { value: 'CANCELLED', label: 'Жокко чыгаруу' },
+];
+
+// WAITING_COURIER (non-enterprise or after courier cancel)
+const WAITING_STATUSES = [
   { value: 'ACCEPTED', label: 'Кабыл алынды' },
-  { value: 'READY', label: 'Даяр (курьер күтүп жатат)' },
   { value: 'CANCELLED', label: 'Жокко чыгаруу' },
 ];
 
@@ -242,25 +248,27 @@ export default function OrdersPage() {
                       </div>
                     </div>
 
-                    {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && (
+                    {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && order.status !== 'READY' && (
                       <div className="ep-status-actions">
-                        <span className="ep-actions-label">Статусту өзгөртүү:</span>
+                        <span className="ep-actions-label">Кийинки кадам:</span>
                         <div className="ep-status-btns">
                           {(order.order_type === 'dine_in'
                             ? DINE_IN_STATUSES
-                            : order.status === 'PREPARING'
-                              ? PREPARING_STATUSES
-                              : DELIVERY_STATUSES
+                            : order.status === 'ACCEPTED'
+                              ? ACCEPTED_STATUSES
+                              : order.status === 'PREPARING'
+                                ? PREPARING_STATUSES
+                                : WAITING_STATUSES
                           ).map((s) => (
                             <button
                               key={s.value}
-                              className={`ep-status-btn ${order.status === s.value ? 'current' : ''}`}
-                              disabled={order.status === s.value || updatingId === order.id}
+                              className={`ep-status-btn ${s.value === 'CANCELLED' ? 'cancel' : 'primary'}`}
+                              disabled={updatingId === order.id}
                               onClick={() => handleStatusUpdate(order.id, s.value)}
                             >
-                              {s.value === 'WAITING_COURIER' && <Truck size={13} />}
-                              {s.value === 'ACCEPTED' && <CheckCircle size={13} />}
+                              {s.value === 'PREPARING' && <Package size={13} />}
                               {s.value === 'READY' && <Truck size={13} />}
+                              {s.value === 'ACCEPTED' && <CheckCircle size={13} />}
                               {s.value === 'COMPLETED' && <CheckCircle size={13} />}
                               {s.value === 'CANCELLED' && <XCircle size={13} />}
                               {s.label}
