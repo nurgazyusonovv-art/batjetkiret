@@ -566,152 +566,148 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     ),
                   const SizedBox(height: 24),
 
-                  // Order details section
-                  Text(
-                    'Заказ жөнүндө маалымат',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Category
-                  _buildDetailCard(
-                    icon: Icons.shopping_bag_outlined,
-                    label: 'Категория',
-                    value: currentOrder.categoryName,
-                    color: accentColor,
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Distance
-                  _buildDetailCard(
-                    icon: Icons.route,
-                    label: 'Аралык',
-                    value: '${currentOrder.distance} км',
-                    color: accentColor,
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Price
-                  if (currentOrder.estimatedPrice != null)
-                    _buildDetailCard(
-                      icon: Icons.currency_exchange,
-                      label: 'Жеткирүү баасы',
-                      value:
-                          '${currentOrder.estimatedPrice?.round()} сом',
-                      color: accentColor,
-                    ),
-                  const SizedBox(height: 24),
-
-                  // Addresses section
-                  Text(
-                    'Адрестер',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // From address
+                  // ── Info block ────────────────────────────────────────
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: AppColors.border),
                     ),
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
+                    child: Column(
                       children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: accentColor.withAlpha(38),
-                          ),
-                          child: Icon(
-                            Icons.location_on,
-                            size: 18,
-                            color: accentColor,
-                          ),
+                        _buildInfoRow(
+                          icon: Icons.shopping_bag_outlined,
+                          label: 'Категория',
+                          value: currentOrder.categoryName,
+                          color: accentColor,
+                          isFirst: true,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
+                        _buildInfoDivider(),
+                        _buildInfoRow(
+                          icon: Icons.route,
+                          label: 'Аралык',
+                          value: '${currentOrder.distance.toStringAsFixed(1)} км',
+                          color: accentColor,
+                        ),
+                        if (currentOrder.estimatedPrice != null) ...[
+                          _buildInfoDivider(),
+                          _buildInfoRow(
+                            icon: Icons.local_shipping_outlined,
+                            label: 'Жеткирүү баасы',
+                            value: '${currentOrder.estimatedPrice?.round()} сом',
+                            color: accentColor,
+                            isLast: true,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // ── Addresses block ───────────────────────────────────
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Column(
+                      children: [
+                        // From
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Чыгаруу',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: AppColors.textSecondary,
-                                ),
+                              Column(
+                                children: [
+                                  Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: accentColor,
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 2,
+                                    height: 32,
+                                    color: accentColor.withAlpha(60),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                currentOrder.fromAddress,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary,
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Чыгаруу',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      currentOrder.fromAddress,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // To address
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: accentColor.withAlpha(38),
-                          ),
-                          child: Icon(
-                            Icons.location_on,
-                            size: 18,
-                            color: accentColor,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
+                        // To
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Жеткирүү',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: AppColors.textSecondary,
+                              Container(
+                                width: 10,
+                                height: 10,
+                                margin: const EdgeInsets.only(top: 2),
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFF22c55e),
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                currentOrder.toAddress,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary,
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Жеткирүү',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      currentOrder.toAddress,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
@@ -1619,57 +1615,43 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
-  Widget _buildDetailCard({
+  Widget _buildInfoRow({
     required IconData icon,
     required String label,
     required String value,
     required Color color,
+    bool isFirst = false,
+    bool isLast = false,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      padding: const EdgeInsets.all(14),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withAlpha(38),
-            ),
-            child: Icon(icon, size: 18, color: color),
-          ),
+          Icon(icon, size: 18, color: color),
           const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-                ),
-              ],
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildInfoDivider() {
+    return const Divider(height: 1, indent: 46, endIndent: 0, color: Color(0xFFf1f5f9));
   }
 
   Widget _buildStatusBadge(String status, Color accentColor) {
