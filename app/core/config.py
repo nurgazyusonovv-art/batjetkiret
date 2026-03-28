@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "local-dev-secret-key-change-me"
     DEBUG: bool = True
     ALLOW_ORDER_WITHOUT_BALANCE: bool = False
-    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8000", "http://localhost:3001", "http://localhost:5174", "http://localhost:5175"]
+    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8000", "http://localhost:3001", "http://localhost:5174", "http://localhost:5175", "https://enterprise-panel.vercel.app"]
     BASE_URL: str = "http://localhost:8000"
     LOG_LEVEL: str = "INFO"
     LOG_JSON: bool = False
