@@ -10,13 +10,15 @@ from typing import Optional, Tuple, List
 from decimal import Decimal
 from datetime import datetime, timedelta, date
 
-from app.api.deps import get_db, require_enterprise
+from fastapi import UploadFile, File
+from app.api.deps import get_db, require_enterprise, get_current_user
 from app.core.security import verify_password, create_access_token
 from app.models.user import User
 from app.models.order import Order
 from app.models.enterprise import Enterprise
 from app.models.enterprise_category import EnterpriseCategory
 from app.models.enterprise_product import EnterpriseProduct
+from app.models.order_payment import OrderPayment
 
 router = APIRouter(prefix="/enterprise-portal", tags=["Enterprise Portal"])
 
@@ -66,6 +68,7 @@ def get_my_enterprise(db: Session = Depends(get_db), auth: Tuple = Depends(requi
         "id": e.id, "name": e.name, "category": e.category,
         "phone": e.phone, "address": e.address, "description": e.description,
         "lat": e.lat, "lon": e.lon, "is_active": e.is_active,
+        "payment_qr_url": e.payment_qr_url,
     }
 
 
@@ -652,3 +655,165 @@ def get_reports(
         "local_revenue": local_revenue,
         "daily": list(daily.values()),
     }
+
+# ── Payment QR & Payments ─────────────────────────────────────────────────────
+
+_ALLOWED_IMG = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"}
+_EXT_MIME = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+             ".webp": "image/webp", ".gif": "image/gif", ".heic": "image/heic", ".heif": "image/heif"}
+
+
+@router.post("/payment-qr")
+async def upload_payment_qr(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    """Enterprise uploads their payment QR code image."""
+    import os, base64
+    _user, e = auth
+    ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
+    mime = (file.content_type or "").lower()
+    if mime not in _ALLOWED_IMG and ext not in _EXT_MIME:
+        raise HTTPException(status_code=400, detail="Сүрөт файлы гана кабыл алынат")
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Файл өтө чоң (макс 5МБ)")
+    if mime not in _ALLOWED_IMG:
+        mime = _EXT_MIME.get(ext, "image/jpeg")
+    data_url = f"data:{mime};base64,{base64.b64encode(content).decode()}"
+    e.payment_qr_url = data_url
+    db.commit()
+    return {"payment_qr_url": data_url}
+
+
+@router.delete("/payment-qr")
+def delete_payment_qr(
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    _user, e = auth
+    e.payment_qr_url = None
+    db.commit()
+    return {"message": "QR код өчүрүлдү"}
+
+
+class PaymentCreate(BaseModel):
+    order_id: int
+    amount: float
+    screenshot_url: str
+
+
+@router.post("/payments")
+def create_payment(
+    body: PaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """User submits payment screenshot for an enterprise order."""
+    order = db.query(Order).filter(
+        Order.id == body.order_id,
+        Order.user_id == current_user.id,
+        Order.enterprise_id.isnot(None),
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ табылган жок")
+
+    existing = db.query(OrderPayment).filter(OrderPayment.order_id == body.order_id).first()
+    if existing:
+        existing.screenshot_url = body.screenshot_url
+        existing.amount = body.amount
+        existing.status = "pending"
+        db.commit()
+        db.refresh(existing)
+        return _payment_dict(existing)
+
+    payment = OrderPayment(
+        order_id=body.order_id,
+        enterprise_id=order.enterprise_id,
+        user_id=current_user.id,
+        amount=body.amount,
+        screenshot_url=body.screenshot_url,
+        status="pending",
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return _payment_dict(payment)
+
+
+def _payment_dict(p: OrderPayment) -> dict:
+    return {
+        "id": p.id,
+        "order_id": p.order_id,
+        "amount": float(p.amount),
+        "screenshot_url": p.screenshot_url,
+        "status": p.status,
+        "note": p.note,
+        "user_phone": p.user.phone if p.user else None,
+        "user_name": p.user.name if p.user else None,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+    }
+
+
+@router.get("/payments")
+def list_payments(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    """Enterprise lists incoming payments."""
+    _user, e = auth
+    q = db.query(OrderPayment).filter(OrderPayment.enterprise_id == e.id)
+    if status:
+        q = q.filter(OrderPayment.status == status)
+    payments = q.order_by(OrderPayment.created_at.desc()).limit(100).all()
+    return [_payment_dict(p) for p in payments]
+
+
+class PaymentAction(BaseModel):
+    note: Optional[str] = None
+
+
+@router.post("/payments/{payment_id}/confirm")
+def confirm_payment(
+    payment_id: int,
+    body: PaymentAction = PaymentAction(),
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    _user, e = auth
+    payment = db.query(OrderPayment).filter(
+        OrderPayment.id == payment_id,
+        OrderPayment.enterprise_id == e.id,
+    ).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Төлөм табылган жок")
+    payment.status = "confirmed"
+    payment.note = body.note
+    # Accept the order
+    order = db.query(Order).filter(Order.id == payment.order_id).first()
+    if order and order.status in ("WAITING_COURIER", "PREPARING"):
+        order.status = "ACCEPTED"
+    db.commit()
+    return _payment_dict(payment)
+
+
+@router.post("/payments/{payment_id}/reject")
+def reject_payment(
+    payment_id: int,
+    body: PaymentAction = PaymentAction(),
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    _user, e = auth
+    payment = db.query(OrderPayment).filter(
+        OrderPayment.id == payment_id,
+        OrderPayment.enterprise_id == e.id,
+    ).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Төлөм табылган жок")
+    payment.status = "rejected"
+    payment.note = body.note
+    db.commit()
+    return _payment_dict(payment)

@@ -19,6 +19,8 @@ class OrderResponse(BaseModel):
     id: int
     price: float
     status: str
+    enterprise_id: Optional[int] = None
+    items_total: Optional[float] = None
     from_latitude: Optional[float] = None
     from_longitude: Optional[float] = None
     to_latitude: Optional[float] = None

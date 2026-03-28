@@ -13,6 +13,7 @@ from app.models.enterprise import Enterprise
 from app.models.enterprise_category import EnterpriseCategory
 from app.models.enterprise_product import EnterpriseProduct
 from app.models.intercity_city import IntercityCity
+from app.models.order_payment import OrderPayment
 
 __all__ = [
     "User",
@@ -30,4 +31,5 @@ __all__ = [
     "EnterpriseCategory",
     "EnterpriseProduct",
     "IntercityCity",
+    "OrderPayment",
 ]

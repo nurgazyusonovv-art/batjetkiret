@@ -12,6 +12,7 @@ import 'package:frontend/features/home/presentation/cubit/home_cubit.dart';
 import 'package:frontend/features/home/presentation/cubit/order_create_cubit.dart';
 import 'package:frontend/features/home/presentation/cubit/order_create_state.dart';
 import 'package:frontend/features/orders/presentation/cubit/orders_cubit.dart';
+import 'package:frontend/features/home/presentation/order_payment_sheet.dart';
 import 'package:frontend/features/orders/presentation/order_detail_page.dart';
 import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:geolocator/geolocator.dart';
@@ -833,7 +834,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     }
     try {
       final itemsTotal = _buildItemsTotal();
-      await _cubit.createOrder(
+      final enterpriseId = _cubit.state.enterpriseId;
+      final orderData = await _cubit.createOrder(
         token: widget.token,
         category: widget.selectedCategory.id,
         fromAddress: _fromAddressController.text,
@@ -841,11 +843,32 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         description: description,
         fromLocation: _selectedFromLocation,
         toLocation: _selectedToLocation,
-        enterpriseId: _cubit.state.enterpriseId,
+        enterpriseId: enterpriseId,
         itemsTotal: itemsTotal > 0 ? itemsTotal : null,
       );
       if (!mounted) return;
       context.read<OrdersCubit>().loadOrders(widget.token);
+
+      if (enterpriseId != null) {
+        final orderId = orderData['id'] as int?;
+        final amount = (orderData['items_total'] as num?)?.toDouble() ?? itemsTotal;
+        if (orderId != null) {
+          await showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => OrderPaymentSheet(
+              token: widget.token,
+              orderId: orderId,
+              enterpriseId: enterpriseId,
+              amount: amount,
+            ),
+          );
+          if (mounted) Navigator.of(context).pop();
+          return;
+        }
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Заказ ийгиликтүү түзүлдү!'),

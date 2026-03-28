@@ -68,6 +68,27 @@ def mark_all_read(
     return {"message": "All marked as read"}
 
 
+@router.delete("/{notif_id}")
+def delete_notification(
+    notif_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    notif = (
+        db.query(Notification)
+        .filter(
+            Notification.id == notif_id,
+            Notification.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not notif:
+        raise HTTPException(status_code=404)
+    db.delete(notif)
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/support-message")
 def send_support_message(
     title: str,

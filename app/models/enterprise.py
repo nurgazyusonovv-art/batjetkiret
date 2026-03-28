@@ -30,6 +30,7 @@ class Enterprise(Base):
     created_by_admin_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     is_active = Column(Boolean, default=False)  # Activated by admin after review
+    payment_qr_url = Column(String, nullable=True)  # QR code for payment (base64 data URL)
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

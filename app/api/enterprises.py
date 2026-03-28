@@ -107,6 +107,23 @@ def my_enterprises(
     return [_enterprise_dict(e, current_user) for e in enterprises]
 
 
+@router.get("/{enterprise_id}/payment-qr")
+def get_enterprise_payment_qr(
+    enterprise_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get payment QR URL for an active enterprise (for customers to pay)."""
+    enterprise = (
+        db.query(Enterprise)
+        .filter(Enterprise.id == enterprise_id, Enterprise.is_active == True)  # noqa: E712
+        .first()
+    )
+    if not enterprise:
+        raise HTTPException(status_code=404, detail="Ишкана табылган жок")
+    return {"payment_qr_url": enterprise.payment_qr_url}
+
+
 @router.get("/{enterprise_id}/menu")
 def get_enterprise_menu(
     enterprise_id: int,

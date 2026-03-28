@@ -200,7 +200,7 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
 
   // ── Order creation ─────────────────────────────────────────────────────────
 
-  Future<void> createOrder({
+  Future<Map<String, dynamic>> createOrder({
     required String token,
     required String category,
     required String fromAddress,
@@ -229,7 +229,7 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
 
     emit(state.copyWith(isLoading: true));
     try {
-      await _orderApi.createOrder(
+      return await _orderApi.createOrder(
         token: token,
         category: category,
         description: normalizedDescription,

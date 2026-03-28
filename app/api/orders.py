@@ -235,6 +235,8 @@ def create_order(
         "id": order.id,
         "price": float(order.price),
         "status": order.status,
+        "enterprise_id": order.enterprise_id,
+        "items_total": float(order.items_total) if order.items_total is not None else None,
         "from_latitude": float(order.from_latitude) if order.from_latitude is not None else None,
         "from_longitude": float(order.from_longitude) if order.from_longitude is not None else None,
         "to_latitude": float(order.to_latitude) if order.to_latitude is not None else None,

@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, LogOut, Building2, ShoppingCart, UtensilsCrossed, History, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, Package, LogOut, Building2, ShoppingCart, UtensilsCrossed, History, BarChart2, CreditCard, Settings } from 'lucide-react';
 import { authService } from '../services/auth';
 import './Layout.css';
 
@@ -14,10 +14,12 @@ export default function Layout({ children }: { children: ReactNode }) {
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Статистика' },
     { path: '/orders', icon: Package, label: 'Заказдар' },
+    { path: '/payments', icon: CreditCard, label: 'Төлөмдөр' },
     { path: '/create-order', icon: ShoppingCart, label: 'Заказ түзүү' },
     { path: '/products', icon: UtensilsCrossed, label: 'Меню' },
     { path: '/history', icon: History, label: 'Тарых' },
     { path: '/reports', icon: BarChart2, label: 'Отчет' },
+    { path: '/settings', icon: Settings, label: 'Жөндөөлөр' },
   ];
 
   return (

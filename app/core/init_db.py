@@ -19,6 +19,7 @@ def _migrate(engine):
         "ALTER TABLE users ADD COLUMN fcm_token VARCHAR",
         "ALTER TABLE orders ADD COLUMN items_total NUMERIC(10,2)",
         "ALTER TABLE orders ADD COLUMN source VARCHAR DEFAULT 'online'",
+        "ALTER TABLE enterprises ADD COLUMN payment_qr_url VARCHAR",
     ]
     for sql in migrations:
         try:

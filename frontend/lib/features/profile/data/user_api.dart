@@ -227,6 +227,18 @@ class UserApi {
     } catch (_) {}
   }
 
+  Future<void> deleteNotification(String token, int notificationId) async {
+    try {
+      await http.delete(
+        Uri.parse('${AppConfig.baseUrl}/notifications/$notificationId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+    } catch (_) {}
+  }
+
   Future<void> markNotificationRead(String token, int notificationId) async {
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/notifications/$notificationId/read'),

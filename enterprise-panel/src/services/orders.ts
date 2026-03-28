@@ -40,6 +40,18 @@ export interface OrderItem {
   quantity: number;
 }
 
+export interface OrderPayment {
+  id: number;
+  order_id: number;
+  amount: number;
+  screenshot_url: string | null;
+  status: 'pending' | 'confirmed' | 'rejected';
+  note: string | null;
+  user_phone: string | null;
+  user_name: string | null;
+  created_at: string;
+}
+
 export const ordersService = {
   async getOrders(params?: { status?: string; source?: string; skip?: number; limit?: number }): Promise<EnterpriseOrder[]> {
     const res = await api.get('/enterprise-portal/orders', { params });
@@ -83,6 +95,39 @@ export const ordersService = {
   async clearHistory(): Promise<{ message: string }> {
     const res = await api.delete('/enterprise-portal/history');
     return res.data;
+  },
+
+  async getPayments(status?: string): Promise<OrderPayment[]> {
+    const res = await api.get('/enterprise-portal/payments', { params: status ? { status } : {} });
+    return res.data;
+  },
+
+  async confirmPayment(paymentId: number, note?: string): Promise<OrderPayment> {
+    const res = await api.post(`/enterprise-portal/payments/${paymentId}/confirm`, { note });
+    return res.data;
+  },
+
+  async rejectPayment(paymentId: number, note?: string): Promise<OrderPayment> {
+    const res = await api.post(`/enterprise-portal/payments/${paymentId}/reject`, { note });
+    return res.data;
+  },
+
+  async getMe(): Promise<{ id: number; name: string; payment_qr_url: string | null }> {
+    const res = await api.get('/enterprise-portal/me');
+    return res.data;
+  },
+
+  async uploadPaymentQr(file: File): Promise<{ payment_qr_url: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await api.post('/enterprise-portal/payment-qr', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+
+  async deletePaymentQr(): Promise<void> {
+    await api.delete('/enterprise-portal/payment-qr');
   },
 
   async getReports(days: 1 | 7 | 30): Promise<ReportData> {
