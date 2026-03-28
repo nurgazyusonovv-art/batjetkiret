@@ -68,6 +68,7 @@ class OrderApi {
     double distanceKm = 1.0,
     int? enterpriseId,
     int? intercityCityId,
+    double? itemsTotal,
   }) async {
     try {
       final body = <String, dynamic>{
@@ -83,6 +84,7 @@ class OrderApi {
       };
       if (enterpriseId != null) body['enterprise_id'] = enterpriseId;
       if (intercityCityId != null) body['intercity_city_id'] = intercityCityId;
+      if (itemsTotal != null && itemsTotal > 0) body['items_total'] = itemsTotal;
 
       final response = await http.post(
         Uri.parse('${AppConfig.baseUrl}/orders/'),

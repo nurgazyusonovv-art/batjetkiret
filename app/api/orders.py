@@ -200,6 +200,7 @@ def create_order(
         to_longitude=data.to_longitude,
         distance_km=data.distance_km if data.category != "intercity" else 0,
         price=price,
+        items_total=data.items_total,
         user_commission=user_commission,
         courier_commission=courier_commission,
         status="WAITING_COURIER",

@@ -832,6 +832,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       return;
     }
     try {
+      final itemsTotal = _buildItemsTotal();
       await _cubit.createOrder(
         token: widget.token,
         category: widget.selectedCategory.id,
@@ -841,6 +842,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         fromLocation: _selectedFromLocation,
         toLocation: _selectedToLocation,
         enterpriseId: _cubit.state.enterpriseId,
+        itemsTotal: itemsTotal > 0 ? itemsTotal : null,
       );
       if (!mounted) return;
       context.read<OrdersCubit>().loadOrders(widget.token);

@@ -209,6 +209,7 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
     LatLng? fromLocation,
     LatLng? toLocation,
     int? enterpriseId,
+    double? itemsTotal,
   }) async {
     final normalizedFrom = fromAddress.trim();
     final normalizedTo = toAddress.trim();
@@ -240,6 +241,7 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
         toLongitude: toLocation?.longitude,
         distanceKm: distanceKm,
         enterpriseId: enterpriseId,
+        itemsTotal: itemsTotal,
       );
     } finally {
       emit(state.copyWith(isLoading: false));

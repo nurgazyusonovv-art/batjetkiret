@@ -13,6 +13,7 @@ class OrderCreateRequest(BaseModel):
     distance_km: float = Field(default=1.0, ge=0, le=10000)
     enterprise_id: Optional[int] = None
     intercity_city_id: Optional[int] = None
+    items_total: Optional[float] = None
 
 class OrderResponse(BaseModel):
     id: int
