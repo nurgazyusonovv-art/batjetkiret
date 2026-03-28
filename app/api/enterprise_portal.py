@@ -304,6 +304,7 @@ def _order_dict(o: Order) -> dict:
         "category": o.category,
         "description": o.description,
         "price": float(o.price),
+        "items_total": float(o.items_total) if o.items_total is not None else None,
         "status": o.status,
         "source": getattr(o, 'source', 'online'),
         "order_type": getattr(o, 'order_type', 'delivery'),
@@ -471,6 +472,7 @@ def create_local_order(
         to_longitude=Decimal(str(data.to_lng)) if data.to_lng is not None else None,
         distance_km=Decimal("0"),
         price=total_price,
+        items_total=total_price,
         # Local orders start as PREPARING; enterprise marks ready → WAITING_COURIER
         # Online orders (from mobile app) start as WAITING_COURIER directly
         status="PREPARING" if order_source == "local" else "WAITING_COURIER",

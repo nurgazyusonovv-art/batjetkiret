@@ -12,6 +12,7 @@ export interface EnterpriseOrder {
   category: string;
   description: string;
   price: number;
+  items_total: number | null;
   status: string;
   source: string;
   order_type: 'delivery' | 'dine_in';

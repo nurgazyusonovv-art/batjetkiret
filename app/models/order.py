@@ -35,6 +35,9 @@ class Order(Base):
     user_commission = Column(Numeric(10, 2), nullable=True, default=0)  # Commission from user
     courier_commission = Column(Numeric(10, 2), nullable=True, default=0)  # Commission from courier
 
+    # Items total for enterprise local/dine-in orders (null for online delivery orders)
+    items_total = Column(Numeric(10, 2), nullable=True)
+
     enterprise_id = Column(Integer, ForeignKey("enterprises.id"), nullable=True)
     intercity_city_id = Column(Integer, nullable=True)
     source = Column(String, default="online")    # 'online' | 'local' | 'dine_in'

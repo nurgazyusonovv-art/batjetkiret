@@ -17,6 +17,7 @@ def _migrate(engine):
         "ALTER TABLE users ADD COLUMN current_longitude FLOAT",
         "ALTER TABLE orders ADD COLUMN intercity_city_id INTEGER",
         "ALTER TABLE users ADD COLUMN fcm_token VARCHAR",
+        "ALTER TABLE orders ADD COLUMN items_total NUMERIC(10,2)",
     ]
     for sql in migrations:
         try:

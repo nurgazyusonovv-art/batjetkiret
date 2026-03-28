@@ -133,7 +133,12 @@ export default function HistoryPage() {
               {order.status === 'CANCELLED' ? <XCircle size={13} /> : <CheckCircle size={13} />}
               {statusLabel}
             </span>
-            <span className="ep-history-price">{Number(order.price).toFixed(0)} сом</span>
+            <span className="ep-history-price" title={order.items_total == null ? 'Жеткирүү акысы' : 'Заказдын суммасы'}>
+              {order.items_total != null
+                ? `${Number(order.items_total).toFixed(0)} сом`
+                : <span style={{ color: '#9ca3af', fontSize: 12 }}>{Number(order.price).toFixed(0)} сом <em>(жеткирүү)</em></span>
+              }
+            </span>
             <button
               className="ep-history-del"
               onClick={e => { e.stopPropagation(); handleDelete(order.id); }}
@@ -217,7 +222,7 @@ export default function HistoryPage() {
           {groups.map(group => {
             const groupRevenue = group.orders
               .filter(o => o.status !== 'CANCELLED')
-              .reduce((s, o) => s + Number(o.price), 0);
+              .reduce((s, o) => s + (o.items_total != null ? Number(o.items_total) : 0), 0);
 
             return (
               <div key={group.key} className="ep-history-group">
