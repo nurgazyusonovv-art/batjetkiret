@@ -200,11 +200,8 @@ export default function OrdersPage() {
                     >
                       {statusLabel}
                     </span>
-                    <span className="ep-order-price" title={order.items_total == null ? 'Жеткирүү акысы' : 'Заказдын суммасы'}>
-                      {order.items_total != null
-                        ? `${Number(order.items_total).toFixed(0)} сом`
-                        : <span style={{ color: '#9ca3af', fontSize: 12 }}>{Number(order.price).toFixed(0)} сом <em>(жеткирүү)</em></span>
-                      }
+                    <span className="ep-order-price">
+                      {order.items_total != null ? `${Number(order.items_total).toFixed(0)} сом` : '—'}
                     </span>
                     <span className="ep-order-date">
                       {fmtDate(order.created_at)}
