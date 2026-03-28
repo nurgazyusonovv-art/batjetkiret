@@ -15,6 +15,15 @@ class NotificationItem {
     required this.createdAt,
   });
 
+  NotificationItem copyWithRead() => NotificationItem(
+        id: id,
+        title: title,
+        message: message,
+        chatId: chatId,
+        isRead: true,
+        createdAt: createdAt,
+      );
+
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
     return NotificationItem(
       id: (json['id'] as num?)?.toInt() ?? 0,

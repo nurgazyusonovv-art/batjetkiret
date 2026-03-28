@@ -323,7 +323,6 @@ def get_orders(
     _user, e = auth
     q = db.query(Order).filter(
         Order.enterprise_id.isnot(None),
-        Order.order_type == 'delivery',
         Order.enterprise_id == e.id,
         Order.hidden_for_enterprise == False,  # noqa: E712
         Order.status.notin_(["COMPLETED", "DELIVERED", "CANCELLED"]),
@@ -348,7 +347,6 @@ def get_history(
     orders = (db.query(Order)
               .filter(
                   Order.enterprise_id.isnot(None),
-                  Order.order_type == 'delivery',
                   Order.enterprise_id == e.id,
                   Order.hidden_for_enterprise == False,  # noqa: E712
                   Order.status.in_(["COMPLETED", "DELIVERED", "CANCELLED"]),
