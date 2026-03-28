@@ -597,7 +597,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   if (currentOrder.estimatedPrice != null)
                     _buildDetailCard(
                       icon: Icons.currency_exchange,
-                      label: 'Баланасы',
+                      label: 'Жеткирүү баасы',
                       value:
                           '${currentOrder.estimatedPrice?.round()} сом',
                       color: accentColor,
