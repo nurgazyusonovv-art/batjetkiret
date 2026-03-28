@@ -112,7 +112,9 @@ def available_orders(
         db.query(Order)
         .filter(
             or_(
-                Order.status == "WAITING_COURIER",
+                # Regular (non-enterprise) orders: visible as soon as placed
+                (Order.status == "WAITING_COURIER") & (Order.enterprise_id.is_(None)),
+                # Enterprise orders: visible to couriers only when marked READY by the enterprise
                 (Order.status == "READY") & (Order.enterprise_id.isnot(None)),
             ),
             Order.category != "intercity",
