@@ -94,7 +94,7 @@ export default function DashboardPage() {
               { label: 'Активдүү', value: stats.active_orders, icon: Clock, color: '#d97706', bg: '#fffbeb' },
               { label: 'Аяктаган', value: stats.completed_orders, icon: CheckCircle, color: '#059669', bg: '#ecfdf5' },
               { label: 'Жокко чыгарылган', value: stats.cancelled_orders, icon: XCircle, color: '#dc2626', bg: '#fef2f2' },
-              { label: 'Бүгүнкү киреше', value: `${stats.total_revenue.toFixed(0)} сом`, icon: TrendingUp, color: '#7c3aed', bg: '#f5f3ff' },
+              { label: 'Заказдардын суммасы', value: `${stats.total_revenue.toFixed(0)} сом`, icon: TrendingUp, color: '#7c3aed', bg: '#f5f3ff' },
               { label: 'Менюдагы товарлар', value: stats.products_count, icon: Tag, color: '#0891b2', bg: '#ecfeff' },
             ].map(card => {
               const Icon = card.icon;
@@ -127,7 +127,7 @@ export default function DashboardPage() {
                 <div className="dsc-divider" />
                 <div className="dsc-stat">
                   <span className="dsc-num">{stats.online_revenue.toFixed(0)}</span>
-                  <span className="dsc-lbl">Сом киреше</span>
+                  <span className="dsc-lbl">Сом (жеткирүү)</span>
                 </div>
               </div>
             </div>

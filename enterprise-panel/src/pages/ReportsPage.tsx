@@ -69,7 +69,7 @@ export default function ReportsPage() {
               <div className="erc-icon"><TrendingUp size={20} /></div>
               <div>
                 <div className="erc-value">{data.total_revenue.toFixed(0)} сом</div>
-                <div className="erc-label">Жалпы киреше · {PERIOD_LABELS[period]}</div>
+                <div className="erc-label">Заказдардын суммасы · {PERIOD_LABELS[period]}</div>
               </div>
             </div>
             <div className="ep-report-card total">
@@ -108,7 +108,7 @@ export default function ReportsPage() {
                 <div className="esc-value">{data.online_orders}</div>
                 <div className="esc-label">Онлайн заказ</div>
               </div>
-              <div className="esc-revenue">{data.online_revenue.toFixed(0)} сом</div>
+              <div className="esc-revenue" title="Жеткирүү акысы (киреше катары эсептелбейт)">{data.online_revenue.toFixed(0)} сом*</div>
             </div>
             <div className="ep-source-card">
               <Store size={18} color="#059669" />
@@ -133,7 +133,7 @@ export default function ReportsPage() {
           {/* Диаграмма */}
           {period > 1 && data.daily.length > 0 && (
             <>
-              <div className="ep-report-section-label">Киреше боюнча ({PERIOD_LABELS[period]})</div>
+              <div className="ep-report-section-label">Заказдардын суммасы ({PERIOD_LABELS[period]})</div>
               <div className="ep-chart-wrap">
                 <div className="ep-bar-chart">
                   {data.daily.map(day => {
@@ -196,7 +196,7 @@ export default function ReportsPage() {
                   <strong style={{ color: '#d97706' }}>{data.active_orders}</strong>
                 </div>
                 <div className="ep-today-card wide">
-                  <span>Киреше</span>
+                  <span>Заказдардын суммасы</span>
                   <strong style={{ color: '#4f46e5' }}>{data.total_revenue.toFixed(0)} сом</strong>
                 </div>
               </div>
