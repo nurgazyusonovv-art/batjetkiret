@@ -18,6 +18,7 @@ def _migrate(engine):
         "ALTER TABLE orders ADD COLUMN intercity_city_id INTEGER",
         "ALTER TABLE users ADD COLUMN fcm_token VARCHAR",
         "ALTER TABLE orders ADD COLUMN items_total NUMERIC(10,2)",
+        "ALTER TABLE orders ADD COLUMN source VARCHAR DEFAULT 'online'",
     ]
     for sql in migrations:
         try:
@@ -28,7 +29,8 @@ def _migrate(engine):
             logger.debug(f"Migration skipped (already applied): {sql.split('ADD COLUMN')[1].strip().split()[0] if 'ADD COLUMN' in sql else sql}")
 
     # Data migration: backfill items_total for existing enterprise local/dine-in orders
-    # For these orders price was already set to items total (not delivery fee)
+    # For these orders price was already set to items total (not delivery fee).
+    # Two queries: one with source filter (if source column exists), one fallback by order_type.
     try:
         with engine.connect() as conn:
             conn.execute(text(
@@ -37,9 +39,20 @@ def _migrate(engine):
                 "AND source IN ('local', 'dine_in')"
             ))
             conn.commit()
-            logger.info("Backfilled items_total for existing enterprise local/dine-in orders")
     except Exception as e:
-        logger.warning(f"items_total backfill failed: {e}")
+        logger.warning(f"items_total backfill (source filter) failed: {e}")
+    # Fallback: enterprise orders without source (treated as local)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(
+                "UPDATE orders SET items_total = price "
+                "WHERE items_total IS NULL AND enterprise_id IS NOT NULL "
+                "AND (source IS NULL OR source NOT IN ('online'))"
+            ))
+            conn.commit()
+            logger.info("Backfilled items_total for existing enterprise orders")
+    except Exception as e:
+        logger.warning(f"items_total backfill (fallback) failed: {e}")
 
 
 def _init_db_with_retry():
