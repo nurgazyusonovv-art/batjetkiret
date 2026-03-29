@@ -449,17 +449,21 @@ export default function OrdersPage() {
           <tbody>
             {paginatedOrders.map((order) => {
               const isIntercity = order.category === 'intercity';
+              const noCode = !order.verification_code && order.status === 'DELIVERED';
               return (
               <tr
                 key={order.id}
                 onClick={() => openOrderDetails(order.id)}
-                className={isIntercity ? 'intercity-row' : ''}
+                className={[isIntercity ? 'intercity-row' : '', noCode ? 'no-code-row' : ''].filter(Boolean).join(' ')}
                 style={{ cursor: 'pointer' }}
               >
                 <td className="order-id">
                   #{order.id}
                   {isIntercity && (
                     <span className="intercity-badge">🚌 Шаарлар аралык</span>
+                  )}
+                  {noCode && (
+                    <span className="no-code-badge" title="Тастыктоо коду жок">Код жок</span>
                   )}
                 </td>
                 <td>{order.user_phone || '-'}</td>
@@ -570,6 +574,14 @@ export default function OrdersPage() {
                 <p><strong>Категория:</strong> {selectedOrder.category || '-'}</p>
                 <p><strong>Маршрут:</strong> {selectedOrder.pickup_location} → {selectedOrder.delivery_location}</p>
                 <p><strong>Дистанция:</strong> {selectedOrder.distance_km.toFixed(2)} км</p>
+                {selectedOrder.status === 'DELIVERED' && (
+                  <p>
+                    <strong>Тастыктоо коду:</strong>{' '}
+                    {selectedOrder.verification_code
+                      ? <span className="verify-code-value">{selectedOrder.verification_code}</span>
+                      : <span className="verify-code-missing">— Код жазыла элек</span>}
+                  </p>
+                )}
 
                 {selectedOrder.description && (
                   <div className="detail-section">

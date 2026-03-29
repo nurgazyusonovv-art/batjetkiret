@@ -566,6 +566,40 @@
   background: #e0e9ff;
 }
 
+/* No verification code highlight */
+.no-code-row td { background: #fff7ed !important; }
+.no-code-row:hover td { background: #ffedd5 !important; }
+
+.no-code-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #c2410c;
+  background: #ffedd5;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  padding: 1px 6px;
+  vertical-align: middle;
+}
+
+.verify-code-value {
+  font-family: monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: #059669;
+  background: #d1fae5;
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 2px;
+}
+
+.verify-code-missing {
+  font-size: 13px;
+  font-weight: 600;
+  color: #dc2626;
+}
+
 .intercity-badge {
   display: block;
   margin-top: 4px;
