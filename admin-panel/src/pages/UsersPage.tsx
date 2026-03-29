@@ -1,7 +1,7 @@
 import { userService } from "@/services/users";
 import { User } from "@/types";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Search, CheckCircle, XCircle, Ban, Pencil, UserCog, Lock, Trash2, UserPlus } from "lucide-react";
 import "./UsersPage.css";
 
@@ -9,9 +9,8 @@ const ITEMS_PER_PAGE = 10;
 
 export default function UsersPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'user' | 'courier' | 'admin'>('all');
@@ -127,17 +126,8 @@ export default function UsersPage() {
     }
   };
 
-  const openUserDetails = async (user: User) => {
-    setDetailLoading(true);
-    try {
-      const details = await userService.getUserById(user.id);
-      setSelectedUser(details);
-    } catch (err) {
-      console.error('Failed to load user details:', err);
-      alert('Колдонуучу маалыматын жүктөө мүмкүн болгон жок');
-    } finally {
-      setDetailLoading(false);
-    }
+  const openUserDetails = (user: User) => {
+    navigate(`/users/${user.id}`);
   };
 
   const openEditModal = (user: User) => {
@@ -171,10 +161,6 @@ export default function UsersPage() {
         role: editRole,
       });
       await loadUsers();
-      if (selectedUser?.id === editTarget.id) {
-        const details = await userService.getUserById(editTarget.id);
-        setSelectedUser(details);
-      }
       closeEditModal();
     } catch (err) {
       console.error('Failed to update user:', err);
@@ -190,9 +176,6 @@ export default function UsersPage() {
     setActionLoading(true);
     try {
       await userService.deleteUser(user.id);
-      if (selectedUser?.id === user.id) {
-        setSelectedUser(null);
-      }
       await loadUsers();
     } catch (err) {
       console.error('Failed to delete user:', err);
@@ -519,61 +502,6 @@ export default function UsersPage() {
             >
               Алга
             </button>
-          </div>
-        </div>
-      )}
-
-      {(detailLoading || selectedUser) && (
-        <div className="user-detail-overlay" onClick={() => setSelectedUser(null)}>
-          <div className="user-detail-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="user-detail-header">
-              <h3>{detailLoading ? 'Жүктөлүүдө...' : `Курьер: ${selectedUser?.name || selectedUser?.phone}`}</h3>
-              <button className="close-detail" onClick={() => setSelectedUser(null)}>×</button>
-            </div>
-
-            {!detailLoading && selectedUser && (
-              <div className="user-detail-content">
-                <p><strong>Жеке номер:</strong> {selectedUser.unique_id || '-'}</p>
-                <p><strong>Телефон:</strong> {selectedUser.phone}</p>
-                <p><strong>Статус:</strong> {selectedUser.is_online ? 'Онлайн' : 'Офлайн'}</p>
-                <p><strong>Рейтинг:</strong> {selectedUser.average_rating ? selectedUser.average_rating.toFixed(2) : '-'}</p>
-                <p><strong>Жалпы заказ:</strong> {selectedUser.total_orders ?? 0}</p>
-                <p><strong>Аяктаган заказ:</strong> {selectedUser.completed_orders ?? 0}</p>
-                <p><strong>Баланс:</strong> {selectedUser.balance} сом</p>
-
-                <div className="detail-section">
-                  <h4>Акыркы заказдар</h4>
-                  {selectedUser.recent_orders && selectedUser.recent_orders.length > 0 ? (
-                    <div className="mini-list">
-                      {selectedUser.recent_orders.map((order) => (
-                        <div key={order.id} className="mini-item">
-                          <div>#{order.id} • {order.status}</div>
-                          <div>{order.price} сом</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="muted">Заказ жок</p>
-                  )}
-                </div>
-
-                <div className="detail-section">
-                  <h4>Акыркы рейтингдер</h4>
-                  {selectedUser.recent_ratings && selectedUser.recent_ratings.length > 0 ? (
-                    <div className="mini-list">
-                      {selectedUser.recent_ratings.map((rating, idx) => (
-                        <div key={`${rating.order_id}-${idx}`} className="mini-item">
-                          <div>Order #{rating.order_id} • ⭐ {rating.rating}</div>
-                          <div className="muted">{rating.comment || 'Комментарий жок'}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="muted">Рейтинг жок</p>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}

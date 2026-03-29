@@ -9,6 +9,7 @@ import NotificationsPage from './pages/NotificationsPage';
 import EnterprisesPage from './pages/EnterprisesPage';
 import SupportChatsPage from './pages/SupportChatsPage';
 import IntercityPage from './pages/IntercityPage';
+import UserDetailPage from './pages/UserDetailPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 
@@ -112,6 +113,17 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <IntercityPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/users/:id"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <UserDetailPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

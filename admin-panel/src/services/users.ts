@@ -108,4 +108,22 @@ export const userService = {
     const response = await api.post<BackendAdminUser>('/admin/users', payload);
     return mapUser(response.data);
   },
+
+  async getUserOrders(userId: number, skip = 0, limit = 50): Promise<{ total: number; orders: UserOrder[] }> {
+    const response = await api.get(`/admin/users/${userId}/orders`, { params: { skip, limit } });
+    return response.data;
+  },
 };
+
+export interface UserOrder {
+  id: number;
+  status: string;
+  price: number;
+  from_address: string;
+  to_address: string;
+  category: string;
+  created_at: string;
+  courier_name: string | null;
+  user_name: string | null;
+  user_phone: string | null;
+}

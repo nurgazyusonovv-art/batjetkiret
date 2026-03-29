@@ -1177,6 +1177,46 @@ def user_detail(
 
 
 
+@router.get("/users/{user_id}/orders")
+def user_orders(
+    user_id: int,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404)
+
+    if user.is_courier:
+        q = db.query(Order).filter(Order.courier_id == user.id)
+    else:
+        q = db.query(Order).filter(Order.user_id == user.id)
+
+    total = q.count()
+    orders = q.order_by(Order.created_at.desc()).offset(skip).limit(limit).all()
+
+    return {
+        "total": total,
+        "orders": [
+            {
+                "id": o.id,
+                "status": o.status,
+                "price": float(o.price),
+                "from_address": o.from_address,
+                "to_address": o.to_address,
+                "category": o.category,
+                "created_at": o.created_at.isoformat() if o.created_at else None,
+                "courier_name": o.courier.name if o.courier else None,
+                "user_name": o.user.name if o.user else None,
+                "user_phone": o.user.phone if o.user else None,
+            }
+            for o in orders
+        ],
+    }
+
+
 @router.post("/orders/{order_id}/force-cancel")
 def force_cancel_order(
     order_id: int,
