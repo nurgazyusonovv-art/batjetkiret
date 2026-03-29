@@ -14,10 +14,21 @@ from app.models.transaction import Transaction
 from app.services.wallet import charge_platform_fee
 from app.services.order_status import apply_status_change
 from app.core.limiter import limiter
+from app.models.setting import Setting
 
 router = APIRouter(prefix="/courier/orders", tags=["Courier Orders"])
 
-COURIER_ORDER_SERVICE_FEE = Decimal("5")
+COURIER_ORDER_SERVICE_FEE_DEFAULT = Decimal("5")
+
+
+def _get_service_fee(db) -> Decimal:
+    row = db.query(Setting).filter(Setting.key == "courier_service_fee").first()
+    if row:
+        try:
+            return Decimal(str(float(row.value)))
+        except Exception:
+            pass
+    return COURIER_ORDER_SERVICE_FEE_DEFAULT
 
 
 class CompleteOrderRequest(BaseModel):
@@ -25,18 +36,19 @@ class CompleteOrderRequest(BaseModel):
 
 
 def _charge_courier_service_fee(db: Session, courier: User, order_id: int):
+    fee = _get_service_fee(db)
     try:
         charge_platform_fee(
             db,
             courier,
             order_id,
-            float(COURIER_ORDER_SERVICE_FEE),
+            float(fee),
             "SERVICE_FEE_COURIER",
         )
     except ValueError as exc:
         raise HTTPException(
             status_code=400,
-            detail="Заказды аяктоо үчүн курьер балансында 5 сом болушу керек",
+            detail=f"Заказды аяктоо үчүн курьер балансында {fee} сом болушу керек",
         ) from exc
 
 

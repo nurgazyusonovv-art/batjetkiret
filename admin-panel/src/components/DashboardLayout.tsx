@@ -11,6 +11,7 @@ import {
   Building2,
   MessageSquare,
   MapPin,
+  Settings,
 } from 'lucide-react';
 import api from '@/services/api';
 import { authService } from '@/services/auth';
@@ -76,6 +77,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { path: '/enterprises', icon: Building2, label: 'Ишканалар' },
     { path: '/support-chats', icon: MessageSquare, label: 'Колдоо чаттары', badge: unreadSupportCount },
     { path: '/intercity', icon: MapPin, label: 'Шаарлар аралык' },
+    { path: '/settings', icon: Settings, label: 'Жөндөөлөр' },
   ];
 
   return (

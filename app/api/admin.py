@@ -8,6 +8,7 @@ import logging
 import os
 
 from app.api.deps import get_db, require_admin
+from app.models.setting import Setting
 from app.models.order import Order
 from app.models.intercity_city import IntercityCity
 from app.models.rating import CourierRating
@@ -1717,3 +1718,83 @@ def test_push(
     if not success:
         return {"sent": False, "error": "FCM token rejected (invalid or expired token)"}
     return {"sent": True}
+
+
+# ── Settings ──────────────────────────────────────────────────────────────────
+
+SETTING_DEFAULTS = {
+    "courier_service_fee": ("5", "Курьерден алынуучу комиссия (сом, ар бир аяктаган заказ үчүн)"),
+}
+
+
+def _get_setting(db: Session, key: str) -> str:
+    row = db.query(Setting).filter(Setting.key == key).first()
+    if row:
+        return row.value
+    return SETTING_DEFAULTS.get(key, ("",))[0]
+
+
+@router.get("/settings")
+def get_settings(db: Session = Depends(get_db), admin=Depends(require_admin)):
+    result = {}
+    for key, (default, description) in SETTING_DEFAULTS.items():
+        row = db.query(Setting).filter(Setting.key == key).first()
+        result[key] = {
+            "value": row.value if row else default,
+            "description": description,
+        }
+    return result
+
+
+class SettingUpdate(BaseModel):
+    value: str
+
+
+@router.put("/settings/{key}")
+def update_setting(
+    key: str,
+    body: SettingUpdate,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    if key not in SETTING_DEFAULTS:
+        raise HTTPException(status_code=400, detail="Белгисиз параметр")
+    row = db.query(Setting).filter(Setting.key == key).first()
+    if row:
+        row.value = body.value
+    else:
+        _, description = SETTING_DEFAULTS[key]
+        db.add(Setting(key=key, value=body.value, description=description))
+    db.commit()
+    return {"key": key, "value": body.value}
+
+
+# ── Admin balance top-up ──────────────────────────────────────────────────────
+
+class AdminTopupBody(BaseModel):
+    amount: float
+    note: str = ""
+
+
+@router.post("/users/{user_id}/topup")
+def admin_topup_balance(
+    user_id: int,
+    body: AdminTopupBody,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Admin directly credits a user's balance."""
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Сумма 0дан чоң болушу керек")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Колдонуучу табылган жок")
+    from decimal import Decimal
+    user.balance = (user.balance or Decimal("0")) + Decimal(str(body.amount))
+    db.add(Transaction(
+        user_id=user.id,
+        amount=Decimal(str(body.amount)),
+        type="ADMIN_TOPUP",
+    ))
+    db.commit()
+    return {"balance": float(user.balance), "added": body.amount}

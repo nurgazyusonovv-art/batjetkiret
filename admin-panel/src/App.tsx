@@ -10,6 +10,7 @@ import EnterprisesPage from './pages/EnterprisesPage';
 import SupportChatsPage from './pages/SupportChatsPage';
 import IntercityPage from './pages/IntercityPage';
 import UserDetailPage from './pages/UserDetailPage';
+import SettingsPage from './pages/SettingsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 
@@ -124,6 +125,17 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <UserDetailPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <SettingsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
