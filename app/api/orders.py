@@ -19,6 +19,7 @@ from app.models.user_rating import UserRating
 from app.schemas.order import OrderCreateRequest, OrderResponse
 from app.core.config import settings
 from app.services.pricing import calculate_price
+from app.api.admin import get_delivery_pricing
 from app.services.wallet import charge_platform_fee
 from app.services.order_status import apply_status_change
 
@@ -180,7 +181,8 @@ def create_order(
             raise HTTPException(status_code=404, detail="City not found or inactive")
         price = float(city.price)
     else:
-        price = calculate_price(data.distance_km)
+        base, per_km = get_delivery_pricing(db)
+        price = calculate_price(data.distance_km, base, per_km)
 
     # Store fixed commission values (business rule: 5 som from user + 5 som from courier).
     user_commission = USER_ORDER_SERVICE_FEE
@@ -499,8 +501,8 @@ def update_order(
 
     # Recalculate price if distance changed
     if "distance_km" in data and data["distance_km"] is not None:
-        from app.services.pricing import calculate_price
-        order.price = calculate_price(float(data["distance_km"]))
+        base, per_km = get_delivery_pricing(db)
+        order.price = calculate_price(float(data["distance_km"]), base, per_km)
 
     db.commit()
     db.refresh(order)

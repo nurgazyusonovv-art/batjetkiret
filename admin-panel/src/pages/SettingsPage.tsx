@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Settings, Save, Wallet, Search, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
-import { settingsService } from '@/services/settings';
+import { Settings, Save, Wallet, Search, ChevronLeft, ChevronRight, RefreshCw, Truck } from 'lucide-react';
+import { settingsService, SETTING_KEYS } from '@/services/settings';
 import { userService } from '@/services/users';
 import { User } from '@/types';
 import './SettingsPage.css';
@@ -13,6 +13,12 @@ export default function SettingsPage() {
   const [feeDesc, setFeeDesc] = useState('');
   const [feeSaving, setFeeSaving] = useState(false);
   const [feeMsg, setFeeMsg] = useState('');
+
+  // ── Delivery pricing ─────────────────────────────────────────────────────
+  const [basePrice, setBasePrice] = useState('80');
+  const [perKm, setPerKm] = useState('20');
+  const [priceSaving, setPriceSaving] = useState(false);
+  const [priceMsg, setPriceMsg] = useState('');
 
   // ── Balance top-up ────────────────────────────────────────────────────────
   const [users, setUsers] = useState<User[]>([]);
@@ -34,10 +40,12 @@ export default function SettingsPage() {
   const loadSettings = async () => {
     try {
       const data = await settingsService.getSettings();
-      if (data.courier_service_fee) {
-        setFee(data.courier_service_fee.value);
-        setFeeDesc(data.courier_service_fee.description);
+      if (data[SETTING_KEYS.COURIER_FEE]) {
+        setFee(data[SETTING_KEYS.COURIER_FEE].value);
+        setFeeDesc(data[SETTING_KEYS.COURIER_FEE].description);
       }
+      if (data[SETTING_KEYS.DELIVERY_BASE]) setBasePrice(data[SETTING_KEYS.DELIVERY_BASE].value);
+      if (data[SETTING_KEYS.DELIVERY_PER_KM]) setPerKm(data[SETTING_KEYS.DELIVERY_PER_KM].value);
     } catch { /* silent */ }
   };
 
@@ -57,7 +65,7 @@ export default function SettingsPage() {
     setFeeSaving(true);
     setFeeMsg('');
     try {
-      await settingsService.updateSetting('courier_service_fee', String(val));
+      await settingsService.updateSetting(SETTING_KEYS.COURIER_FEE, String(val));
       setFeeMsg('✓ Сакталды');
     } catch {
       setFeeMsg('Сактоодо ката кетти');
@@ -65,6 +73,34 @@ export default function SettingsPage() {
       setFeeSaving(false);
     }
   };
+
+  const saveDeliveryPricing = async () => {
+    const base = parseFloat(basePrice);
+    const km = parseFloat(perKm);
+    if (isNaN(base) || base < 0 || isNaN(km) || km < 0) {
+      setPriceMsg('Туура сан киргизиңиз');
+      return;
+    }
+    setPriceSaving(true);
+    setPriceMsg('');
+    try {
+      await Promise.all([
+        settingsService.updateSetting(SETTING_KEYS.DELIVERY_BASE, String(base)),
+        settingsService.updateSetting(SETTING_KEYS.DELIVERY_PER_KM, String(km)),
+      ]);
+      setPriceMsg('✓ Сакталды');
+    } catch {
+      setPriceMsg('Сактоодо ката кетти');
+    } finally {
+      setPriceSaving(false);
+    }
+  };
+
+  const deliveryPreview = useMemo(() => {
+    const base = parseFloat(basePrice) || 0;
+    const km = parseFloat(perKm) || 0;
+    return [1, 3, 5, 10].map(d => ({ km: d, price: Math.round(base + d * km) }));
+  }, [basePrice, perKm]);
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return users;
@@ -143,7 +179,76 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* ── Section 2: Balance top-up ── */}
+      {/* ── Section 2: Delivery pricing ── */}
+      <div className="sp-section">
+        <div className="sp-section-title">
+          <Truck size={18} />
+          Жеткирүү акысынын формуласы
+        </div>
+
+        <div className="sp-delivery-pricing">
+          <div className="sp-delivery-formula">
+            <div className="sp-formula-field">
+              <div className="sp-fee-label">Башкы баа (сом)</div>
+              <div className="sp-fee-desc">Заказдын аралыгынан көз карандысыз алынуучу туруктуу баа</div>
+              <div className="sp-fee-input-wrap" style={{ marginTop: 8 }}>
+                <input
+                  type="number" min="0" step="1"
+                  value={basePrice}
+                  onChange={e => { setBasePrice(e.target.value); setPriceMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="80"
+                />
+                <span className="sp-fee-unit">сом</span>
+              </div>
+            </div>
+
+            <div className="sp-formula-plus">+</div>
+
+            <div className="sp-formula-field">
+              <div className="sp-fee-label">1 км үчүн баа (сом)</div>
+              <div className="sp-fee-desc">Ар бир километр үчүн кошулуучу сумма</div>
+              <div className="sp-fee-input-wrap" style={{ marginTop: 8 }}>
+                <input
+                  type="number" min="0" step="1"
+                  value={perKm}
+                  onChange={e => { setPerKm(e.target.value); setPriceMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="20"
+                />
+                <span className="sp-fee-unit">сом/км</span>
+              </div>
+            </div>
+
+            <div className="sp-formula-plus">×</div>
+            <div className="sp-formula-km-label">км</div>
+          </div>
+
+          <div className="sp-delivery-preview">
+            <div className="sp-preview-title">Мисалдар:</div>
+            {deliveryPreview.map(({ km, price }) => (
+              <div key={km} className="sp-preview-row">
+                <span>{km} км</span>
+                <span className="sp-preview-price">{price} сом</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="sp-fee-input-row" style={{ marginTop: 16 }}>
+          <button className="sp-save-btn" onClick={saveDeliveryPricing} disabled={priceSaving}>
+            <Save size={15} />
+            {priceSaving ? 'Сакталууда...' : 'Сактоо'}
+          </button>
+          {priceMsg && (
+            <div className={`sp-fee-msg ${priceMsg.startsWith('✓') ? 'success' : 'error'}`}>
+              {priceMsg}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Section 3: Balance top-up ── */}
       <div className="sp-section">
         <div className="sp-section-title">
           <Wallet size={18} />

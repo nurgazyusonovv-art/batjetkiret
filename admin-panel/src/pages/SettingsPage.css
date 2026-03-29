@@ -181,7 +181,58 @@
 .sp-topup-msg.success { background: #d1fae5; color: #065f46; }
 .sp-topup-msg.error   { background: #fee2e2; color: #dc2626; }
 
+/* Delivery pricing */
+.sp-delivery-pricing {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.sp-delivery-formula {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sp-formula-field { display: flex; flex-direction: column; }
+
+.sp-formula-plus {
+  font-size: 24px; font-weight: 700; color: #9ca3af;
+  padding-bottom: 10px;
+}
+
+.sp-formula-km-label {
+  font-size: 16px; font-weight: 700; color: #374151;
+  padding-bottom: 12px;
+}
+
+.sp-delivery-preview {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px 18px;
+  min-width: 180px;
+}
+
+.sp-preview-title {
+  font-size: 12px; font-weight: 600; color: #6b7280;
+  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+.sp-preview-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0;
+  font-size: 13px; color: #374151;
+  border-bottom: 1px solid #f3f4f6;
+}
+.sp-preview-row:last-child { border-bottom: none; }
+.sp-preview-price { font-weight: 700; color: #4f46e5; }
+
 @media (max-width: 768px) {
   .sp-topup-layout { grid-template-columns: 1fr; }
   .sp-user-list { max-height: 240px; }
+  .sp-delivery-formula { flex-direction: column; align-items: flex-start; }
+  .sp-formula-plus { padding-bottom: 0; }
 }

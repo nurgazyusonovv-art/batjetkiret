@@ -14,6 +14,7 @@ from fastapi import UploadFile, File
 from app.api.deps import get_db, require_enterprise, get_current_user
 from app.core.security import verify_password, create_access_token, hash_password
 from app.services.pricing import calculate_price, haversine_km
+from app.api.admin import get_delivery_pricing
 from app.models.user import User
 from app.models.order import Order
 from app.models.enterprise import Enterprise
@@ -477,6 +478,7 @@ def create_local_order(
         delivery_price = Decimal("0")
     else:
         # Calculate distance from coordinates if both endpoints are available
+        base, per_km = get_delivery_pricing(db)
         if (enterprise.lat and enterprise.lon
                 and data.to_lat is not None and data.to_lng is not None):
             dist = haversine_km(
@@ -484,11 +486,11 @@ def create_local_order(
                 data.to_lat, data.to_lng,
             )
             distance_km = Decimal(str(round(dist, 2)))
-            delivery_price = Decimal(str(round(calculate_price(dist), 0)))
+            delivery_price = Decimal(str(round(calculate_price(dist, base, per_km), 0)))
         else:
             # No coordinates — use base delivery fee
             distance_km = Decimal("0")
-            delivery_price = Decimal(str(calculate_price(0)))  # 80 сом base
+            delivery_price = Decimal(str(calculate_price(0, base, per_km)))
 
     order = Order(
         user_id=customer.id,

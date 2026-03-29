@@ -1,9 +1,7 @@
 import math
 
 
-def calculate_price(distance_km: float) -> float:
-    base_price = 80
-    price_per_km = 20
+def calculate_price(distance_km: float, base_price: float = 80, price_per_km: float = 20) -> float:
     return base_price + distance_km * price_per_km
 
 

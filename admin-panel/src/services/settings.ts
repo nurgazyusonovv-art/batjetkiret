@@ -5,6 +5,12 @@ export interface SettingItem {
   description: string;
 }
 
+export const SETTING_KEYS = {
+  COURIER_FEE: 'courier_service_fee',
+  DELIVERY_BASE: 'delivery_base_price',
+  DELIVERY_PER_KM: 'delivery_price_per_km',
+} as const;
+
 export const settingsService = {
   async getSettings(): Promise<Record<string, SettingItem>> {
     const res = await api.get('/admin/settings');

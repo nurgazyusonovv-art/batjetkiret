@@ -1723,7 +1723,9 @@ def test_push(
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 SETTING_DEFAULTS = {
-    "courier_service_fee": ("5", "Курьерден алынуучу комиссия (сом, ар бир аяктаган заказ үчүн)"),
+    "courier_service_fee":    ("5",  "Курьерден алынуучу комиссия (сом, ар бир аяктаган заказ үчүн)"),
+    "delivery_base_price":    ("80", "Жеткирүү акысынын башкы баасы (сом)"),
+    "delivery_price_per_km":  ("20", "1 км үчүн жеткирүү баасы (сом)"),
 }
 
 
@@ -1732,6 +1734,19 @@ def _get_setting(db: Session, key: str) -> str:
     if row:
         return row.value
     return SETTING_DEFAULTS.get(key, ("",))[0]
+
+
+def get_delivery_pricing(db: Session) -> tuple[float, float]:
+    """Return (base_price, price_per_km) from DB settings."""
+    try:
+        base = float(_get_setting(db, "delivery_base_price"))
+    except (ValueError, TypeError):
+        base = 80.0
+    try:
+        per_km = float(_get_setting(db, "delivery_price_per_km"))
+    except (ValueError, TypeError):
+        per_km = 20.0
+    return base, per_km
 
 
 @router.get("/settings")
