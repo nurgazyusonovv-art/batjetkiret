@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, date
 
 from fastapi import UploadFile, File
 from app.api.deps import get_db, require_enterprise, get_current_user
-from app.core.security import verify_password, create_access_token
+from app.core.security import verify_password, create_access_token, hash_password
 from app.models.user import User
 from app.models.order import Order
 from app.models.enterprise import Enterprise
@@ -407,17 +407,31 @@ def create_local_order(
     if data.order_type not in ("delivery", "dine_in"):
         raise HTTPException(status_code=400, detail="order_type: 'delivery' же 'dine_in' болушу керек")
 
+    def _get_or_create_guest(phone: str) -> User:
+        """Find user by phone; if not found, create a guest account automatically."""
+        existing = db.query(User).filter(User.phone == phone).first()
+        if existing:
+            return existing
+        import secrets
+        guest = User(
+            phone=phone,
+            name=phone,
+            hashed_password=hash_password(secrets.token_hex(16)),
+            is_active=True,
+            is_courier=False,
+            is_admin=False,
+        )
+        db.add(guest)
+        db.flush()  # get guest.id without committing
+        return guest
+
     # --- Delivery: customer + address mildeettuu ---
     if data.order_type == "delivery":
         if not data.customer_phone:
             raise HTTPException(status_code=400, detail="Жеткирүү заказы үчүн кардардын телефону талап кылынат")
         if not data.to_address:
             raise HTTPException(status_code=400, detail="Жеткирүү дареги талап кылынат")
-        customer = db.query(User).filter(User.phone == data.customer_phone).first()
-        if not customer:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Колдонуучу {data.customer_phone} табылган жок. Алгач тиркемеде катталышы керек.")
+        customer = _get_or_create_guest(data.customer_phone)
         to_addr = data.to_address
         table_num = None
         order_source = "local"
@@ -426,13 +440,8 @@ def create_local_order(
         to_addr = f"Стол №{data.table_number}" if data.table_number else (enterprise.address or enterprise.name)
         table_num = data.table_number
         order_source = "dine_in"
-        # dine_in'де кардар камтылуучу (колдонуучу системасында болбосо ишкана аккаунту колдонулат)
         if data.customer_phone:
-            customer = db.query(User).filter(User.phone == data.customer_phone).first()
-            if not customer:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Колдонуучу {data.customer_phone} табылган жок.")
+            customer = _get_or_create_guest(data.customer_phone)
         else:
             # Ишкананын байланышкан колдонуучусун колдон
             customer = _user
