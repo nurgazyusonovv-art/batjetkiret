@@ -14,6 +14,7 @@ import 'package:frontend/features/home/presentation/cubit/order_create_state.dar
 import 'package:frontend/features/orders/presentation/cubit/orders_cubit.dart';
 import 'package:frontend/features/home/presentation/order_payment_sheet.dart';
 import 'package:frontend/features/orders/presentation/order_detail_page.dart';
+import 'package:frontend/features/orders/presentation/order_success_page.dart';
 import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:geolocator/geolocator.dart';
 import 'intercity_order_page.dart';
@@ -869,13 +870,12 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         }
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Заказ ийгиликтүү түзүлдү!'),
-          backgroundColor: Colors.green,
+      final orderId = orderData['id'] as int?;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => OrderSuccessPage(orderId: orderId ?? 0),
         ),
       );
-      Navigator.of(context).pop();
     } catch (error) {
       if (!mounted) return;
       final msg = error.toString().replaceFirst('Exception: ', '');
