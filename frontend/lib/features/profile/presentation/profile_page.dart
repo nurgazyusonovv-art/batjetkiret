@@ -27,6 +27,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   ProfileCubit get _profileCubit => context.read<ProfileCubit>();
   bool _statsTriggerred = false;
+  bool _courierBannerDismissed = false;
 
   @override
   void initState() {
@@ -133,6 +134,14 @@ class _ProfilePageState extends State<ProfilePage> {
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         children: [
+                          if (user.balance <= 100) ...[
+                            _buildLowBalanceBanner(user),
+                            const SizedBox(height: 12),
+                          ],
+                          if (!user.isCourier && !_courierBannerDismissed) ...[
+                            _buildCourierRecruitBanner(),
+                            const SizedBox(height: 12),
+                          ],
                           _buildProfileCard(
                             user,
                             ratingAverage: profileState.ratingAverage,
@@ -153,6 +162,131 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     )
                   : const SizedBox.shrink(),
+    );
+  }
+
+  // ── Low balance banner ────────────────────────────────────────────────────────
+
+  Widget _buildLowBalanceBanner(User user) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3CD),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFFD966), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          const Text('⚠️', style: TextStyle(fontSize: 20)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Балансыңыз аз',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF7A5800),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Учурдагы баланс: ${user.balance.toStringAsFixed(0)} сом. Балансыңды толукта!',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF9E7C00),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => TopupPage(token: widget.token)),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFB300),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'Толуктоо',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Courier recruit banner ─────────────────────────────────────────────────────
+
+  Widget _buildCourierRecruitBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEEF2FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFC7D2FE), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          const Text('🚴', style: TextStyle(fontSize: 22)),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Курьер болуп иштөөнү каалайсыңбы?',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF3730A3),
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Администраторго кайрылыңыз',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6366F1),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => _courierBannerDismissed = true),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFC7D2FE),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                size: 14,
+                color: Color(0xFF3730A3),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
