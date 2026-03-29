@@ -11,6 +11,7 @@ import SupportChatsPage from './pages/SupportChatsPage';
 import IntercityPage from './pages/IntercityPage';
 import UserDetailPage from './pages/UserDetailPage';
 import SettingsPage from './pages/SettingsPage';
+import CancelRequestsPage from './pages/CancelRequestsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 
@@ -136,6 +137,17 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <SettingsPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/cancel-requests"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <CancelRequestsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

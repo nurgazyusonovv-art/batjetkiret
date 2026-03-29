@@ -53,4 +53,8 @@ class Order(Base):
     hidden_for_courier = Column(Boolean, default=False, nullable=False)
     hidden_for_enterprise = Column(Boolean, default=False, nullable=False)
 
+    # User cancel request (when courier already accepted/on the way)
+    cancel_requested = Column(Boolean, default=False, nullable=True)
+    cancel_request_reason = Column(Text, nullable=True)
+
     created_at = Column(DateTime, server_default=func.now())

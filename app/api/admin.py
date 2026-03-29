@@ -1823,7 +1823,6 @@ def admin_topup_balance(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Колдонуучу табылган жок")
-    from decimal import Decimal
     user.balance = (user.balance or Decimal("0")) + Decimal(str(body.amount))
     db.add(Transaction(
         user_id=user.id,
@@ -1832,3 +1831,88 @@ def admin_topup_balance(
     ))
     db.commit()
     return {"balance": float(user.balance), "added": body.amount}
+
+
+# ── Cancel Requests ────────────────────────────────────────────────────────────
+
+@router.get("/cancel-requests")
+def list_cancel_requests(
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """List all orders with pending user cancel requests."""
+    orders = (
+        db.query(Order)
+        .filter(Order.cancel_requested == True)  # noqa: E712
+        .order_by(Order.created_at.desc())
+        .all()
+    )
+    result = []
+    for o in orders:
+        result.append({
+            "id": o.id,
+            "status": o.status,
+            "cancel_request_reason": o.cancel_request_reason,
+            "user_phone": o.user.phone if o.user else None,
+            "user_name": o.user.name if o.user else None,
+            "courier_phone": o.courier.phone if o.courier else None,
+            "courier_name": o.courier.name if o.courier else None,
+            "from_address": o.from_address,
+            "to_address": o.to_address,
+            "price": float(o.price),
+            "created_at": o.created_at,
+        })
+    return result
+
+
+@router.get("/cancel-requests/count")
+def cancel_requests_count(
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    count = db.query(func.count(Order.id)).filter(Order.cancel_requested == True).scalar() or 0  # noqa: E712
+    return {"count": count}
+
+
+class CancelDecisionBody(BaseModel):
+    admin_note: str = ""
+
+
+@router.post("/cancel-requests/{order_id}/approve")
+def approve_cancel_request(
+    order_id: int,
+    body: CancelDecisionBody,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Approve: cancel the order, clear the cancel request flag."""
+    from app.services.order_status import apply_status_change
+    order = db.query(Order).filter(Order.id == order_id, Order.cancel_requested == True).first()  # noqa: E712
+    if not order:
+        raise HTTPException(status_code=404, detail="Суроо табылган жок")
+
+    apply_status_change(db=db, order=order, new_status="CANCELLED", actor_user_id=admin.id)
+    order.cancel_requested = False
+    if body.admin_note:
+        order.admin_note = body.admin_note
+    db.commit()
+    return {"message": "Заказ жокко чыгарылды", "order_id": order_id}
+
+
+@router.post("/cancel-requests/{order_id}/reject")
+def reject_cancel_request(
+    order_id: int,
+    body: CancelDecisionBody,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Reject: keep the order, clear the cancel request flag."""
+    order = db.query(Order).filter(Order.id == order_id, Order.cancel_requested == True).first()  # noqa: E712
+    if not order:
+        raise HTTPException(status_code=404, detail="Суроо табылган жок")
+
+    order.cancel_requested = False
+    if body.admin_note:
+        order.admin_note = body.admin_note
+    db.commit()
+    return {"message": "Суроо четке кагылды", "order_id": order_id}

@@ -1311,6 +1311,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       ),
                       const SizedBox(height: 12),
                     ],
+                    // Курьер кабыл алган / жолдо болгон заказды жокко чыгаруу суроосу
+                    if (currentOrder.status == 'accepted' ||
+                        currentOrder.status == 'in_transit') ...[
+                      _buildCancelRequestButton(currentOrder, isUpdatingStatus),
+                      const SizedBox(height: 12),
+                    ],
                     SizedBox(
                       width: double.infinity,
                       child: AppButton.primary(
@@ -1562,6 +1568,126 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.accent5,
+        ),
+      );
+    }
+  }
+
+  Widget _buildCancelRequestButton(dynamic currentOrder, bool isUpdatingStatus) {
+    final alreadyRequested = currentOrder.cancelRequested == true;
+
+    if (alreadyRequested) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF3CD),
+          border: Border.all(color: const Color(0xFFFFD966)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.hourglass_top, color: Color(0xFF92400E), size: 18),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Жокко чыгаруу суроосу жөнөтүлдү. Администратордун чечимин күтүңүз.',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF92400E),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: isUpdatingStatus ? null : () => _sendCancelRequest(currentOrder),
+        icon: const Icon(Icons.cancel_outlined, size: 18),
+        label: const Text(
+          'Жокко чыгаруу суроосун жөнөт',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.accent5,
+          side: BorderSide(color: AppColors.accent5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendCancelRequest(dynamic currentOrder) async {
+    final reasonController = TextEditingController();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Жокко чыгаруу суроосу'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Курьер буга чейин жолго чыккан. Жокко чыгаруу суроосу администраторго жөнөтүлөт.',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonController,
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: 'Себеп (милдеттүү эмес)',
+                filled: true,
+                fillColor: const Color(0xFFF4F6F8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Жок'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent5,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Жөнөтүү'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    try {
+      await _detailCubit.requestCancelOrder(widget.token, reason: reasonController.text);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Суроо жөнөтүлдү. Администратор кароого алат.'),
+          backgroundColor: Color(0xFF059669),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
           backgroundColor: AppColors.accent5,
         ),
       );

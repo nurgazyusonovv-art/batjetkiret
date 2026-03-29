@@ -23,6 +23,7 @@ class Order {
   final double? courierLongitude;
   final int? enterpriseId;
   final double? itemsTotal;
+  final bool cancelRequested;
 
   Order({
     required this.id,
@@ -49,6 +50,7 @@ class Order {
     this.courierLongitude,
     this.enterpriseId,
     this.itemsTotal,
+    this.cancelRequested = false,
   });
 
   String get categoryName {
@@ -100,6 +102,7 @@ class Order {
     double? courierLongitude,
     int? enterpriseId,
     double? itemsTotal,
+    bool? cancelRequested,
   }) {
     return Order(
       id: id ?? this.id,
@@ -126,6 +129,7 @@ class Order {
       courierLongitude: courierLongitude ?? this.courierLongitude,
       enterpriseId: enterpriseId ?? this.enterpriseId,
       itemsTotal: itemsTotal ?? this.itemsTotal,
+      cancelRequested: cancelRequested ?? this.cancelRequested,
     );
   }
 
@@ -175,6 +179,7 @@ class Order {
       courierLongitude: (json['courier_longitude'] as num?)?.toDouble(),
       enterpriseId: json['enterprise_id'] as int?,
       itemsTotal: (json['items_total'] as num?)?.toDouble(),
+      cancelRequested: json['cancel_requested'] == true,
     );
   }
 }

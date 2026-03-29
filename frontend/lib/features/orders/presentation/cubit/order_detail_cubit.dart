@@ -162,6 +162,26 @@ class OrderDetailCubit extends Cubit<OrderDetailState> {
     emit(state.copyWith(isUpdatingStatus: false));
   }
 
+  // Колдонуучу курьер жолдо болгон заказга жокко чыгаруу суроосун жөнөтүү
+  Future<void> requestCancelOrder(String? token, {String reason = ''}) async {
+    if (token == null) {
+      emit(state.copyWith(error: 'Сессия бүттү. Кайра кириңиз.'));
+      return;
+    }
+    emit(state.copyWith(isUpdatingStatus: true, clearError: true));
+    try {
+      await _orderApi.requestCancelOrder(token, state.currentOrder.id, reason: reason);
+      // Mark cancel_requested locally so the button changes to "waiting" state
+      final updated = state.currentOrder.copyWith(cancelRequested: true);
+      emit(state.copyWith(isUpdatingStatus: false, currentOrder: updated));
+    } catch (error) {
+      emit(state.copyWith(
+        isUpdatingStatus: false,
+        error: error.toString().replaceFirst('Exception: ', ''),
+      ));
+    }
+  }
+
   // Курьер заказдан баш тартуу
   Future<void> cancelCourierOrder(String? token) async {
     if (token == null) {

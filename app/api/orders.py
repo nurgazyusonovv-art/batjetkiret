@@ -1,6 +1,7 @@
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from pydantic import BaseModel
 from jose import JWTError, jwt
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -510,6 +511,10 @@ def update_order(
     return {"id": order.id, "message": "Updated", "price": float(order.price)}
 
 
+class CancelRequestBody(BaseModel):
+    reason: str = ""
+
+
 @router.post("/{order_id}/cancel")
 def cancel_order(
     order_id: int,
@@ -520,25 +525,65 @@ def cancel_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Колдонуучу гана өз заказын
     if order.user_id != current_user.id:
         raise HTTPException(status_code=403)
 
-    # Колдонуучу күтүүдө болгон заказды гана отмена кыла алат
-    if order.status != "WAITING_COURIER":
+    # WAITING_COURIER — direct cancel
+    if order.status == "WAITING_COURIER":
+        apply_status_change(
+            db=db,
+            order=order,
+            new_status="CANCELLED",
+            actor_user_id=current_user.id,
+        )
+        db.commit()
+        return {"message": "Order cancelled", "type": "direct"}
+
+    # ACCEPTED or ON_THE_WAY — submit cancel request for admin review
+    if order.status in ("ACCEPTED", "ON_THE_WAY"):
+        if order.cancel_requested:
+            raise HTTPException(
+                status_code=400,
+                detail="Жокко чыгаруу суроосу буга чейин жөнөтүлгөн, администратордун чечимин күтүңүз",
+            )
+        order.cancel_requested = True
+        db.commit()
+        return {"message": "cancel_requested", "type": "pending"}
+
+    raise HTTPException(
+        status_code=400,
+        detail="Бул статустагы заказды жокко чыгара албайсыз",
+    )
+
+
+@router.post("/{order_id}/cancel-request")
+def submit_cancel_request(
+    order_id: int,
+    body: CancelRequestBody,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Submit a cancel request with optional reason (for ACCEPTED/ON_THE_WAY orders)."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order or order.user_id != current_user.id:
+        raise HTTPException(status_code=404)
+
+    if order.status not in ("ACCEPTED", "ON_THE_WAY"):
         raise HTTPException(
             status_code=400,
-            detail="Күтүүдө болгон заказды гана жокко чыгара аласыз",
+            detail="Бул статустагы заказга жокко чыгаруу суроосу жөнөтүлбөйт",
         )
 
-    apply_status_change(
-        db=db,
-        order=order,
-        new_status="CANCELLED",
-        actor_user_id=current_user.id,
-    )
+    if order.cancel_requested:
+        raise HTTPException(
+            status_code=400,
+            detail="Суроо буга чейин жөнөтүлгөн",
+        )
+
+    order.cancel_requested = True
+    order.cancel_request_reason = body.reason or None
     db.commit()
-    return {"message": "Order cancelled"}
+    return {"message": "cancel_requested"}
 
 @router.delete("/{order_id}")
 def delete_order(

@@ -478,6 +478,27 @@ class OrderApi {
     }
   }
 
+  // Колдонуучу курьер жолдо болгон заказга жокко чыгаруу суроосун жөнөтүү
+  Future<void> requestCancelOrder(String token, int orderId, {String reason = ''}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConfig.baseUrl}/orders/$orderId/cancel-request'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'reason': reason}),
+      );
+      if (response.statusCode == 200) return;
+      final dynamic body = jsonDecode(response.body);
+      final detail = body is Map<String, dynamic> ? body['detail'] : null;
+      throw Exception(detail is String ? detail : 'Суроо жөнөтүүдө ката кетти');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Суроо жөнөтүүдө ката кетти');
+    }
+  }
+
   // Курьер заказдан баш тартуу (кабыл алынган статусунда гана, -10 сом)
   Future<void> cancelCourierOrder(String token, int orderId) async {
     try {

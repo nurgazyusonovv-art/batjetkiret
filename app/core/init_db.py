@@ -20,6 +20,8 @@ def _migrate(engine):
         "ALTER TABLE orders ADD COLUMN items_total NUMERIC(10,2)",
         "ALTER TABLE orders ADD COLUMN source VARCHAR DEFAULT 'online'",
         "ALTER TABLE enterprises ADD COLUMN payment_qr_url VARCHAR",
+        "ALTER TABLE orders ADD COLUMN cancel_requested BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE orders ADD COLUMN cancel_request_reason TEXT",
     ]
     for sql in migrations:
         try:

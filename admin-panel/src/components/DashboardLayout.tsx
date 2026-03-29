@@ -12,10 +12,12 @@ import {
   MessageSquare,
   MapPin,
   Settings,
+  AlertTriangle,
 } from 'lucide-react';
 import api from '@/services/api';
 import { authService } from '@/services/auth';
 import { notificationsService } from '@/services/notifications';
+import { cancelRequestsService } from '@/services/cancelRequests';
 import './DashboardLayout.css';
 
 interface DashboardLayoutProps {
@@ -28,6 +30,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const user = authService.getStoredUser();
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadSupportCount, setUnreadSupportCount] = useState(0);
+  const [cancelRequestCount, setCancelRequestCount] = useState(0);
 
   useEffect(() => {
     const checkUnread = async () => {
@@ -57,6 +60,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const checkCancelRequests = async () => {
+      try {
+        const count = await cancelRequestsService.count();
+        setCancelRequestCount(count);
+      } catch (_) {}
+    };
+    checkCancelRequests();
+    const interval = setInterval(checkCancelRequests, 20000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleLogout = () => {
     authService.logout();
     navigate('/login');
@@ -77,6 +92,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { path: '/enterprises', icon: Building2, label: 'Ишканалар' },
     { path: '/support-chats', icon: MessageSquare, label: 'Колдоо чаттары', badge: unreadSupportCount },
     { path: '/intercity', icon: MapPin, label: 'Шаарлар аралык' },
+    { path: '/cancel-requests', icon: AlertTriangle, label: 'Отмена суроолору', badge: cancelRequestCount },
     { path: '/settings', icon: Settings, label: 'Жөндөөлөр' },
   ];
 
