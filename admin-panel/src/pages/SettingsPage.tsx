@@ -18,6 +18,11 @@ export default function SettingsPage() {
   const [userFeeSaving, setUserFeeSaving] = useState(false);
   const [userFeeMsg, setUserFeeMsg] = useState('');
 
+  // ── Courier cancel penalty ────────────────────────────────────────────────
+  const [penalty, setPenalty] = useState('10');
+  const [penaltySaving, setPenaltySaving] = useState(false);
+  const [penaltyMsg, setPenaltyMsg] = useState('');
+
   // ── Delivery pricing ─────────────────────────────────────────────────────
   const [basePrice, setBasePrice] = useState('80');
   const [perKm, setPerKm] = useState('20');
@@ -46,6 +51,7 @@ export default function SettingsPage() {
       const data = await settingsService.getSettings();
       if (data[SETTING_KEYS.COURIER_FEE]) setFee(data[SETTING_KEYS.COURIER_FEE].value);
       if (data[SETTING_KEYS.USER_FEE]) setUserFee(data[SETTING_KEYS.USER_FEE].value);
+      if (data[SETTING_KEYS.COURIER_CANCEL_PENALTY]) setPenalty(data[SETTING_KEYS.COURIER_CANCEL_PENALTY].value);
       if (data[SETTING_KEYS.DELIVERY_BASE]) setBasePrice(data[SETTING_KEYS.DELIVERY_BASE].value);
       if (data[SETTING_KEYS.DELIVERY_PER_KM]) setPerKm(data[SETTING_KEYS.DELIVERY_PER_KM].value);
     } catch { /* silent */ }
@@ -88,6 +94,21 @@ export default function SettingsPage() {
       setUserFeeMsg('Сактоодо ката кетти');
     } finally {
       setUserFeeSaving(false);
+    }
+  };
+
+  const savePenalty = async () => {
+    const val = parseFloat(penalty);
+    if (isNaN(val) || val < 0) { setPenaltyMsg('Туура сан киргизиңиз'); return; }
+    setPenaltySaving(true);
+    setPenaltyMsg('');
+    try {
+      await settingsService.updateSetting(SETTING_KEYS.COURIER_CANCEL_PENALTY, String(val));
+      setPenaltyMsg('✓ Сакталды');
+    } catch {
+      setPenaltyMsg('Сактоодо ката кетти');
+    } finally {
+      setPenaltySaving(false);
     }
   };
 
@@ -217,6 +238,33 @@ export default function SettingsPage() {
             </div>
             {userFeeMsg && (
               <div className={`sp-fee-msg ${userFeeMsg.startsWith('✓') ? 'success' : 'error'}`}>{userFeeMsg}</div>
+            )}
+          </div>
+
+          {/* Cancel penalty */}
+          <div className="sp-fee-card sp-fee-card--bordered sp-fee-card--danger">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">🚫 Курьер отмена штрафы</div>
+              <div className="sp-fee-desc">Курьер кабыл алган заказдан баш тарткандагы штраф суммасы</div>
+            </div>
+            <div className="sp-fee-input-row">
+              <div className="sp-fee-input-wrap">
+                <input
+                  type="number" min="0" step="1"
+                  value={penalty}
+                  onChange={e => { setPenalty(e.target.value); setPenaltyMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="0"
+                />
+                <span className="sp-fee-unit">сом</span>
+              </div>
+              <button className="sp-save-btn sp-save-btn--danger" onClick={savePenalty} disabled={penaltySaving}>
+                <Save size={15} />
+                {penaltySaving ? 'Сакталууда...' : 'Сактоо'}
+              </button>
+            </div>
+            {penaltyMsg && (
+              <div className={`sp-fee-msg ${penaltyMsg.startsWith('✓') ? 'success' : 'error'}`}>{penaltyMsg}</div>
             )}
           </div>
         </div>

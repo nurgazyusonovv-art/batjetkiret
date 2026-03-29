@@ -163,10 +163,10 @@ def create_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.balance <= MIN_BALANCE_TO_CREATE_ORDER:
+    if (current_user.balance or Decimal("0")) < Decimal("0"):
         raise HTTPException(
             status_code=400,
-            detail="Заказ түзүү үчүн баланста 10 сомдон көп болушу керек",
+            detail="Балансыңыз терс. Заказ берүү үчүн алгач балансыңызды толуктаңыз",
         )
 
     # Intercity orders use fixed city price; regular orders use distance-based price.

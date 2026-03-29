@@ -15,6 +15,7 @@ from app.services.wallet import charge_platform_fee
 from app.services.order_status import apply_status_change
 from app.core.limiter import limiter
 from app.models.setting import Setting
+from app.api.admin import get_courier_cancel_penalty
 
 router = APIRouter(prefix="/courier/orders", tags=["Courier Orders"])
 
@@ -163,6 +164,12 @@ def accept_order(
     if not current_user.is_courier:
         raise HTTPException(status_code=403, detail="Not a courier")
 
+    if (current_user.balance or Decimal("0")) < Decimal("0"):
+        raise HTTPException(
+            status_code=400,
+            detail="Балансыңыз терс. Заказ кабыл алуу үчүн алгач балансыңызды толуктаңыз",
+        )
+
     order = (
         db.query(Order)
         .filter(Order.id == order_id)
@@ -231,12 +238,12 @@ def cancel_courier_order(
             detail="Кабыл алынган заказды гана баш тарта аласыз",
         )
 
-    # Пенальти: балансынан 10 сом кармоо
-    penalty_amount = Decimal('10.0')
+    # Пенальти: DB'дан окуп, балансынан кармоо
+    penalty_amount = get_courier_cancel_penalty(db)
     if current_user.balance < penalty_amount:
         raise HTTPException(
             status_code=400,
-            detail="Баш тартуу үчүн балансыңызда жетиштүү каражат жок (10 сом керек)",
+            detail=f"Баш тартуу үчүн балансыңызда жетиштүү каражат жок ({penalty_amount} сом керек)",
         )
 
     current_user.balance -= penalty_amount
@@ -253,8 +260,8 @@ def cancel_courier_order(
     db.commit()
 
     return {
-        "message": "Заказдан баш тарттыңыз. Балансыңыздан 10 сом кармалды.",
-        "penalty": penalty_amount,
+        "message": f"Заказдан баш тарттыңыз. Балансыңыздан {penalty_amount} сом кармалды.",
+        "penalty": float(penalty_amount),
     }
 
 @router.post("/{order_id}/deliver")

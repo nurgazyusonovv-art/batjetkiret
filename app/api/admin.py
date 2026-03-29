@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from typing import Literal
+from decimal import Decimal
 import random
 import logging
 import os
@@ -1725,6 +1726,7 @@ def test_push(
 SETTING_DEFAULTS = {
     "courier_service_fee":    ("5",  "Курьерден алынуучу комиссия (сом, ар бир аяктаган заказ үчүн)"),
     "user_service_fee":       ("5",  "Колдонуучудан алынуучу комиссия (сом, заказ берген учурда)"),
+    "courier_cancel_penalty": ("10", "Курьер заказдан баш тарткандагы штраф (сом)"),
     "delivery_base_price":    ("80", "Жеткирүү акысынын башкы баасы (сом)"),
     "delivery_price_per_km":  ("20", "1 км үчүн жеткирүү баасы (сом)"),
 }
@@ -1756,6 +1758,14 @@ def get_user_service_fee(db: Session) -> float:
         return float(_get_setting(db, "user_service_fee"))
     except (ValueError, TypeError):
         return 5.0
+
+
+def get_courier_cancel_penalty(db: Session) -> Decimal:
+    """Return courier cancellation penalty from DB settings."""
+    try:
+        return Decimal(str(float(_get_setting(db, "courier_cancel_penalty"))))
+    except (ValueError, TypeError):
+        return Decimal("10")
 
 
 @router.get("/settings")

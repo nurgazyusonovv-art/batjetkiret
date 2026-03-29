@@ -172,6 +172,34 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
+              if (homeState.isCourier && (user?.balance ?? 0) < 0) ...[
+                const SizedBox(height: 8),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 0),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFCA5A5)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.block, color: Color(0xFFDC2626), size: 18),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Балансыңыз терс. Заказ кабыл алуу үчүн алгач балансыңызды толуктаңыз.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFDC2626),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               Expanded(
                 child: homeState.isCourier
@@ -1844,40 +1872,69 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     if (state.currentStep == OrderCreateStep.enterpriseMenu) return null;
 
     final isLast = state.currentStep == OrderCreateStep.description;
+    final profileUser = context.read<ProfileCubit>().state.user;
+    final isNegativeBalance = isLast && (profileUser?.balance ?? 0) < 0;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: AppButton.secondary(
-              onPressed: _goToPreviousStep,
-              label: '← Артка',
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isNegativeBalance)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            color: const Color(0xFFFEE2E2),
+            child: const Row(
+              children: [
+                Icon(Icons.block, color: Color(0xFFDC2626), size: 16),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Балансыңыз терс. Заказ берүү үчүн алгач балансыңызды толуктаңыз.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: AppButton.primary(
-              onPressed: state.isLoading
-                  ? null
-                  : (isLast ? _createOrder : _goToNextStep),
-              isLoading: state.isLoading,
-              label: isLast ? 'Заказ түзүү' : 'Улантуу →',
-            ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
           ),
-        ],
-      ),
+          child: Row(
+            children: [
+              Expanded(
+                child: AppButton.secondary(
+                  onPressed: _goToPreviousStep,
+                  label: '← Артка',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: AppButton.primary(
+                  onPressed: (state.isLoading || isNegativeBalance)
+                      ? null
+                      : (isLast ? _createOrder : _goToNextStep),
+                  isLoading: state.isLoading,
+                  label: isLast ? 'Заказ түзүү' : 'Улантуу →',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
