@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend/core/theme/app_colors.dart';
 import 'package:frontend/core/widgets/app_button.dart';
 import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
+import 'package:frontend/features/profile/presentation/cubit/profile_state.dart';
 import 'package:frontend/features/profile/presentation/notifications_page.dart';
 import 'package:frontend/features/profile/presentation/transaction_history_page.dart';
 import 'package:frontend/features/profile/presentation/support_chat_page.dart';
@@ -25,13 +26,16 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   ProfileCubit get _profileCubit => context.read<ProfileCubit>();
+  bool _statsTriggerred = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final user = _profileCubit.state.user;
-      if (user != null && user.isCourier) {
+      if (user != null && user.isCourier && !_statsTriggerred) {
+        _statsTriggerred = true;
         _profileCubit.loadCourierStats(widget.token);
       }
     });
@@ -39,6 +43,20 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocListener<ProfileCubit, ProfileState>(
+      listenWhen: (prev, curr) =>
+          prev.user == null && curr.user != null && curr.user!.isCourier,
+      listener: (context, state) {
+        if (!_statsTriggerred) {
+          _statsTriggerred = true;
+          _profileCubit.loadCourierStats(widget.token);
+        }
+      },
+      child: _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final profileState = context.watch<ProfileCubit>().state;
     final User? user = profileState.user;
 
@@ -362,9 +380,10 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // ── Stats section ─────────────────────────────────────────────────────────────
 
-  Widget _buildStatsSection(profileState) {
+  Widget _buildStatsSection(ProfileState profileState) {
     final stats = profileState.courierStats;
     final isLoading = profileState.isCourierStatsLoading;
+    final statsError = profileState.courierStatsError;
 
     if (isLoading) {
       return Container(
@@ -376,7 +395,33 @@ class _ProfilePageState extends State<ProfilePage> {
         child: const Center(child: CircularProgressIndicator()),
       );
     }
-    if (stats == null) return const SizedBox.shrink();
+
+    if (stats == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.bar_chart_outlined, size: 36, color: Colors.grey[400]),
+            const SizedBox(height: 8),
+            Text(
+              statsError ?? 'Статистиканы жүктөө мүмкүн болгон жок',
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () => _profileCubit.loadCourierStats(widget.token),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Кайра жүктөө'),
+            ),
+          ],
+        ),
+      );
+    }
 
     final todayCompleted = (stats['today_completed_orders'] as num?)?.toInt() ?? 0;
     final todayEarnings = (stats['today_earnings'] as num?)?.toDouble() ?? 0.0;

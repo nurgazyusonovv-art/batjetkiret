@@ -10,6 +10,7 @@ class ProfileState {
   final Map<String, dynamic>? courierStats;
   final bool isCourierStatsLoading;
   final DateTime? courierStatsUpdatedAt;
+  final String? courierStatsError;
 
   const ProfileState({
     this.user,
@@ -21,6 +22,7 @@ class ProfileState {
     this.courierStats,
     this.isCourierStatsLoading = false,
     this.courierStatsUpdatedAt,
+    this.courierStatsError,
   });
 
   ProfileState copyWith({
@@ -35,6 +37,8 @@ class ProfileState {
     Map<String, dynamic>? courierStats,
     bool? isCourierStatsLoading,
     DateTime? courierStatsUpdatedAt,
+    String? courierStatsError,
+    bool clearCourierStatsError = false,
   }) {
     return ProfileState(
       user: clearUser ? null : (user ?? this.user),
@@ -48,6 +52,7 @@ class ProfileState {
           isCourierStatsLoading ?? this.isCourierStatsLoading,
       courierStatsUpdatedAt:
           courierStatsUpdatedAt ?? this.courierStatsUpdatedAt,
+      courierStatsError: clearCourierStatsError ? null : (courierStatsError ?? this.courierStatsError),
     );
   }
 }

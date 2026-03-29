@@ -373,6 +373,7 @@ class _MainNavigationState extends State<MainNavigation>
         if (profileCubit.state.user?.isCourier == true) {
           await profileCubit.loadCourierStats(widget.token, silent: true);
         }
+        // Only count loadUser errors (not courier stats errors) for backoff
         final hasError = profileCubit.state.error != null;
         _consecutiveRefreshErrors = hasError
             ? _consecutiveRefreshErrors + 1

@@ -114,7 +114,7 @@ class ProfileCubit extends Cubit<ProfileState> {
 
   Future<void> loadCourierStats(String token, {bool silent = false}) async {
     if (!silent || state.courierStats == null) {
-      emit(state.copyWith(isCourierStatsLoading: true));
+      emit(state.copyWith(isCourierStatsLoading: true, clearCourierStatsError: true));
     }
 
     try {
@@ -124,13 +124,14 @@ class ProfileCubit extends Cubit<ProfileState> {
           courierStats: stats,
           isCourierStatsLoading: false,
           courierStatsUpdatedAt: DateTime.now(),
+          clearCourierStatsError: true,
         ),
       );
     } catch (e) {
       emit(
         state.copyWith(
           isCourierStatsLoading: false,
-          error: e.toString().replaceFirst('Exception: ', ''),
+          courierStatsError: e.toString().replaceFirst('Exception: ', ''),
         ),
       );
     }
