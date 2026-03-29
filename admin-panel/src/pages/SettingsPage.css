@@ -14,8 +14,21 @@
 }
 .sp-section-title svg { color: #4f46e5; }
 
+/* Fee grid — two cards side by side */
+.sp-fees-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
 /* Fee card */
 .sp-fee-card { display: flex; flex-direction: column; gap: 12px; }
+.sp-fee-card--bordered {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  background: #fafafa;
+}
 .sp-fee-info {}
 .sp-fee-label { font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 4px; }
 .sp-fee-desc  { font-size: 12px; color: #9ca3af; }
@@ -231,6 +244,7 @@
 .sp-preview-price { font-weight: 700; color: #4f46e5; }
 
 @media (max-width: 768px) {
+  .sp-fees-grid { grid-template-columns: 1fr; }
   .sp-topup-layout { grid-template-columns: 1fr; }
   .sp-user-list { max-height: 240px; }
   .sp-delivery-formula { flex-direction: column; align-items: flex-start; }

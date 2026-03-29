@@ -8,11 +8,15 @@ import './SettingsPage.css';
 const ITEMS_PER_PAGE = 10;
 
 export default function SettingsPage() {
-  // ── System settings ──────────────────────────────────────────────────────
+  // ── Courier service fee ───────────────────────────────────────────────────
   const [fee, setFee] = useState('5');
-  const [feeDesc, setFeeDesc] = useState('');
   const [feeSaving, setFeeSaving] = useState(false);
   const [feeMsg, setFeeMsg] = useState('');
+
+  // ── User service fee ──────────────────────────────────────────────────────
+  const [userFee, setUserFee] = useState('5');
+  const [userFeeSaving, setUserFeeSaving] = useState(false);
+  const [userFeeMsg, setUserFeeMsg] = useState('');
 
   // ── Delivery pricing ─────────────────────────────────────────────────────
   const [basePrice, setBasePrice] = useState('80');
@@ -40,10 +44,8 @@ export default function SettingsPage() {
   const loadSettings = async () => {
     try {
       const data = await settingsService.getSettings();
-      if (data[SETTING_KEYS.COURIER_FEE]) {
-        setFee(data[SETTING_KEYS.COURIER_FEE].value);
-        setFeeDesc(data[SETTING_KEYS.COURIER_FEE].description);
-      }
+      if (data[SETTING_KEYS.COURIER_FEE]) setFee(data[SETTING_KEYS.COURIER_FEE].value);
+      if (data[SETTING_KEYS.USER_FEE]) setUserFee(data[SETTING_KEYS.USER_FEE].value);
       if (data[SETTING_KEYS.DELIVERY_BASE]) setBasePrice(data[SETTING_KEYS.DELIVERY_BASE].value);
       if (data[SETTING_KEYS.DELIVERY_PER_KM]) setPerKm(data[SETTING_KEYS.DELIVERY_PER_KM].value);
     } catch { /* silent */ }
@@ -71,6 +73,21 @@ export default function SettingsPage() {
       setFeeMsg('Сактоодо ката кетти');
     } finally {
       setFeeSaving(false);
+    }
+  };
+
+  const saveUserFee = async () => {
+    const val = parseFloat(userFee);
+    if (isNaN(val) || val < 0) { setUserFeeMsg('Туура сан киргизиңиз'); return; }
+    setUserFeeSaving(true);
+    setUserFeeMsg('');
+    try {
+      await settingsService.updateSetting(SETTING_KEYS.USER_FEE, String(val));
+      setUserFeeMsg('✓ Сакталды');
+    } catch {
+      setUserFeeMsg('Сактоодо ката кетти');
+    } finally {
+      setUserFeeSaving(false);
     }
   };
 
@@ -141,41 +158,67 @@ export default function SettingsPage() {
 
   return (
     <div className="sp-page">
-      {/* ── Section 1: Courier service fee ── */}
+      {/* ── Section 1: Commission fees ── */}
       <div className="sp-section">
         <div className="sp-section-title">
           <Settings size={18} />
-          Тутум жөндөөлөрү
+          Тутум жөндөөлөрү — Комиссиялар
         </div>
 
-        <div className="sp-fee-card">
-          <div className="sp-fee-info">
-            <div className="sp-fee-label">Курьерден алынуучу комиссия</div>
-            <div className="sp-fee-desc">{feeDesc || 'Ар бир аяктаган заказ үчүн курьердин балансынан алынат'}</div>
-          </div>
-          <div className="sp-fee-input-row">
-            <div className="sp-fee-input-wrap">
-              <input
-                type="number"
-                min="0"
-                step="0.5"
-                value={fee}
-                onChange={e => { setFee(e.target.value); setFeeMsg(''); }}
-                className="sp-fee-input"
-                placeholder="0"
-              />
-              <span className="sp-fee-unit">сом</span>
+        <div className="sp-fees-grid">
+          {/* Courier fee */}
+          <div className="sp-fee-card sp-fee-card--bordered">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">🚴 Курьерден алынуучу комиссия</div>
+              <div className="sp-fee-desc">Ар бир аяктаган заказ үчүн курьердин балансынан алынат</div>
             </div>
-            <button className="sp-save-btn" onClick={saveFee} disabled={feeSaving}>
-              <Save size={15} />
-              {feeSaving ? 'Сакталууда...' : 'Сактоо'}
-            </button>
-          </div>
-          {feeMsg && (
-            <div className={`sp-fee-msg ${feeMsg.startsWith('✓') ? 'success' : 'error'}`}>
-              {feeMsg}
+            <div className="sp-fee-input-row">
+              <div className="sp-fee-input-wrap">
+                <input
+                  type="number" min="0" step="0.5"
+                  value={fee}
+                  onChange={e => { setFee(e.target.value); setFeeMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="0"
+                />
+                <span className="sp-fee-unit">сом</span>
+              </div>
+              <button className="sp-save-btn" onClick={saveFee} disabled={feeSaving}>
+                <Save size={15} />
+                {feeSaving ? 'Сакталууда...' : 'Сактоо'}
+              </button>
             </div>
-          )}
+            {feeMsg && (
+              <div className={`sp-fee-msg ${feeMsg.startsWith('✓') ? 'success' : 'error'}`}>{feeMsg}</div>
+            )}
+          </div>
+
+          {/* User fee */}
+          <div className="sp-fee-card sp-fee-card--bordered">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">👤 Колдонуучудан алынуучу комиссия</div>
+              <div className="sp-fee-desc">Заказ берген учурда колдонуучунун балансынан алынат</div>
+            </div>
+            <div className="sp-fee-input-row">
+              <div className="sp-fee-input-wrap">
+                <input
+                  type="number" min="0" step="0.5"
+                  value={userFee}
+                  onChange={e => { setUserFee(e.target.value); setUserFeeMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="0"
+                />
+                <span className="sp-fee-unit">сом</span>
+              </div>
+              <button className="sp-save-btn" onClick={saveUserFee} disabled={userFeeSaving}>
+                <Save size={15} />
+                {userFeeSaving ? 'Сакталууда...' : 'Сактоо'}
+              </button>
+            </div>
+            {userFeeMsg && (
+              <div className={`sp-fee-msg ${userFeeMsg.startsWith('✓') ? 'success' : 'error'}`}>{userFeeMsg}</div>
+            )}
+          </div>
         </div>
       </div>
 

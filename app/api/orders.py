@@ -19,7 +19,7 @@ from app.models.user_rating import UserRating
 from app.schemas.order import OrderCreateRequest, OrderResponse
 from app.core.config import settings
 from app.services.pricing import calculate_price
-from app.api.admin import get_delivery_pricing
+from app.api.admin import get_delivery_pricing, get_user_service_fee
 from app.services.wallet import charge_platform_fee
 from app.services.order_status import apply_status_change
 
@@ -184,8 +184,9 @@ def create_order(
         base, per_km = get_delivery_pricing(db)
         price = calculate_price(data.distance_km, base, per_km)
 
-    # Store fixed commission values (business rule: 5 som from user + 5 som from courier).
-    user_commission = USER_ORDER_SERVICE_FEE
+    # Commission values read from DB settings.
+    user_fee = get_user_service_fee(db)
+    user_commission = Decimal(str(user_fee))
     courier_commission = COURIER_ORDER_SERVICE_FEE
 
     order = Order(
@@ -219,7 +220,7 @@ def create_order(
             db,
             current_user,
             order.id,
-            float(USER_ORDER_SERVICE_FEE),
+            user_fee,
             "SERVICE_FEE_USER",
         )
     except ValueError:
@@ -227,7 +228,7 @@ def create_order(
             db.rollback()
             raise HTTPException(
                 status_code=400,
-                detail="5 сом сервис акысы үчүн балансыңыз жетишсиз",
+                detail=f"{user_fee} сом сервис акысы үчүн балансыңыз жетишсиз",
             )
 
     db.commit()

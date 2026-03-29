@@ -1724,6 +1724,7 @@ def test_push(
 
 SETTING_DEFAULTS = {
     "courier_service_fee":    ("5",  "Курьерден алынуучу комиссия (сом, ар бир аяктаган заказ үчүн)"),
+    "user_service_fee":       ("5",  "Колдонуучудан алынуучу комиссия (сом, заказ берген учурда)"),
     "delivery_base_price":    ("80", "Жеткирүү акысынын башкы баасы (сом)"),
     "delivery_price_per_km":  ("20", "1 км үчүн жеткирүү баасы (сом)"),
 }
@@ -1747,6 +1748,14 @@ def get_delivery_pricing(db: Session) -> tuple[float, float]:
     except (ValueError, TypeError):
         per_km = 20.0
     return base, per_km
+
+
+def get_user_service_fee(db: Session) -> float:
+    """Return user service fee from DB settings."""
+    try:
+        return float(_get_setting(db, "user_service_fee"))
+    except (ValueError, TypeError):
+        return 5.0
 
 
 @router.get("/settings")
