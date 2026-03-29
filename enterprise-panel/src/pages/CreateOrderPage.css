@@ -267,13 +267,21 @@
 .co-cart-ctrl span { font-size: 13px; font-weight: 700; min-width: 20px; text-align: center; }
 .co-cart-remove { border-color: #fecaca !important; color: #dc2626 !important; }
 
-.co-total {
-  display: flex; justify-content: space-between; align-items: center;
-  background: #f0fdf4; border-radius: 8px; padding: 10px 12px;
-  font-size: 14px; font-weight: 600; color: #374151;
+.co-totals {
+  background: #f9fafb; border-radius: 8px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 6px;
 }
 
-.co-total-value { font-size: 18px; font-weight: 800; color: #059669; }
+.co-total-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; font-weight: 600; color: #374151;
+}
+
+.co-delivery-row { color: #6b7280; font-weight: 500; }
+.co-delivery-row span:last-child { font-style: italic; font-size: 12px; }
+
+.co-total-label-bold { font-weight: 700; }
+.co-total-value { font-size: 16px; font-weight: 800; color: #059669; }
 
 .co-error {
   background: #fee2e2; border: 1px solid #fecaca;

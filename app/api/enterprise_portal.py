@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, date
 from fastapi import UploadFile, File
 from app.api.deps import get_db, require_enterprise, get_current_user
 from app.core.security import verify_password, create_access_token, hash_password
+from app.services.pricing import calculate_price, haversine_km
 from app.models.user import User
 from app.models.order import Order
 from app.models.enterprise import Enterprise
@@ -470,6 +471,25 @@ def create_local_order(
     if data.note:
         description += f"\nЭскертүү: {data.note}"
 
+    # Delivery fee: calculated from distance for delivery orders; 0 for dine-in
+    if order_source == "dine_in":
+        distance_km = Decimal("0")
+        delivery_price = Decimal("0")
+    else:
+        # Calculate distance from coordinates if both endpoints are available
+        if (enterprise.lat and enterprise.lon
+                and data.to_lat is not None and data.to_lng is not None):
+            dist = haversine_km(
+                float(enterprise.lat), float(enterprise.lon),
+                data.to_lat, data.to_lng,
+            )
+            distance_km = Decimal(str(round(dist, 2)))
+            delivery_price = Decimal(str(round(calculate_price(dist), 0)))
+        else:
+            # No coordinates — use base delivery fee
+            distance_km = Decimal("0")
+            delivery_price = Decimal(str(calculate_price(0)))  # 80 сом base
+
     order = Order(
         user_id=customer.id,
         enterprise_id=enterprise.id,
@@ -482,11 +502,9 @@ def create_local_order(
         from_longitude=enterprise.lon,
         to_latitude=Decimal(str(data.to_lat)) if data.to_lat is not None else None,
         to_longitude=Decimal(str(data.to_lng)) if data.to_lng is not None else None,
-        distance_km=Decimal("0"),
-        price=total_price,
-        items_total=total_price,
-        # Local orders start as PREPARING; enterprise marks ready → WAITING_COURIER
-        # Online orders (from mobile app) start as WAITING_COURIER directly
+        distance_km=distance_km,
+        price=delivery_price,        # жеткирүү акысы (аралыктан эсептелет)
+        items_total=total_price,     # товарлардын суммасы
         status="PREPARING" if order_source == "local" else "WAITING_COURIER",
         source=order_source,
         order_type=data.order_type,

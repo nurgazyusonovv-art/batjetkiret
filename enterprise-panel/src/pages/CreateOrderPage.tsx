@@ -57,6 +57,14 @@ export default function CreateOrderPage() {
   const total = cart.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
   const cartQty = (productId: number) => cart.find(i => i.product.id === productId)?.quantity ?? 0;
 
+  // Estimated delivery fee (haversine, matches backend: 80 + 20*km)
+  const deliveryFee = (() => {
+    if (orderType === 'dine_in') return 0;
+    if (!toCoords) return 80; // base price when no coords
+    // Enterprise coords are not available on frontend — show "~80+ сом" hint only
+    return null; // calculated server-side
+  })();
+
   const resetForm = () => {
     setCart([]);
     setCustomerPhone('');
@@ -254,9 +262,27 @@ export default function CreateOrderPage() {
           </div>
 
           {cart.length > 0 && (
-            <div className="co-total">
-              <span>Жалпы:</span>
-              <span className="co-total-value">{total.toFixed(0)} сом</span>
+            <div className="co-totals">
+              <div className="co-total-row">
+                <span>Товарлар:</span>
+                <span>{total.toFixed(0)} сом</span>
+              </div>
+              {orderType === 'delivery' && (
+                <div className="co-total-row co-delivery-row">
+                  <span>Жеткирүү акысы:</span>
+                  <span>
+                    {toCoords
+                      ? 'Аралыктан эсептелет'
+                      : `~${deliveryFee ?? 80} сом`}
+                  </span>
+                </div>
+              )}
+              {orderType === 'dine_in' && (
+                <div className="co-total-row">
+                  <span className="co-total-label-bold">Жалпы:</span>
+                  <span className="co-total-value">{total.toFixed(0)} сом</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -268,7 +294,11 @@ export default function CreateOrderPage() {
           {error && <div className="co-error">{error}</div>}
 
           <button className="co-submit-btn" onClick={handleSubmit} disabled={submitting || cart.length === 0}>
-            {submitting ? 'Жөнөтүлүүдө...' : (orderType === 'dine_in' ? "Заказ алуу — " : "Жеткирүү — ") + total.toFixed(0) + " сом"}
+            {submitting
+              ? 'Жөнөтүлүүдө...'
+              : orderType === 'dine_in'
+                ? `Заказ алуу — ${total.toFixed(0)} сом`
+                : `Жеткирүү заказы — ${total.toFixed(0)} сом`}
           </button>
         </aside>
       </div>
