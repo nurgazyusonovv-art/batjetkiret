@@ -1,31 +1,24 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart, Plus, Minus, Package, X, CheckCircle, MapPin, UtensilsCrossed, Bike } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Package, X, CheckCircle, MapPin } from 'lucide-react';
 import { productsService, Category, Product } from '../services/products';
 import { ordersService } from '../services/orders';
 import MapPicker from '../components/MapPicker';
 import './CreateOrderPage.css';
 
 interface CartItem { product: Product; quantity: number; }
-type OrderType = 'delivery' | 'dine_in';
 
 export default function CreateOrderPage() {
-  const [orderType, setOrderType] = useState<OrderType>('delivery');
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCat, setSelectedCat] = useState<number | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  // delivery fields
   const [customerPhone, setCustomerPhone] = useState('');
   const [toAddress, setToAddress] = useState('');
   const [toCoords, setToCoords] = useState<{ lat: number; lng: number } | null>(null);
-
-  // dine_in fields
-  const [tableNumber, setTableNumber] = useState('');
-  const [dinePhone, setDinePhone] = useState('');  // optional for dine_in
-
   const [note, setNote] = useState('');
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -57,42 +50,28 @@ export default function CreateOrderPage() {
   const total = cart.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
   const cartQty = (productId: number) => cart.find(i => i.product.id === productId)?.quantity ?? 0;
 
-  // Estimated delivery fee (haversine, matches backend: 80 + 20*km)
-  const deliveryFee = (() => {
-    if (orderType === 'dine_in') return 0;
-    if (!toCoords) return 80; // base price when no coords
-    // Enterprise coords are not available on frontend — show "~80+ сом" hint only
-    return null; // calculated server-side
-  })();
-
   const resetForm = () => {
     setCart([]);
     setCustomerPhone('');
     setToAddress('');
     setToCoords(null);
-    setTableNumber('');
-    setDinePhone('');
     setNote('');
   };
 
   const handleSubmit = async () => {
     setError('');
     if (cart.length === 0) { setError('Жок дегенде бир товар тандаңыз'); return; }
-
-    if (orderType === 'delivery') {
-      if (!customerPhone.trim()) { setError('Кардардын телефону талап кылынат'); return; }
-      if (!toAddress.trim()) { setError('Жеткирүү дареги талап кылынат'); return; }
-    }
+    if (!customerPhone.trim()) { setError('Кардардын телефону талап кылынат'); return; }
+    if (!toAddress.trim()) { setError('Жеткирүү дареги талап кылынат'); return; }
 
     setSubmitting(true);
     try {
       await ordersService.createLocalOrder({
-        order_type: orderType,
-        customer_phone: orderType === 'delivery' ? customerPhone.trim() : (dinePhone.trim() || undefined),
-        to_address: orderType === 'delivery' ? toAddress.trim() : undefined,
-        to_lat: orderType === 'delivery' ? toCoords?.lat : undefined,
-        to_lng: orderType === 'delivery' ? toCoords?.lng : undefined,
-        table_number: orderType === 'dine_in' ? (tableNumber.trim() || undefined) : undefined,
+        order_type: 'delivery',
+        customer_phone: customerPhone.trim(),
+        to_address: toAddress.trim(),
+        to_lat: toCoords?.lat,
+        to_lng: toCoords?.lng,
         items: cart.map(i => ({ product_id: i.product.id, quantity: i.quantity })),
         note: note.trim() || undefined,
       });
@@ -109,8 +88,8 @@ export default function CreateOrderPage() {
   if (success) return (
     <div className="create-order-success">
       <CheckCircle size={64} color="#4f46e5" />
-      <h2>{orderType === 'dine_in' ? 'Заказ кабыл алынды!' : 'Заказ түзүлдү!'}</h2>
-      <p>{orderType === 'dine_in' ? 'Ошол столго даярдалып жатат' : 'Курьер жөнөтүлүп жатат'}</p>
+      <h2>Заказ түзүлдү!</h2>
+      <p>Курьер жөнөтүлүп жатат</p>
       <button className="ep-btn-primary-sm" onClick={() => setSuccess(false)}>Жаңы заказ</button>
     </div>
   );
@@ -165,79 +144,41 @@ export default function CreateOrderPage() {
 
         {/* Order form / Cart */}
         <aside className="co-order-panel">
-          <div className="co-panel-title"><ShoppingCart size={16} />Заказ</div>
+          <div className="co-panel-title"><ShoppingCart size={16} />Жеткирүү заказы</div>
 
-          {/* Order type selector */}
-          <div className="co-type-selector">
-            <button
-              className={"co-type-btn" + (orderType === 'dine_in' ? ' active' : '')}
-              onClick={() => setOrderType('dine_in')}
-            >
-              <UtensilsCrossed size={18} />
-              <span>Ичиндеги</span>
-              <small>Стол заказы</small>
-            </button>
-            <button
-              className={"co-type-btn" + (orderType === 'delivery' ? ' active' : '')}
-              onClick={() => setOrderType('delivery')}
-            >
-              <Bike size={18} />
-              <span>Жеткирүү</span>
-              <small>Доставка</small>
-            </button>
+          <div className="co-form-group">
+            <label>Кардардын телефону *</label>
+            <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="+996XXXXXXXXX" />
           </div>
 
-          {/* Dine-in fields */}
-          {orderType === 'dine_in' && (
-            <>
-              <div className="co-form-group">
-                <label>Стол номери</label>
-                <input value={tableNumber} onChange={e => setTableNumber(e.target.value)} placeholder="Мис: 3, А1, VIP..." />
+          <div className="co-form-group">
+            <label>Жеткирүү дареги *</label>
+            <div className="co-address-row">
+              <input
+                value={toAddress}
+                onChange={e => setToAddress(e.target.value)}
+                placeholder="Кардардын дареги"
+                className="co-address-input"
+              />
+              <button type="button" className="co-map-btn" onClick={() => setShowMap(true)} title="Картадан тандоо">
+                <MapPin size={16} />
+              </button>
+            </div>
+            {toCoords ? (
+              <div className="co-coords-badge">
+                <MapPin size={11} />
+                {toCoords.lat.toFixed(5)}, {toCoords.lng.toFixed(5)}
+                <button type="button" className="co-coords-clear" onClick={() => setToCoords(null)} title="Координаттарды тазалоо">
+                  <X size={11} />
+                </button>
               </div>
-              <div className="co-form-group">
-                <label>Телефон (милдеттүү эмес)</label>
-                <input value={dinePhone} onChange={e => setDinePhone(e.target.value)} placeholder="+996XXXXXXXXX" />
+            ) : toAddress.trim() ? (
+              <div className="co-coords-hint">
+                <MapPin size={11} />
+                Так жер үчүн картадан тандаңыз
               </div>
-            </>
-          )}
-
-          {/* Delivery fields */}
-          {orderType === 'delivery' && (
-            <>
-              <div className="co-form-group">
-                <label>Кардардын телефону *</label>
-                <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="+996XXXXXXXXX" />
-              </div>
-              <div className="co-form-group">
-                <label>Жеткирүү дареги *</label>
-                <div className="co-address-row">
-                  <input
-                    value={toAddress}
-                    onChange={e => setToAddress(e.target.value)}
-                    placeholder="Кардардын дареги"
-                    className="co-address-input"
-                  />
-                  <button type="button" className="co-map-btn" onClick={() => setShowMap(true)} title="Картадан тандоо">
-                    <MapPin size={16} />
-                  </button>
-                </div>
-                {toCoords ? (
-                  <div className="co-coords-badge">
-                    <MapPin size={11} />
-                    {toCoords.lat.toFixed(5)}, {toCoords.lng.toFixed(5)}
-                    <button type="button" className="co-coords-clear" onClick={() => setToCoords(null)} title="Координаттарды тазалоо">
-                      <X size={11} />
-                    </button>
-                  </div>
-                ) : toAddress.trim() ? (
-                  <div className="co-coords-hint">
-                    <MapPin size={11} />
-                    Так жер үчүн картадан тандаңыз
-                  </div>
-                ) : null}
-              </div>
-            </>
-          )}
+            ) : null}
+          </div>
 
           {/* Cart items */}
           <div className="co-cart">
@@ -267,22 +208,10 @@ export default function CreateOrderPage() {
                 <span>Товарлар:</span>
                 <span>{total.toFixed(0)} сом</span>
               </div>
-              {orderType === 'delivery' && (
-                <div className="co-total-row co-delivery-row">
-                  <span>Жеткирүү акысы:</span>
-                  <span>
-                    {toCoords
-                      ? 'Аралыктан эсептелет'
-                      : `~${deliveryFee ?? 80} сом`}
-                  </span>
-                </div>
-              )}
-              {orderType === 'dine_in' && (
-                <div className="co-total-row">
-                  <span className="co-total-label-bold">Жалпы:</span>
-                  <span className="co-total-value">{total.toFixed(0)} сом</span>
-                </div>
-              )}
+              <div className="co-total-row co-delivery-row">
+                <span>Жеткирүү акысы:</span>
+                <span>{toCoords ? 'Аралыктан эсептелет' : '~80+ сом'}</span>
+              </div>
             </div>
           )}
 
@@ -294,11 +223,7 @@ export default function CreateOrderPage() {
           {error && <div className="co-error">{error}</div>}
 
           <button className="co-submit-btn" onClick={handleSubmit} disabled={submitting || cart.length === 0}>
-            {submitting
-              ? 'Жөнөтүлүүдө...'
-              : orderType === 'dine_in'
-                ? `Заказ алуу — ${total.toFixed(0)} сом`
-                : `Жеткирүү заказы — ${total.toFixed(0)} сом`}
+            {submitting ? 'Жөнөтүлүүдө...' : `Жеткирүү заказы — ${total.toFixed(0)} сом`}
           </button>
         </aside>
       </div>
