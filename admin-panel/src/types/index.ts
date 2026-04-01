@@ -45,12 +45,16 @@ export interface LoginCredentials {
 }
 
 // Order Types
-export type OrderStatus = 
-  | 'WAITING_COURIER' 
-  | 'ACCEPTED' 
-  | 'ON_THE_WAY' 
-  | 'DELIVERED' 
-  | 'COMPLETED' 
+export type OrderStatus =
+  | 'WAITING_COURIER'
+  | 'ACCEPTED'
+  | 'PREPARING'
+  | 'READY'
+  | 'PICKED_UP'
+  | 'ON_THE_WAY'
+  | 'IN_TRANSIT'
+  | 'DELIVERED'
+  | 'COMPLETED'
   | 'CANCELLED';
 
 export interface OrderStatusAudit {

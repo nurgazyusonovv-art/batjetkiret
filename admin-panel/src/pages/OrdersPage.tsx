@@ -9,9 +9,13 @@ import './OrdersPage.css';
 const ITEMS_PER_PAGE = 10;
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
-  WAITING_COURIER: 'Күтүүдө',
-  ACCEPTED: 'Кабыл алынды',
-  ON_THE_WAY: 'Жолдо',
+  WAITING_COURIER: 'Жаңы',
+  ACCEPTED: 'Кабыл алынды — ишкана',
+  PREPARING: 'Даярдалып жатат',
+  READY: 'Даяр — Курьер күтүүдө',
+  PICKED_UP: 'Кабыл алынды — Курьер',
+  ON_THE_WAY: 'Жеткирүүнү баштады',
+  IN_TRANSIT: 'Жеткирүүнү баштады',
   DELIVERED: 'Жеткирилди',
   COMPLETED: 'Аяктады',
   CANCELLED: 'Жокко чыгарылды',
@@ -20,7 +24,11 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
 const STATUS_COLORS: Record<OrderStatus, string> = {
   WAITING_COURIER: '#f59e0b',
   ACCEPTED: '#3b82f6',
+  PREPARING: '#9333ea',
+  READY: '#16a34a',
+  PICKED_UP: '#0891b2',
   ON_THE_WAY: '#8b5cf6',
+  IN_TRANSIT: '#8b5cf6',
   DELIVERED: '#10b981',
   COMPLETED: '#059669',
   CANCELLED: '#ef4444',

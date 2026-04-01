@@ -121,7 +121,7 @@ class OrderDetailCubit extends Cubit<OrderDetailState> {
   void _updateLocalOrderStatus(String action, {String? verificationCode}) {
     final current = state.currentOrder;
     final updatedOrder = switch (action) {
-      'accept' => current.copyWith(status: 'accepted'),
+      'accept' => current.copyWith(status: 'picked_up'),
       'start' => current.copyWith(status: 'in_transit'),
       'complete' => current.copyWith(
         status: 'completed',

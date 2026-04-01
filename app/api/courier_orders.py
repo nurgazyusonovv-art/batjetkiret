@@ -188,7 +188,7 @@ def accept_order(
     apply_status_change(
         db=db,
         order=order,
-        new_status="ACCEPTED",
+        new_status="PICKED_UP",
         actor_user_id=current_user.id,
     )
     order.courier_id = current_user.id
@@ -231,11 +231,11 @@ def cancel_courier_order(
     if order.courier_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your order")
 
-    # Кабыл алынган статусунда гана отмена кыла алат
-    if order.status != "ACCEPTED":
+    # Кабыл алынган же алып кеткен статусунда гана отмена кыла алат
+    if order.status not in ("ACCEPTED", "PICKED_UP"):
         raise HTTPException(
             status_code=400,
-            detail="Кабыл алынган заказды гана баш тарта аласыз",
+            detail="Заказды алгандан кийин гана баш тарта аласыз",
         )
 
     # Пенальти: DB'дан окуп, балансынан кармоо

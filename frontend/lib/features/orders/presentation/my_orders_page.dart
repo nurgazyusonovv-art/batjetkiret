@@ -889,23 +889,32 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       case 'pending':
         bgColor = AppColors.accent2;
         textColor = Colors.white;
-        label = 'Күтүүде';
+        label = 'Жаңы';
         break;
       case 'accepted':
         bgColor = AppColors.accent3;
         textColor = Colors.white;
-        label = 'Кабыл алынды';
+        label = 'Ишкана кабыл алды';
+        break;
+      case 'preparing':
+        bgColor = const Color(0xFF9333ea);
+        textColor = Colors.white;
+        label = 'Даярдалып жатат';
         break;
       case 'ready':
         bgColor = const Color(0xFF059669);
         textColor = Colors.white;
         label = 'Даяр';
         break;
-      case 'in_transit':
       case 'picked_up':
+        bgColor = const Color(0xFF0891b2);
+        textColor = Colors.white;
+        label = 'Курьер алды';
+        break;
+      case 'in_transit':
         bgColor = AppColors.accent3;
         textColor = Colors.white;
-        label = 'Жол жүрүүдө';
+        label = 'Жеткирүүнү баштады';
         break;
       case 'completed':
       case 'delivered':

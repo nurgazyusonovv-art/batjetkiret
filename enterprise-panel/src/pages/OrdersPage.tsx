@@ -5,13 +5,13 @@ import { fmtDate } from '../utils/date';
 import './OrdersPage.css';
 
 const STATUS_LABELS: Record<string, string> = {
-  WAITING_COURIER: 'Курьер күтүүдө',
-  ACCEPTED: 'Кабыл алынды',
+  WAITING_COURIER: 'Жаңы',
+  ACCEPTED: 'Кабыл алынды — ишкана',
   PREPARING: 'Даярдалып жатат',
-  READY: 'Даяр',
-  IN_TRANSIT: 'Жолдо',
-  ON_THE_WAY: 'Жолдо',
-  PICKED_UP: 'Алынды',
+  READY: 'Даяр — Курьер күтүүдө',
+  PICKED_UP: 'Кабыл алынды — Курьер',
+  IN_TRANSIT: 'Жеткирүүнү баштады',
+  ON_THE_WAY: 'Жеткирүүнү баштады',
   DELIVERED: 'Жеткирилди',
   COMPLETED: 'Аяктады',
   CANCELLED: 'Жокко чыгарылды',
@@ -45,11 +45,12 @@ const STATUS_BG: Record<string, string> = {
 
 const FILTER_OPTIONS = [
   { value: '', label: 'Баардыгы' },
-  { value: 'PREPARING', label: 'Даярдалууда' },
-  { value: 'WAITING_COURIER', label: 'Курьер күтүүдө' },
-  { value: 'ACCEPTED', label: 'Кабыл алынды' },
-  { value: 'READY', label: 'Даяр' },
-  { value: 'IN_TRANSIT', label: 'Жолдо' },
+  { value: 'WAITING_COURIER', label: 'Жаңы' },
+  { value: 'ACCEPTED', label: 'Кабыл алынды — ишкана' },
+  { value: 'PREPARING', label: 'Даярдалып жатат' },
+  { value: 'READY', label: 'Даяр — Курьер күтүүдө' },
+  { value: 'PICKED_UP', label: 'Кабыл алынды — Курьер' },
+  { value: 'ON_THE_WAY', label: 'Жеткирүүнү баштады' },
 ];
 
 // ACCEPTED → enterprise starts preparing

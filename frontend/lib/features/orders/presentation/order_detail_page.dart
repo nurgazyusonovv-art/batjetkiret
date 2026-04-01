@@ -163,15 +163,18 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     switch ((status ?? '').toUpperCase()) {
       case 'WAITING_COURIER':
       case 'PENDING':
-        return 'Күтүүдө';
+        return 'Жаңы';
       case 'ACCEPTED':
-        return 'Кабыл алынды';
+        return 'Кабыл алынды — ишкана';
+      case 'PREPARING':
+        return 'Даярдалып жатат';
       case 'READY':
-        return 'Даяр';
+        return 'Даяр — Курьер күтүүдө';
+      case 'PICKED_UP':
+        return 'Кабыл алынды — Курьер';
       case 'IN_TRANSIT':
       case 'ON_THE_WAY':
-      case 'PICKED_UP':
-        return 'Жеткирүүдө';
+        return 'Жеткирүүнү баштады';
       case 'DELIVERED':
         return 'Жеткирилди';
       case 'COMPLETED':
@@ -1338,7 +1341,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   Widget _buildStatusActionButtons(Order currentOrder, bool isUpdatingStatus) {
     final isPending = currentOrder.status == 'pending';
     final isReady = currentOrder.status == 'ready'; // enterprise order ready for pickup
-    final isAccepted = currentOrder.status == 'accepted';
+    final isPickedUp = currentOrder.status == 'picked_up';
+    final isAccepted = currentOrder.status == 'accepted'; // legacy fallback
     final isInTransit = currentOrder.status == 'in_transit';
     final isDelivered = currentOrder.status == 'delivered';
     final isCompleted = currentOrder.status == 'completed';
@@ -1355,7 +1359,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               label: 'Кабыл алуу',
             ),
           ),
-        if (isAccepted) ...[
+        if (isPickedUp || isAccepted) ...[
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: AppButton.primary(
