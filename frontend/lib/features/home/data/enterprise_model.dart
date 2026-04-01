@@ -40,12 +40,14 @@ class EnterpriseMenuProduct {
   final String name;
   final String? description;
   final double price;
+  final String? imageUrl;
 
   EnterpriseMenuProduct({
     required this.id,
     required this.name,
     this.description,
     required this.price,
+    this.imageUrl,
   });
 
   factory EnterpriseMenuProduct.fromJson(Map<String, dynamic> json) {
@@ -54,6 +56,7 @@ class EnterpriseMenuProduct {
       name: json['name'] as String,
       description: json['description'] as String?,
       price: (json['price'] as num).toDouble(),
+      imageUrl: json['image_url'] as String?,
     );
   }
 }

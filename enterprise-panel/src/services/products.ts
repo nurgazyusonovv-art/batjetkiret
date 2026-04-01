@@ -17,6 +17,7 @@ export interface Product {
   sort_order: number;
   category_id?: number | null;
   category_name?: string | null;
+  image_url?: string | null;
   created_at: string;
 }
 
@@ -51,5 +52,14 @@ export const productsService = {
   },
   async deleteProduct(id: number): Promise<void> {
     await api.delete(`/enterprise-portal/products/${id}`);
+  },
+
+  async uploadProductImage(id: number, file: File): Promise<{ image_url: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await api.post(`/enterprise-portal/products/${id}/image`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
   },
 };

@@ -169,7 +169,7 @@ def get_enterprise_menu(
                 "id": cat.id,
                 "name": cat.name,
                 "products": [
-                    {"id": p.id, "name": p.name, "description": p.description, "price": float(p.price)}
+                    {"id": p.id, "name": p.name, "description": p.description, "price": float(p.price), "image_url": p.image_url}
                     for p in products
                 ],
             })
@@ -190,7 +190,7 @@ def get_enterprise_menu(
             "id": 0,
             "name": "Башка",
             "products": [
-                {"id": p.id, "name": p.name, "description": p.description, "price": float(p.price)}
+                {"id": p.id, "name": p.name, "description": p.description, "price": float(p.price), "image_url": p.image_url}
                 for p in uncategorized
             ],
         })

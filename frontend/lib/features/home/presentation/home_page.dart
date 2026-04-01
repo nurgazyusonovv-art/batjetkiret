@@ -1394,6 +1394,22 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                       ),
                       child: Row(
                         children: [
+                          if (product.imageUrl != null &&
+                              product.imageUrl!.isNotEmpty)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                product.imageUrl!,
+                                width: 70,
+                                height: 70,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    const SizedBox.shrink(),
+                              ),
+                            ),
+                          if (product.imageUrl != null &&
+                              product.imageUrl!.isNotEmpty)
+                            const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,

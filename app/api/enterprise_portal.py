@@ -154,6 +154,7 @@ class ProductCreate(BaseModel):
     description: Optional[str] = None
     category_id: Optional[int] = None
     sort_order: int = 0
+    image_url: Optional[str] = None
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -162,6 +163,7 @@ class ProductUpdate(BaseModel):
     category_id: Optional[int] = None
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
+    image_url: Optional[str] = None
 
 
 def _prod_dict(p: EnterpriseProduct, category_name: Optional[str] = None) -> dict:
@@ -170,6 +172,7 @@ def _prod_dict(p: EnterpriseProduct, category_name: Optional[str] = None) -> dic
         "price": float(p.price), "is_active": p.is_active,
         "sort_order": p.sort_order, "category_id": p.category_id,
         "category_name": category_name, "created_at": p.created_at,
+        "image_url": p.image_url,
     }
 
 
@@ -218,6 +221,7 @@ def create_product(data: ProductCreate, db: Session = Depends(get_db), auth: Tup
         description=data.description,
         price=Decimal(str(data.price)),
         sort_order=data.sort_order,
+        image_url=data.image_url,
     )
     db.add(prod)
     db.commit()
@@ -257,6 +261,8 @@ def update_product(prod_id: int, data: ProductUpdate, db: Session = Depends(get_
             if not cat:
                 raise HTTPException(status_code=400, detail="Категория табылган жок")
             prod.category_id = data.category_id
+    if data.image_url is not None:
+        prod.image_url = data.image_url if data.image_url != "" else None
 
     db.commit()
     db.refresh(prod)
@@ -277,6 +283,35 @@ def delete_product(prod_id: int, db: Session = Depends(get_db), auth: Tuple = De
     db.delete(prod)
     db.commit()
     return {"message": "Товар өчүрүлдү"}
+
+
+@router.post("/products/{prod_id}/image")
+async def upload_product_image(
+    prod_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    """Upload product image (stored as base64 data URL)."""
+    _user, e = auth
+    prod = db.query(EnterpriseProduct).filter(
+        EnterpriseProduct.id == prod_id, EnterpriseProduct.enterprise_id == e.id).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail="Товар табылган жок")
+
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    mime = _EXT_MIME.get(ext, file.content_type or "image/jpeg")
+    if mime not in _ALLOWED_IMG:
+        raise HTTPException(status_code=400, detail="Сүрөт форматы туура эмес (jpeg, png, webp)")
+
+    content = await file.read()
+    if len(content) > 3 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Сүрөт өлчөмү 3МБ'дан ашпашы керек")
+
+    data_url = f"data:{mime};base64,{base64.b64encode(content).decode()}"
+    prod.image_url = data_url
+    db.commit()
+    return {"image_url": data_url}
 
 
 # ── Orders ────────────────────────────────────────────────────────────────────

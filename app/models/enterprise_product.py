@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Numeric
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Numeric, Text
 from sqlalchemy.sql import func
 from app.core.database import Base
 
@@ -14,5 +14,6 @@ class EnterpriseProduct(Base):
     price = Column(Numeric(10, 2), nullable=False)
     is_active = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
+    image_url = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

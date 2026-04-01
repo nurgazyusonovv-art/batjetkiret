@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Tag, Package, X, ChevronRight, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, Pencil, Trash2, Tag, Package, X, ChevronRight, ToggleLeft, ToggleRight, ImagePlus } from 'lucide-react';
 import { productsService, Category, Product } from '../services/products';
 import './ProductsPage.css';
 
@@ -28,6 +28,9 @@ export default function ProductsPage() {
   const [prodForm, setProdForm] = useState<ProdForm>(emptyProdForm);
   const [prodSaving, setProdSaving] = useState(false);
   const [prodError, setProdError] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -84,12 +87,21 @@ export default function ProductsPage() {
   const openProdCreate = () => {
     setEditingProd(null);
     setProdForm({ ...emptyProdForm, category_id: selectedCat && selectedCat > 0 ? String(selectedCat) : '' });
+    setImageFile(null); setImagePreview(null);
     setProdError(''); setShowProdModal(true);
   };
   const openProdEdit = (p: Product) => {
     setEditingProd(p);
     setProdForm({ name: p.name, price: String(p.price), description: p.description ?? '', category_id: p.category_id ? String(p.category_id) : '', sort_order: String(p.sort_order) });
+    setImageFile(null); setImagePreview(p.image_url ?? null);
     setProdError(''); setShowProdModal(true);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const saveProd = async () => {
@@ -104,10 +116,17 @@ export default function ProductsPage() {
         category_id: prodForm.category_id ? Number(prodForm.category_id) : undefined,
         sort_order: Number(prodForm.sort_order),
       };
+      let savedId: number;
       if (editingProd) {
         await productsService.updateProduct(editingProd.id, payload);
+        savedId = editingProd.id;
       } else {
-        await productsService.createProduct(payload);
+        const created = await productsService.createProduct(payload);
+        savedId = created.id;
+      }
+      // Upload image if a new file was selected
+      if (imageFile) {
+        await productsService.uploadProductImage(savedId, imageFile);
       }
       setShowProdModal(false);
       loadAll();
@@ -196,6 +215,9 @@ export default function ProductsPage() {
             <div className="products-grid">
               {filteredProducts.map(p => (
                 <div key={p.id} className={`product-card ${!p.is_active ? 'inactive' : ''}`}>
+                  {p.image_url && (
+                    <img src={p.image_url} alt={p.name} className="product-img" />
+                  )}
                   <div className="product-card-header">
                     <span className="product-name">{p.name}</span>
                     <span className="product-price">{p.price.toFixed(0)} сом</span>
@@ -283,6 +305,27 @@ export default function ProductsPage() {
                 <div className="ep-form-group" style={{ flex: 1 }}>
                   <label>Тартип</label>
                   <input type="number" value={prodForm.sort_order} onChange={e => setProdForm({...prodForm, sort_order: e.target.value})} />
+                </div>
+              </div>
+
+              {/* Image upload */}
+              <div className="ep-form-group">
+                <label>Сүрөт</label>
+                <div className="prod-img-upload">
+                  {imagePreview ? (
+                    <div className="prod-img-preview-wrap">
+                      <img src={imagePreview} alt="preview" className="prod-img-preview" />
+                      <button type="button" className="prod-img-remove" onClick={() => { setImageFile(null); setImagePreview(null); if (imageInputRef.current) imageInputRef.current.value = ''; }}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button type="button" className="prod-img-pick-btn" onClick={() => imageInputRef.current?.click()}>
+                      <ImagePlus size={18} />
+                      <span>Сүрөт тандоо</span>
+                    </button>
+                  )}
+                  <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageChange} />
                 </div>
               </div>
             </div>
