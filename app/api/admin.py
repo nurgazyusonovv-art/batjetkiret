@@ -1366,6 +1366,28 @@ def admin_order_detail(
     }
 
 
+@router.delete("/orders/clear-all")
+def clear_all_orders(
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Delete every order and all related data (chat, logs, ratings, transactions)."""
+    order_ids = [row[0] for row in db.query(Order.id).all()]
+    count = len(order_ids)
+    if order_ids:
+        chat_ids = [row[0] for row in db.query(ChatRoom.id).filter(ChatRoom.order_id.in_(order_ids)).all()]
+        if chat_ids:
+            db.query(Message).filter(Message.chat_id.in_(chat_ids)).delete(synchronize_session=False)
+        db.query(ChatRoom).filter(ChatRoom.order_id.in_(order_ids)).delete(synchronize_session=False)
+        db.query(OrderStatusLog).filter(OrderStatusLog.order_id.in_(order_ids)).delete(synchronize_session=False)
+        db.query(CourierRating).filter(CourierRating.order_id.in_(order_ids)).delete(synchronize_session=False)
+        db.query(UserRating).filter(UserRating.order_id.in_(order_ids)).delete(synchronize_session=False)
+        db.query(Transaction).filter(Transaction.order_id.in_(order_ids)).delete(synchronize_session=False)
+        db.query(Order).delete(synchronize_session=False)
+        db.commit()
+    return {"message": f"{count} заказ өчүрүлдү"}
+
+
 @router.delete("/orders/{order_id}")
 def delete_order(
     order_id: int,
