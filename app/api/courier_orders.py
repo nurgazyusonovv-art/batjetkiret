@@ -188,7 +188,7 @@ def accept_order(
     apply_status_change(
         db=db,
         order=order,
-        new_status="PICKED_UP",
+        new_status="ACCEPTED",
         actor_user_id=current_user.id,
     )
     order.courier_id = current_user.id
