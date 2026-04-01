@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Package, Clock, CheckCircle, XCircle, TrendingUp, Smartphone, Store, Tag, RefreshCw, X, ChevronRight } from 'lucide-react';
-import { ordersService, EnterpriseOrder } from '../services/orders';
+import { ordersService, EnterpriseOrder, EnterpriseStats } from '../services/orders';
 import { authService } from '../services/auth';
 import './DashboardPage.css';
 
@@ -261,7 +261,7 @@ export default function DashboardPage() {
                 <span className="dash-badge">{stats.active_orders_list.length}</span>
               </div>
               <div className="active-orders-grid">
-                {stats.active_orders_list.map(o => (
+                {stats.active_orders_list.map((o: EnterpriseOrder) => (
                   <ActiveOrderCard key={o.id} order={o} onClick={() => setSelectedOrder(o)} />
                 ))}
               </div>
