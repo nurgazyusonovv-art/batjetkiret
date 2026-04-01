@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Settings, Save, Wallet, Search, ChevronLeft, ChevronRight, RefreshCw, Truck } from 'lucide-react';
+import { Settings, Save, Wallet, Search, ChevronLeft, ChevronRight, RefreshCw, Truck, Trash2, AlertTriangle } from 'lucide-react';
 import { settingsService, SETTING_KEYS } from '@/services/settings';
 import { userService } from '@/services/users';
+import { orderService } from '@/services/orders';
 import { User } from '@/types';
 import './SettingsPage.css';
 
@@ -28,6 +29,10 @@ export default function SettingsPage() {
   const [perKm, setPerKm] = useState('20');
   const [priceSaving, setPriceSaving] = useState(false);
   const [priceMsg, setPriceMsg] = useState('');
+
+  // ── Danger zone ───────────────────────────────────────────────────────────
+  const [clearLoading, setClearLoading] = useState(false);
+  const [clearMsg, setClearMsg] = useState('');
 
   // ── Balance top-up ────────────────────────────────────────────────────────
   const [users, setUsers] = useState<User[]>([]);
@@ -174,6 +179,21 @@ export default function SettingsPage() {
       setTopupMsg('Баланс кошуу мүмкүн болгон жок');
     } finally {
       setTopupLoading(false);
+    }
+  };
+
+  const handleClearAllOrders = async () => {
+    if (!confirm('Бардык заказдар өчүрүлөт! Бул аракетти артка кайтаруу мүмкүн эмес.\n\nУланткыңыз келеби?')) return;
+    if (!confirm('Акыркы ырастоо: чын эле бардык заказдарды өчүрөсүзбү?')) return;
+    setClearLoading(true);
+    setClearMsg('');
+    try {
+      const res = await orderService.clearAllOrders();
+      setClearMsg(`✓ ${res.message}`);
+    } catch {
+      setClearMsg('Ката кетти. Кайра аракет кылыңыз.');
+    } finally {
+      setClearLoading(false);
     }
   };
 
@@ -465,6 +485,40 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* ── Danger zone ── */}
+      <div className="sp-section sp-danger-section">
+        <div className="sp-section-header">
+          <AlertTriangle size={18} className="sp-danger-icon" />
+          <div>
+            <div className="sp-section-title sp-danger-title">Коркунуч аймагы</div>
+            <div className="sp-section-desc">Бул аракеттерди артка кайтаруу мүмкүн эмес. Абайлап колдонуңуз.</div>
+          </div>
+        </div>
+
+        <div className="sp-danger-card">
+          <div className="sp-danger-card-info">
+            <div className="sp-danger-card-title">Бардык заказдарды тазалоо</div>
+            <div className="sp-danger-card-desc">
+              Системадагы бардык заказдар, чат билдирүүлөрү, статус тарыхы жана рейтингдер өчүрүлөт.
+            </div>
+          </div>
+          <button
+            className="sp-danger-btn"
+            onClick={handleClearAllOrders}
+            disabled={clearLoading}
+          >
+            <Trash2 size={15} />
+            {clearLoading ? 'Өчүрүлүүдө...' : 'Бардыгын тазалоо'}
+          </button>
+        </div>
+
+        {clearMsg && (
+          <div className={`sp-topup-msg ${clearMsg.startsWith('✓') ? 'success' : 'error'}`}>
+            {clearMsg}
+          </div>
+        )}
       </div>
     </div>
   );

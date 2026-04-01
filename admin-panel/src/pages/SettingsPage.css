@@ -251,6 +251,67 @@
 .sp-preview-row:last-child { border-bottom: none; }
 .sp-preview-price { font-weight: 700; color: #4f46e5; }
 
+.sp-section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.sp-section-header .sp-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 2px 0;
+}
+
+.sp-section-desc { font-size: 13px; color: #6b7280; }
+
+/* ── Danger zone ── */
+.sp-danger-section {
+  border-color: #fecaca !important;
+  background: #fff5f5;
+}
+
+.sp-danger-icon { color: #dc2626; flex-shrink: 0; margin-top: 2px; }
+.sp-danger-title { color: #dc2626 !important; }
+
+.sp-danger-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: white;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.sp-danger-card-info { flex: 1; }
+.sp-danger-card-title { font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+.sp-danger-card-desc { font-size: 13px; color: #6b7280; line-height: 1.5; }
+
+.sp-danger-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.sp-danger-btn:hover:not(:disabled) { background: #b91c1c; }
+.sp-danger-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 @media (max-width: 960px) {
   .sp-fees-grid { grid-template-columns: 1fr 1fr; }
 }

@@ -108,4 +108,9 @@ export const orderService = {
     const response = await api.delete<{ message: string; order_id: number }>(`/admin/orders/${orderId}`);
     return response.data;
   },
+
+  async clearAllOrders(): Promise<{ message: string }> {
+    const response = await api.delete<{ message: string }>('/admin/orders/clear-all');
+    return response.data;
+  },
 };
