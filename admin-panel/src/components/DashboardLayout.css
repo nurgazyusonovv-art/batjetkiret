@@ -1,6 +1,6 @@
 .dashboard-layout {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   background: #f9fafb;
 }
 
@@ -162,6 +162,7 @@
   flex: 1;
   padding: 32px;
   overflow-y: auto;
+  height: 100vh;
 }
 
 @media (max-width: 768px) {
