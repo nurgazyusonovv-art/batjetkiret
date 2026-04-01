@@ -2,6 +2,9 @@
 Enterprise Portal API
 All endpoints require is_enterprise=True user with active enterprise.
 """
+import os
+import base64
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -23,6 +26,10 @@ from app.models.enterprise_product import EnterpriseProduct
 from app.models.order_payment import OrderPayment
 
 router = APIRouter(prefix="/enterprise-portal", tags=["Enterprise Portal"])
+
+_ALLOWED_IMG = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"}
+_EXT_MIME = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+             ".webp": "image/webp", ".gif": "image/gif", ".heic": "image/heic", ".heif": "image/heif"}
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -722,10 +729,6 @@ def get_reports(
 
 # ── Payment QR & Payments ─────────────────────────────────────────────────────
 
-_ALLOWED_IMG = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"}
-_EXT_MIME = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
-             ".webp": "image/webp", ".gif": "image/gif", ".heic": "image/heic", ".heif": "image/heif"}
-
 
 @router.post("/payment-qr")
 async def upload_payment_qr(
@@ -734,7 +737,6 @@ async def upload_payment_qr(
     auth: Tuple = Depends(require_enterprise),
 ):
     """Enterprise uploads their payment QR code image."""
-    import os, base64
     _user, e = auth
     ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
     mime = (file.content_type or "").lower()
