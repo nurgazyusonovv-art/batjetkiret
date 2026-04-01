@@ -25,6 +25,7 @@ from app.services.wallet import topup
 from app.models.chat import ChatRoom
 from app.models.message import Message
 from app.models.password_reset import PasswordReset
+from app.models.order_payment import OrderPayment
 from app.services.order_status import apply_status_change
 from app.core.security import hash_password
 from app.services import fcm as fcm_service
@@ -1383,6 +1384,7 @@ def clear_all_orders(
         db.query(CourierRating).filter(CourierRating.order_id.in_(order_ids)).delete(synchronize_session=False)
         db.query(UserRating).filter(UserRating.order_id.in_(order_ids)).delete(synchronize_session=False)
         db.query(Transaction).filter(Transaction.order_id.in_(order_ids)).delete(synchronize_session=False)
+        db.query(OrderPayment).filter(OrderPayment.order_id.in_(order_ids)).delete(synchronize_session=False)
         db.query(Order).delete(synchronize_session=False)
         db.commit()
     return {"message": f"{count} заказ өчүрүлдү"}
