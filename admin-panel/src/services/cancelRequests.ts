@@ -12,6 +12,8 @@ export interface CancelRequest {
   to_address: string;
   price: number;
   created_at: string;
+  user_refund_amount: number;
+  courier_payout_amount: number;
 }
 
 export const cancelRequestsService = {

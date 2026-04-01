@@ -54,6 +54,10 @@
   padding: 10px 14px; font-size: 20px; font-weight: 700;
   color: #111827; width: 100px; text-align: center;
 }
+/* Text inputs (contact fields) — full width, normal alignment */
+.sp-fee-input.sp-text-input {
+  width: 100%; font-size: 15px; font-weight: 500; text-align: left;
+}
 .sp-fee-unit {
   padding: 0 14px; font-size: 14px; font-weight: 600; color: #6b7280;
   border-left: 1px solid #e5e7eb;

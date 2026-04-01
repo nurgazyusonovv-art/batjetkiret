@@ -111,6 +111,72 @@
 .crp-btn-reject  { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
 .crp-btn-reject:hover:not(:disabled)  { background: #e5e7eb; }
 
+/* Finance preview row inside card */
+.crp-finance-preview {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.crp-finance-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; padding: 6px 12px;
+  border-radius: 8px;
+}
+.crp-finance-refund {
+  background: #ecfdf5; color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.crp-finance-payout {
+  background: #eff6ff; color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+/* Modal overlay */
+.crp-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.crp-modal {
+  background: white; border-radius: 18px;
+  padding: 28px; width: 400px; max-width: 92vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.crp-modal-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 17px; font-weight: 700; color: #111827;
+  margin-bottom: 6px;
+}
+.crp-modal-order {
+  font-size: 13px; color: #6b7280;
+  margin-bottom: 20px;
+}
+.crp-modal-finance {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 24px;
+}
+.crp-modal-finance-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px; border-radius: 12px;
+}
+.crp-modal-refund  { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+.crp-modal-payout  { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+.crp-modal-finance-label  { font-size: 12px; font-weight: 600; opacity: 0.8; margin-bottom: 2px; }
+.crp-modal-finance-amount { font-size: 20px; font-weight: 800; }
+.crp-modal-finance-desc   { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+.crp-modal-actions {
+  display: flex; gap: 10px;
+}
+.crp-modal-btn {
+  flex: 1; padding: 11px 16px; border-radius: 10px;
+  font-size: 14px; font-weight: 700; cursor: pointer; border: none;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.crp-modal-btn-cancel  { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+.crp-modal-btn-cancel:hover { background: #e5e7eb; }
+.crp-modal-btn-confirm { background: #059669; color: white; }
+.crp-modal-btn-confirm:hover { background: #047857; }
+
 @media (max-width: 600px) {
   .crp-info-grid { grid-template-columns: 1fr 1fr; }
   .crp-btn-row   { flex-direction: column; }

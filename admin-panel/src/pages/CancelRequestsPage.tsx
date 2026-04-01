@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, RefreshCw, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { cancelRequestsService, CancelRequest } from '@/services/cancelRequests';
 import { fmtDateTime } from '@/utils/date';
 import './CancelRequestsPage.css';
@@ -16,11 +16,17 @@ const STATUS_COLORS: Record<string, string> = {
   DELIVERED: '#10b981',
 };
 
+interface ConfirmModal {
+  req: CancelRequest;
+  note: string;
+}
+
 export default function CancelRequestsPage() {
   const [requests, setRequests] = useState<CancelRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
   const [noteMap, setNoteMap] = useState<Record<number, string>>({});
+  const [confirmModal, setConfirmModal] = useState<ConfirmModal | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -34,12 +40,18 @@ export default function CancelRequestsPage() {
 
   useEffect(() => { load(); }, []);
 
-  const approve = async (id: number) => {
-    if (!confirm(`Заказ #${id} жокко чыгарылсынбы?`)) return;
-    setActionId(id);
+  const openApproveModal = (req: CancelRequest) => {
+    setConfirmModal({ req, note: noteMap[req.id] || '' });
+  };
+
+  const confirmApprove = async () => {
+    if (!confirmModal) return;
+    const { req, note } = confirmModal;
+    setConfirmModal(null);
+    setActionId(req.id);
     try {
-      await cancelRequestsService.approve(id, noteMap[id] || '');
-      setRequests(prev => prev.filter(r => r.id !== id));
+      await cancelRequestsService.approve(req.id, note);
+      setRequests(prev => prev.filter(r => r.id !== req.id));
     } catch {
       alert('Ката кетти');
     } finally {
@@ -124,6 +136,17 @@ export default function CancelRequestsPage() {
                   </div>
                 </div>
 
+                <div className="crp-finance-preview">
+                  <div className="crp-finance-item crp-finance-refund">
+                    <ArrowDownLeft size={14} />
+                    <span>Колдонуучуга кайтарылат: <strong>{req.user_refund_amount} сом</strong></span>
+                  </div>
+                  <div className="crp-finance-item crp-finance-payout">
+                    <ArrowUpRight size={14} />
+                    <span>Курьерге берилет: <strong>{req.courier_payout_amount} сом</strong></span>
+                  </div>
+                </div>
+
                 <div className="crp-route">
                   <span className="crp-route-point crp-from">{req.from_address}</span>
                   <span className="crp-route-arrow">→</span>
@@ -146,7 +169,7 @@ export default function CancelRequestsPage() {
                   <div className="crp-btn-row">
                     <button
                       className="crp-btn crp-btn-approve"
-                      onClick={() => approve(req.id)}
+                      onClick={() => openApproveModal(req)}
                       disabled={isBusy}
                     >
                       <CheckCircle size={15} />
@@ -165,6 +188,48 @@ export default function CancelRequestsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Confirm approve modal ── */}
+      {confirmModal && (
+        <div className="crp-modal-overlay" onClick={() => setConfirmModal(null)}>
+          <div className="crp-modal" onClick={e => e.stopPropagation()}>
+            <div className="crp-modal-title">
+              <AlertTriangle size={18} color="#f59e0b" />
+              Жокко чыгарууну тастыктаңыз
+            </div>
+            <div className="crp-modal-order">Заказ #{confirmModal.req.id}</div>
+
+            <div className="crp-modal-finance">
+              <div className="crp-modal-finance-row crp-modal-refund">
+                <ArrowDownLeft size={16} />
+                <div>
+                  <div className="crp-modal-finance-label">Колдонуучуга кайтарылат</div>
+                  <div className="crp-modal-finance-amount">+{confirmModal.req.user_refund_amount} сом</div>
+                  <div className="crp-modal-finance-desc">{confirmModal.req.user_name || confirmModal.req.user_phone}</div>
+                </div>
+              </div>
+              <div className="crp-modal-finance-row crp-modal-payout">
+                <ArrowUpRight size={16} />
+                <div>
+                  <div className="crp-modal-finance-label">Курьерге компенсация</div>
+                  <div className="crp-modal-finance-amount">+{confirmModal.req.courier_payout_amount} сом</div>
+                  <div className="crp-modal-finance-desc">{confirmModal.req.courier_name || confirmModal.req.courier_phone || '—'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="crp-modal-actions">
+              <button className="crp-modal-btn crp-modal-btn-cancel" onClick={() => setConfirmModal(null)}>
+                Артка
+              </button>
+              <button className="crp-modal-btn crp-modal-btn-confirm" onClick={confirmApprove}>
+                <CheckCircle size={15} />
+                Ооба, жокко чыгар
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

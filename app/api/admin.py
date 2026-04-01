@@ -1753,7 +1753,12 @@ SETTING_DEFAULTS = {
     "courier_cancel_penalty": ("10", "Курьер заказдан баш тарткандагы штраф (сом)"),
     "delivery_base_price":    ("80", "Жеткирүү акысынын башкы баасы (сом)"),
     "delivery_price_per_km":  ("20", "1 км үчүн жеткирүү баасы (сом)"),
+    "contact_telegram":       ("",   "Администратордун Telegram username (@жок)"),
+    "contact_whatsapp":       ("",   "Администратордун WhatsApp номери (996XXXXXXXXX)"),
 }
+
+# Keys that are visible to all authenticated users (no admin required)
+PUBLIC_SETTING_KEYS = {"contact_telegram", "contact_whatsapp"}
 
 
 def _get_setting(db: Session, key: str) -> str:
@@ -1801,6 +1806,17 @@ def get_settings(db: Session = Depends(get_db), admin=Depends(require_admin)):
             "value": row.value if row else default,
             "description": description,
         }
+    return result
+
+
+@router.get("/public-settings")
+def get_public_settings(db: Session = Depends(get_db)):
+    """Return public contact settings — no auth required (used by Flutter app)."""
+    result = {}
+    for key in PUBLIC_SETTING_KEYS:
+        default, _ = SETTING_DEFAULTS[key]
+        row = db.query(Setting).filter(Setting.key == key).first()
+        result[key] = row.value if row else default
     return result
 
 
@@ -1871,6 +1887,8 @@ def list_cancel_requests(
         .order_by(Order.created_at.desc())
         .all()
     )
+    user_refund = get_user_service_fee(db)
+    courier_payout = float(_get_setting(db, "courier_service_fee") or "5")
     result = []
     for o in orders:
         result.append({
@@ -1885,6 +1903,8 @@ def list_cancel_requests(
             "to_address": o.to_address,
             "price": float(o.price),
             "created_at": o.created_at,
+            "user_refund_amount": user_refund,
+            "courier_payout_amount": courier_payout,
         })
     return result
 
@@ -1909,18 +1929,38 @@ def approve_cancel_request(
     db: Session = Depends(get_db),
     admin=Depends(require_admin),
 ):
-    """Approve: cancel the order, clear the cancel request flag."""
+    """Approve: cancel the order, refund user service fee, payout courier compensation."""
     from app.services.order_status import apply_status_change
     order = db.query(Order).filter(Order.id == order_id, Order.cancel_requested == True).first()  # noqa: E712
     if not order:
         raise HTTPException(status_code=404, detail="Суроо табылган жок")
+
+    user_refund_amt = get_user_service_fee(db)
+    courier_payout_amt = float(_get_setting(db, "courier_service_fee") or "5")
+
+    # Refund user's service fee (was charged on order creation)
+    if order.user_id:
+        user = db.query(User).filter(User.id == order.user_id).first()
+        if user:
+            refund(db, user, order.id, user_refund_amt)
+
+    # Payout courier compensation for accepted but cancelled order
+    if order.courier_id:
+        courier = db.query(User).filter(User.id == order.courier_id).first()
+        if courier:
+            payout(db, courier, order.id, courier_payout_amt)
 
     apply_status_change(db=db, order=order, new_status="CANCELLED", actor_user_id=admin.id)
     order.cancel_requested = False
     if body.admin_note:
         order.admin_note = body.admin_note
     db.commit()
-    return {"message": "Заказ жокко чыгарылды", "order_id": order_id}
+    return {
+        "message": "Заказ жокко чыгарылды",
+        "order_id": order_id,
+        "user_refunded": user_refund_amt,
+        "courier_paid": courier_payout_amt,
+    }
 
 
 @router.post("/cancel-requests/{order_id}/reject")

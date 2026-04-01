@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Settings, Save, Wallet, Search, ChevronLeft, ChevronRight, RefreshCw, Truck, Trash2, AlertTriangle } from 'lucide-react';
+import { Settings, Save, Wallet, Search, ChevronLeft, ChevronRight, RefreshCw, Truck, Trash2, AlertTriangle, MessageCircle } from 'lucide-react';
 import { settingsService, SETTING_KEYS } from '@/services/settings';
 import { userService } from '@/services/users';
 import { orderService } from '@/services/orders';
@@ -30,6 +30,12 @@ export default function SettingsPage() {
   const [priceSaving, setPriceSaving] = useState(false);
   const [priceMsg, setPriceMsg] = useState('');
 
+  // ── Contact info ──────────────────────────────────────────────────────────
+  const [telegram, setTelegram] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactMsg, setContactMsg] = useState('');
+
   // ── Danger zone ───────────────────────────────────────────────────────────
   const [clearLoading, setClearLoading] = useState(false);
   const [clearMsg, setClearMsg] = useState('');
@@ -59,6 +65,8 @@ export default function SettingsPage() {
       if (data[SETTING_KEYS.COURIER_CANCEL_PENALTY]) setPenalty(data[SETTING_KEYS.COURIER_CANCEL_PENALTY].value);
       if (data[SETTING_KEYS.DELIVERY_BASE]) setBasePrice(data[SETTING_KEYS.DELIVERY_BASE].value);
       if (data[SETTING_KEYS.DELIVERY_PER_KM]) setPerKm(data[SETTING_KEYS.DELIVERY_PER_KM].value);
+      if (data[SETTING_KEYS.CONTACT_TELEGRAM]) setTelegram(data[SETTING_KEYS.CONTACT_TELEGRAM].value);
+      if (data[SETTING_KEYS.CONTACT_WHATSAPP]) setWhatsapp(data[SETTING_KEYS.CONTACT_WHATSAPP].value);
     } catch { /* silent */ }
   };
 
@@ -136,6 +144,22 @@ export default function SettingsPage() {
       setPriceMsg('Сактоодо ката кетти');
     } finally {
       setPriceSaving(false);
+    }
+  };
+
+  const saveContact = async () => {
+    setContactSaving(true);
+    setContactMsg('');
+    try {
+      await Promise.all([
+        settingsService.updateSetting(SETTING_KEYS.CONTACT_TELEGRAM, telegram.trim()),
+        settingsService.updateSetting(SETTING_KEYS.CONTACT_WHATSAPP, whatsapp.trim()),
+      ]);
+      setContactMsg('✓ Сакталды');
+    } catch {
+      setContactMsg('Сактоодо ката кетти');
+    } finally {
+      setContactSaving(false);
     }
   };
 
@@ -484,6 +508,69 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* ── Section: Contact info ── */}
+      <div className="sp-section">
+        <div className="sp-section-title">
+          <MessageCircle size={18} />
+          Администратор байланыш маалыматтары
+        </div>
+        <p className="sp-section-desc" style={{ marginBottom: 16 }}>
+          Колдонуучулар "Администраторго жазуу" баскычын баскандан кийин ушул номерлерге багытталат.
+        </p>
+
+        <div className="sp-fees-grid">
+          <div className="sp-fee-card sp-fee-card--bordered">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">✈️ Telegram username</div>
+              <div className="sp-fee-desc">@ белгисисиз жазыңыз (мис: adminname)</div>
+            </div>
+            <div className="sp-fee-input-row">
+              <div className="sp-fee-input-wrap" style={{ flex: 1 }}>
+                <span className="sp-fee-unit" style={{ left: 10, right: 'auto' }}>@</span>
+                <input
+                  type="text"
+                  value={telegram}
+                  onChange={e => { setTelegram(e.target.value); setContactMsg(''); }}
+                  className="sp-fee-input sp-text-input"
+                  style={{ paddingLeft: 28 }}
+                  placeholder="adminname"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="sp-fee-card sp-fee-card--bordered">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">💬 WhatsApp номери</div>
+              <div className="sp-fee-desc">Эл аралык форматта, + жок (мис: 996700123456)</div>
+            </div>
+            <div className="sp-fee-input-row">
+              <div className="sp-fee-input-wrap" style={{ flex: 1 }}>
+                <input
+                  type="text"
+                  value={whatsapp}
+                  onChange={e => { setWhatsapp(e.target.value); setContactMsg(''); }}
+                  className="sp-fee-input sp-text-input"
+                  placeholder="996700123456"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="sp-fee-input-row" style={{ marginTop: 16 }}>
+          <button className="sp-save-btn" onClick={saveContact} disabled={contactSaving}>
+            <Save size={15} />
+            {contactSaving ? 'Сакталууда...' : 'Сактоо'}
+          </button>
+          {contactMsg && (
+            <div className={`sp-fee-msg ${contactMsg.startsWith('✓') ? 'success' : 'error'}`}>
+              {contactMsg}
+            </div>
+          )}
         </div>
       </div>
 
