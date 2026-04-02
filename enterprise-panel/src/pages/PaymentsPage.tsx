@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { CreditCard, RefreshCw, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { CreditCard, RefreshCw, CheckCircle, XCircle, Eye, X } from 'lucide-react';
 import { ordersService, OrderPayment } from '../services/orders';
 import { fmtDate } from '../utils/date';
 import './PaymentsPage.css';
@@ -24,9 +25,12 @@ const FILTER_OPTIONS = [
 ];
 
 export default function PaymentsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const orderIdFilter = searchParams.get('order_id') ? Number(searchParams.get('order_id')) : null;
+
   const [payments, setPayments] = useState<OrderPayment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState('pending');
+  const [filterStatus, setFilterStatus] = useState('');
   const [actionId, setActionId] = useState<number | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState('');
@@ -45,6 +49,14 @@ export default function PaymentsPage() {
   }, [filterStatus]);
 
   useEffect(() => { load(); }, [load]);
+
+  const clearOrderFilter = () => {
+    setSearchParams({});
+  };
+
+  const displayed = orderIdFilter
+    ? payments.filter((p) => p.order_id === orderIdFilter)
+    : payments;
 
   const handleConfirm = async (paymentId: number) => {
     setActionId(paymentId);
@@ -107,16 +119,26 @@ export default function PaymentsPage() {
         ))}
       </div>
 
+      {orderIdFilter && (
+        <div className="ep-order-filter-banner">
+          <CreditCard size={15} />
+          Заказ #{orderIdFilter} боюнча төлөмдөр
+          <button className="ep-filter-clear-btn" onClick={clearOrderFilter}>
+            <X size={13} /> Фильтрди өчүрүү
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="ep-loading">Жүктөлүүдө...</div>
-      ) : payments.length === 0 ? (
+      ) : displayed.length === 0 ? (
         <div className="ep-empty">
           <CreditCard size={48} opacity={0.2} />
-          <p>Төлөм табылган жок</p>
+          <p>{orderIdFilter ? `Заказ #${orderIdFilter} боюнча төлөм жок` : 'Төлөм табылган жок'}</p>
         </div>
       ) : (
         <div className="ep-payments-list">
-          {payments.map((p) => (
+          {displayed.map((p) => (
             <div key={p.id} className="ep-payment-card">
               <div className="ep-payment-top">
                 <div className="ep-payment-meta">

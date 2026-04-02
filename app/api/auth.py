@@ -168,7 +168,6 @@ def admin_reset_request(unique_id: str, db: Session = Depends(get_db)):
             user_id=admin.id,
             title="🔑 Сырсөздү баштан коюу суранычы",
             message=f"Колдонуучу {unique_id} ({user.phone}) сырсөздү унутту. Ага берилүүчү код: {code}",
-            notification_type="ADMIN_MESSAGE",
         ))
 
     db.commit()

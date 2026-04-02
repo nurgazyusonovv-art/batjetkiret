@@ -368,3 +368,26 @@
   color: #6b7280;
   font-style: italic;
 }
+
+.ep-order-payment-link {
+  margin-bottom: 12px;
+}
+
+.ep-payment-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #4f46e5;
+  background: #f5f3ff;
+  color: #4f46e5;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ep-payment-link-btn:hover {
+  background: #ede9fe;
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Package, Search, X, RefreshCw, CheckCircle, XCircle, Truck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Package, Search, X, RefreshCw, CheckCircle, XCircle, Truck, CreditCard } from 'lucide-react';
 import { ordersService, EnterpriseOrder } from '../services/orders';
 import { fmtDate } from '../utils/date';
 import './OrdersPage.css';
@@ -78,6 +79,7 @@ const DINE_IN_STATUSES = [
 ];
 
 export default function OrdersPage() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<EnterpriseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
@@ -247,6 +249,16 @@ export default function OrdersPage() {
                         <span className="ep-detail-label">Сүрөттөмө</span>
                         <span>{order.description}</span>
                       </div>
+                    </div>
+
+                    <div className="ep-order-payment-link">
+                      <button
+                        className="ep-payment-link-btn"
+                        onClick={() => navigate(`/payments?order_id=${order.id}`)}
+                      >
+                        <CreditCard size={14} />
+                        Төлөмдү кароо
+                      </button>
                     </div>
 
                     {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && order.status !== 'READY' && (
