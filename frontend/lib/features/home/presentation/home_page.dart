@@ -431,6 +431,7 @@ class _HomePageState extends State<HomePage> {
                                     MaterialPageRoute(
                                       builder: (_) => IntercityOrderPage(
                                         token: widget.token,
+                                        userId: user?.id ?? 0,
                                       ),
                                     ),
                                   );

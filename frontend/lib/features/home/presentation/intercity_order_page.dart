@@ -13,6 +13,9 @@ import '../../../core/widgets/app_text_field.dart';
 import '../../common/widgets/compact_map_preview.dart';
 import '../../orders/presentation/cubit/orders_cubit.dart';
 import '../../orders/data/order_api.dart';
+import '../../profile/data/user_api.dart';
+import '../../profile/presentation/contact_admin_page.dart';
+import '../../profile/presentation/support_chat_page.dart';
 
 class IntercityCity {
   final int id;
@@ -30,8 +33,9 @@ class IntercityCity {
 
 class IntercityOrderPage extends StatefulWidget {
   final String token;
+  final int userId;
 
-  const IntercityOrderPage({super.key, required this.token});
+  const IntercityOrderPage({super.key, required this.token, required this.userId});
 
   @override
   State<IntercityOrderPage> createState() => _IntercityOrderPageState();
@@ -52,6 +56,7 @@ class _IntercityOrderPageState extends State<IntercityOrderPage> {
 
   bool _submitting = false;
   bool _gettingLocation = false;
+  bool _chatLoading = false;
 
   @override
   void initState() {
@@ -143,10 +148,7 @@ class _IntercityOrderPageState extends State<IntercityOrderPage> {
       );
       if (!mounted) return;
       context.read<OrdersCubit>().loadOrders(widget.token);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заказ ийгиликтүү түзүлдү!'), backgroundColor: Colors.green),
-      );
-      Navigator.of(context).pop();
+      _showSuccessDialog();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -154,6 +156,113 @@ class _IntercityOrderPageState extends State<IntercityOrderPage> {
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: const BoxDecoration(
+                color: Color(0xFFDCFCE7),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_circle_outline, color: Color(0xFF16A34A), size: 36),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Заказ түзүлдү!',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Заказыңыз кабыл алынды. Администратор менен байланышып, чоо-жайын макулдашасызбы?',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          OutlinedButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // close dialog
+              Navigator.of(context).pop(); // close intercity page
+            },
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Кийинчерек'),
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop(); // close dialog
+              _openAdminChat();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              minimumSize: const Size(double.infinity, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            icon: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 18),
+            label: const Text(
+              'Администратор менен чат',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openAdminChat() async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ContactAdminPage(
+          token: widget.token,
+          userId: widget.userId,
+          startChatFn: () => UserApi().startSupportChat(widget.token),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openChatDirectly() async {
+    setState(() => _chatLoading = true);
+    try {
+      final chatId = await UserApi().startSupportChat(widget.token);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SupportChatPage(
+            token: widget.token,
+            chatId: chatId,
+            title: 'Администратор',
+            myUserId: widget.userId,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString().replaceFirst('Exception: ', '')),
+        backgroundColor: AppColors.danger,
+      ));
+    } finally {
+      if (mounted) setState(() => _chatLoading = false);
     }
   }
 
@@ -197,6 +306,20 @@ class _IntercityOrderPageState extends State<IntercityOrderPage> {
           _step == 0 ? 'Жөнөтүүнүн орду' : _step == 1 ? 'Шаар тандаңыз' : 'Заказды тастыктоо',
           style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 16),
         ),
+        actions: [
+          // Chat button in app bar (always visible in confirm step)
+          if (_step == 2)
+            IconButton(
+              icon: _chatLoading
+                  ? const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                    )
+                  : const Icon(Icons.support_agent, color: AppColors.primary),
+              tooltip: 'Администратор менен чат',
+              onPressed: _chatLoading ? null : _openChatDirectly,
+            ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
           child: LinearProgressIndicator(
@@ -447,7 +570,58 @@ class _IntercityOrderPageState extends State<IntercityOrderPage> {
             hintText: 'Мисал: 2 баштык нан, өлчөмү кичине',
             maxLines: 3,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+
+          // Chat with admin tile
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: _chatLoading ? null : _openChatDirectly,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0E7FF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: _chatLoading
+                          ? const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4F46E5)),
+                            )
+                          : const Icon(Icons.support_agent, color: Color(0xFF4F46E5), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Администратор менен байланышуу',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Заказ боюнча суроолоруңузду бериңиз',
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -466,7 +640,7 @@ class _IntercityOrderPageState extends State<IntercityOrderPage> {
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           AppButton.primary(
             label: 'Заказды жарат',
             isLoading: _submitting,
