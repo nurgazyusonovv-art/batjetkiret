@@ -14,8 +14,8 @@ import '../../common/widgets/compact_map_preview.dart';
 import '../../orders/presentation/cubit/orders_cubit.dart';
 import '../../orders/data/order_api.dart';
 import '../../profile/data/user_api.dart';
-import '../../profile/presentation/contact_admin_page.dart';
 import '../../profile/presentation/support_chat_page.dart';
+import 'intercity_order_success_page.dart';
 
 class IntercityCity {
   final int id;
@@ -148,7 +148,18 @@ class _IntercityOrderPageState extends State<IntercityOrderPage> {
       );
       if (!mounted) return;
       context.read<OrdersCubit>().loadOrders(widget.token);
-      _showSuccessDialog();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => IntercityOrderSuccessPage(
+            token: widget.token,
+            userId: widget.userId,
+            fromAddress: _fromController.text.trim(),
+            toCity: _selectedCity!.name,
+            price: _selectedCity!.price,
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -159,85 +170,6 @@ class _IntercityOrderPageState extends State<IntercityOrderPage> {
     }
   }
 
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: const BoxDecoration(
-                color: Color(0xFFDCFCE7),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.check_circle_outline, color: Color(0xFF16A34A), size: 36),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Заказ түзүлдү!',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Заказыңыз кабыл алынды. Администратор менен байланышып, чоо-жайын макулдашасызбы?',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-          ],
-        ),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        actions: [
-          OutlinedButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // close dialog
-              Navigator.of(context).pop(); // close intercity page
-            },
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 44),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Кийинчерек'),
-          ),
-          const SizedBox(height: 8),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop(); // close dialog
-              _openAdminChat();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              minimumSize: const Size(double.infinity, 44),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            icon: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 18),
-            label: const Text(
-              'Администратор менен чат',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _openAdminChat() async {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ContactAdminPage(
-          token: widget.token,
-          userId: widget.userId,
-          startChatFn: () => UserApi().startSupportChat(widget.token),
-        ),
-      ),
-    );
-  }
 
   Future<void> _openChatDirectly() async {
     setState(() => _chatLoading = true);
