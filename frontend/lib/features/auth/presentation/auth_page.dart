@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
+import 'admin_reset_password_page.dart';
 import 'cubit/auth_cubit.dart';
 import 'cubit/auth_state.dart';
 
@@ -104,34 +105,6 @@ class _AuthPageState extends State<AuthPage> {
     );
   }
 
-  Future<void> _forgotPassword() async {
-    final digits = _KyrgyzPhoneFormatter.digitsOnly(_phoneController.text);
-    if (digits.length < 9) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Телефон номерин толук жазыңыз')),
-      );
-      return;
-    }
-
-    try {
-      final message = await _authCubit.forgotPassword(_fullPhone);
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-        ),
-      );
-    }
-  }
 
   void _toggleMode(bool isLogin) {
     _authCubit.toggleMode(isLogin);
@@ -329,7 +302,14 @@ class _AuthPageState extends State<AuthPage> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: state.isLoading ? null : _forgotPassword,
+                            onPressed: state.isLoading
+                                ? null
+                                : () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const AdminResetPasswordPage(),
+                                      ),
+                                    ),
                             child: const Text('Сыр сөздү унуттуңузбу?'),
                           ),
                         ),

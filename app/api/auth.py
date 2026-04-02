@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 import logging
 import random
+import string
+import secrets
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
@@ -10,6 +12,7 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from app.core.limiter import limiter
 from datetime import datetime, timedelta
 from app.models.password_reset import PasswordReset
+from app.models.notification import Notification
 from app.core.security import generate_reset_code
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -127,6 +130,82 @@ def forgot_password(request: Request, phone: str, db: Session = Depends(get_db))
 
     logger.info("Password reset requested for phone=%s", _mask_phone(phone))
     return {"message": "Reset code sent"}
+
+@router.post("/admin-reset-request")
+def admin_reset_request(unique_id: str, db: Session = Depends(get_db)):
+    """User enters their unique_id (BJ000123) — system generates code and notifies admins."""
+    user = db.query(User).filter(User.unique_id == unique_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Колдонуучу табылган жок. ID номерин текшериңиз.")
+
+    # Generate 6-digit code
+    code = "".join([str(random.randint(0, 9)) for _ in range(6)])
+    now = datetime.utcnow()
+
+    # Reuse or create PasswordReset record
+    existing = (
+        db.query(PasswordReset)
+        .filter(PasswordReset.user_id == user.id, PasswordReset.is_used == False)
+        .order_by(PasswordReset.created_at.desc())
+        .first()
+    )
+    if existing:
+        existing.code = code
+        existing.expires_at = now + timedelta(hours=24)
+        existing.last_sent_at = now
+    else:
+        db.add(PasswordReset(
+            user_id=user.id,
+            code=code,
+            expires_at=now + timedelta(hours=24),
+            last_sent_at=now,
+        ))
+
+    # Notify all admins
+    admins = db.query(User).filter(User.is_admin == True).all()  # noqa: E712
+    for admin in admins:
+        db.add(Notification(
+            user_id=admin.id,
+            title="🔑 Сырсөздү баштан коюу суранычы",
+            message=f"Колдонуучу {unique_id} ({user.phone}) сырсөздү унутту. Ага берилүүчү код: {code}",
+            notification_type="ADMIN_MESSAGE",
+        ))
+
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/admin-reset-confirm")
+def admin_reset_confirm(unique_id: str, code: str, db: Session = Depends(get_db)):
+    """Verify code, generate new random password, return it."""
+    user = db.query(User).filter(User.unique_id == unique_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Колдонуучу табылган жок")
+
+    reset = (
+        db.query(PasswordReset)
+        .filter(
+            PasswordReset.user_id == user.id,
+            PasswordReset.code == code,
+            PasswordReset.is_used == False,
+        )
+        .order_by(PasswordReset.created_at.desc())
+        .first()
+    )
+    if not reset or reset.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Код туура эмес же мөөнөтү өткөн")
+
+    # Generate new readable password: 4 letters + 4 digits
+    letters = ''.join(secrets.choice(string.ascii_lowercase) for _ in range(4))
+    digits_part = ''.join(secrets.choice(string.digits) for _ in range(4))
+    new_password = letters + digits_part
+
+    user.hashed_password = hash_password(new_password)
+    reset.is_used = True
+    db.commit()
+
+    return {"new_password": new_password}
+
 
 @router.post("/register", response_model=TokenResponse)
 @limiter.limit("20/minute")
