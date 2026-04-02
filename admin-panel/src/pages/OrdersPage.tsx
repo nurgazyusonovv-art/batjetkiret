@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Search, Filter, Eye, Trash2, CalendarDays, X } from 'lucide-react';
+import { Search, Filter, Eye, Trash2, CalendarDays, X, MapPin, User, Truck, Package } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { orderService } from '@/services/orders';
 import { Order, OrderStatus } from '@/types';
 import { fmtDate, fmtDateTime } from '@/utils/date';
 import './OrdersPage.css';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 12;
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   WAITING_COURIER: 'Жаңы',
@@ -34,6 +34,19 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   CANCELLED: '#ef4444',
 };
 
+const STATUS_BG: Record<OrderStatus, string> = {
+  WAITING_COURIER: '#fffbeb',
+  ACCEPTED: '#eff6ff',
+  PREPARING: '#faf5ff',
+  READY: '#f0fdf4',
+  PICKED_UP: '#ecfeff',
+  ON_THE_WAY: '#f5f3ff',
+  IN_TRANSIT: '#f5f3ff',
+  DELIVERED: '#ecfdf5',
+  COMPLETED: '#dcfce7',
+  CANCELLED: '#fef2f2',
+};
+
 export default function OrdersPage() {
   const [searchParams] = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -52,6 +65,9 @@ export default function OrdersPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [notifyTitle, setNotifyTitle] = useState('');
+  const [notifyMessage, setNotifyMessage] = useState('');
+  const [notifySending, setNotifySending] = useState(false);
 
   const formatDateLabel = (value: string) => {
     if (!value) return 'Күндү тандаңыз';
@@ -59,101 +75,55 @@ export default function OrdersPage() {
   };
 
   const clearDateFilters = () => {
-    setSelectedDate('');
-    setDateFrom('');
-    setDateTo('');
-    setTodayOnly(false);
+    setSelectedDate(''); setDateFrom(''); setDateTo(''); setTodayOnly(false);
     loadOrders(false, '', '', '');
   };
 
-  const clearSelectedDate = () => {
-    setSelectedDate('');
-    setTodayOnly(false);
-    loadOrders(false, '', '', '');
-  };
-
-  const clearDateFrom = () => {
-    setDateFrom('');
-    setTodayOnly(false);
-    setSelectedDate('');
-    loadOrders(false, '', '', dateTo);
-  };
-
-  const clearDateTo = () => {
-    setDateTo('');
-    setTodayOnly(false);
-    setSelectedDate('');
-    loadOrders(false, '', dateFrom, '');
-  };
+  const clearSelectedDate = () => { setSelectedDate(''); setTodayOnly(false); loadOrders(false, '', '', ''); };
+  const clearDateFrom = () => { setDateFrom(''); setTodayOnly(false); setSelectedDate(''); loadOrders(false, '', '', dateTo); };
+  const clearDateTo  = () => { setDateTo('');   setTodayOnly(false); setSelectedDate(''); loadOrders(false, '', dateFrom, ''); };
 
   const loadOrders = useCallback(async (
-    onlyToday: boolean,
-    date: string = '',
-    from: string = '',
-    to: string = '',
+    onlyToday: boolean, date = '', from = '', to = '',
   ) => {
     try {
-      setLoading(true);
-      setLoadError('');
+      setLoading(true); setLoadError('');
       const data = await orderService.getOrders({
-        limit: 100,
+        limit: 200,
         today_only: date || from || to ? false : onlyToday,
         order_date: date || undefined,
         date_from: from || undefined,
         date_to: to || undefined,
       });
       setOrders(data);
-    } catch (err) {
-      console.error('Failed to load orders:', err);
-      setLoadError('Заказдарды жүктөө мүмкүн болгон жок. Баракты кайта жүктөп көрүңүз.');
+    } catch {
+      setLoadError('Заказдарды жүктөө мүмкүн болгон жок.');
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const initialStatus = searchParams.get('status');
-    const todayQuery = searchParams.get('today');
-    const dateQuery = searchParams.get('date');
-    const fromQuery = searchParams.get('from');
-    const toQuery = searchParams.get('to');
-    if (
-      initialStatus &&
-      Object.prototype.hasOwnProperty.call(STATUS_LABELS, initialStatus)
-    ) {
-      setStatusFilter(initialStatus as OrderStatus);
-    }
-    if (todayQuery === 'true') {
-      setTodayOnly(true);
-      setSelectedDate('');
-      setDateFrom('');
-      setDateTo('');
-      loadOrders(true);
-      return;
-    }
+    const interval = setInterval(() => {
+      loadOrders(todayOnly, selectedDate, dateFrom, dateTo);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [loadOrders, todayOnly, selectedDate, dateFrom, dateTo]);
 
-    if (dateQuery) {
-      setTodayOnly(false);
-      setSelectedDate(dateQuery);
-      setDateFrom('');
-      setDateTo('');
-      loadOrders(false, dateQuery);
-      return;
-    }
+  useEffect(() => {
+    const s = searchParams.get('status');
+    const todayQ = searchParams.get('today');
+    const dateQ = searchParams.get('date');
+    const fromQ = searchParams.get('from');
+    const toQ = searchParams.get('to');
 
-    if (fromQuery || toQuery) {
-      setTodayOnly(false);
-      setSelectedDate('');
-      setDateFrom(fromQuery || '');
-      setDateTo(toQuery || '');
-      loadOrders(false, '', fromQuery || '', toQuery || '');
-      return;
-    }
+    if (s && Object.prototype.hasOwnProperty.call(STATUS_LABELS, s))
+      setStatusFilter(s as OrderStatus);
 
-    setTodayOnly(false);
-    setSelectedDate('');
-    setDateFrom('');
-    setDateTo('');
+    if (todayQ === 'true') { setTodayOnly(true); loadOrders(true); return; }
+    if (dateQ)            { setSelectedDate(dateQ); loadOrders(false, dateQ); return; }
+    if (fromQ || toQ)     { setDateFrom(fromQ || ''); setDateTo(toQ || ''); loadOrders(false, '', fromQ || '', toQ || ''); return; }
+
     loadOrders(false);
   }, [searchParams, loadOrders]);
 
@@ -164,8 +134,7 @@ export default function OrdersPage() {
       setSelectedOrder(order);
       setStatusDraft(order.status);
       setStatusNote(order.admin_note ?? '');
-    } catch (err) {
-      console.error('Failed to load order details:', err);
+    } catch {
       alert('Заказ деталын жүктөө мүмкүн болгон жок');
     } finally {
       setDetailLoading(false);
@@ -174,31 +143,47 @@ export default function OrdersPage() {
 
   const applyStatusChange = async () => {
     if (!selectedOrder) return;
-
     setActionLoading(true);
     try {
       const updated = await orderService.forceStatus(selectedOrder.id, statusDraft, statusNote);
       setSelectedOrder(updated);
       await loadOrders(todayOnly, selectedDate, dateFrom, dateTo);
-    } catch (err) {
-      console.error('Failed to change status:', err);
+    } catch {
       alert('Статусту өзгөртүү мүмкүн болгон жок');
     } finally {
       setActionLoading(false);
     }
   };
 
+  const sendNotifyToUser = async () => {
+    if (!selectedOrder) return;
+    if (!notifyMessage.trim()) { alert('Билдирүү текстин жазыңыз'); return; }
+    setNotifySending(true);
+    try {
+      const { default: api } = await import('@/services/api');
+      await api.post(`/admin/users/${selectedOrder.user_id}/notify`, {
+        title: notifyTitle || 'Билдирүү',
+        message: notifyMessage,
+      });
+      setNotifyTitle('');
+      setNotifyMessage('');
+      alert('Билдирүү жөнөтүлдү');
+    } catch {
+      alert('Билдирүүнү жөнөтүүдө ката чыкты');
+    } finally {
+      setNotifySending(false);
+    }
+  };
+
   const deleteSelectedOrder = async () => {
     if (!selectedOrder) return;
     if (!confirm(`Заказ #${selectedOrder.id} өчүрүлсүнбү?`)) return;
-
     setActionLoading(true);
     try {
       await orderService.deleteOrder(selectedOrder.id);
       setSelectedOrder(null);
       await loadOrders(todayOnly, selectedDate, dateFrom, dateTo);
-    } catch (err) {
-      console.error('Failed to delete order:', err);
+    } catch {
       alert('Заказды өчүрүү мүмкүн болгон жок');
     } finally {
       setActionLoading(false);
@@ -208,97 +193,64 @@ export default function OrdersPage() {
   const quickDeleteOrder = async (orderId: number) => {
     if (deletingOrderIds.has(orderId)) return;
     if (!confirm(`Заказ #${orderId} базадан толук өчүрүлсүнбү?`)) return;
-
-    setDeletingOrderIds((prev) => new Set(prev).add(orderId));
+    setDeletingOrderIds(prev => new Set(prev).add(orderId));
     try {
       await orderService.deleteOrder(orderId);
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder(null);
-      }
+      if (selectedOrder?.id === orderId) setSelectedOrder(null);
       await loadOrders(todayOnly, selectedDate, dateFrom, dateTo);
-    } catch (err) {
-      console.error('Failed to delete order:', err);
+    } catch {
       alert('Заказды өчүрүү мүмкүн болгон жок');
     } finally {
-      setDeletingOrderIds((prev) => {
-        const next = new Set(prev);
-        next.delete(orderId);
-        return next;
-      });
+      setDeletingOrderIds(prev => { const n = new Set(prev); n.delete(orderId); return n; });
     }
   };
 
   const filteredOrders = useMemo(() => {
-    let filtered = orders;
-
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (order) =>
-          order.id.toString().includes(searchQuery) ||
-          order.user_phone?.includes(searchQuery) ||
-          order.courier_phone?.includes(searchQuery)
-      );
-    }
-
-    if (statusFilter) {
-      filtered = filtered.filter((order) => order.status === statusFilter);
-    }
-
-    return filtered;
+    let f = orders;
+    if (searchQuery) f = f.filter(o =>
+      o.id.toString().includes(searchQuery) ||
+      o.user_phone?.includes(searchQuery) ||
+      o.courier_phone?.includes(searchQuery)
+    );
+    if (statusFilter) f = f.filter(o => o.status === statusFilter);
+    return f;
   }, [orders, searchQuery, statusFilter]);
 
   const hasDateFilter = Boolean(selectedDate || dateFrom || dateTo);
 
   const selectedDateText = useMemo(() => {
-    if (selectedDate) {
-      return `Тандалган күн: ${formatDateLabel(selectedDate)}`;
-    }
+    if (selectedDate) return `Тандалган күн: ${formatDateLabel(selectedDate)}`;
     if (dateFrom || dateTo) {
-      const fromLabel = dateFrom ? formatDateLabel(dateFrom) : '...';
-      const toLabel = dateTo ? formatDateLabel(dateTo) : '...';
-      return `Диапазон: ${fromLabel} — ${toLabel}`;
+      const fL = dateFrom ? formatDateLabel(dateFrom) : '...';
+      const tL = dateTo ? formatDateLabel(dateTo) : '...';
+      return `Диапазон: ${fL} — ${tL}`;
     }
     return '';
   }, [selectedDate, dateFrom, dateTo]);
 
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ITEMS_PER_PAGE));
-
   const paginatedOrders = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredOrders.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredOrders, currentPage]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, statusFilter, orders]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, orders]);
+  useEffect(() => { if (currentPage > totalPages) setCurrentPage(totalPages); }, [currentPage, totalPages]);
 
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-        <p>Жүктөлүүдө...</p>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="loading-container"><div className="spinner" /><p>Жүктөлүүдө...</p></div>
+  );
 
   return (
     <div className="orders-page">
-      {loadError && (
-        <div className="error-banner">
-          {loadError}
-        </div>
-      )}
+      {loadError && <div className="error-banner">{loadError}</div>}
+
       <div className="page-header">
         <h1>Заказдар</h1>
-        <p className="subtitle">Бардык заказдарды башкаруу</p>
+        <p className="subtitle">Бардык заказдарды башкаруу — {filteredOrders.length} заказ</p>
       </div>
 
+      {/* ── Filters ── */}
       <div className="filters-bar">
         <div className="search-box">
           <Search size={20} />
@@ -306,76 +258,34 @@ export default function OrdersPage() {
             type="text"
             placeholder="ID, телефон номер боюнча издөө..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
 
         <div className="filter-group">
           <Filter size={20} />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as OrderStatus | '')}
-          >
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as OrderStatus | '')}>
             <option value="">Бардык статустар</option>
-            {Object.entries(STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+            {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
 
         <div className="date-filter-toggle">
-          <button
-            className={`toggle-btn ${!todayOnly ? 'active' : ''}`}
-            onClick={() => {
-              setTodayOnly(false);
-              setSelectedDate('');
-              setDateFrom('');
-              setDateTo('');
-              loadOrders(false, '');
-            }}
-          >
-            Баары
-          </button>
-          <button
-            className={`toggle-btn ${todayOnly ? 'active' : ''}`}
-            onClick={() => {
-              setTodayOnly(true);
-              setSelectedDate('');
-              setDateFrom('');
-              setDateTo('');
-              loadOrders(true);
-            }}
-          >
-            Бүгүнкү заказдар
+          <button className={`toggle-btn ${!todayOnly ? 'active' : ''}`}
+            onClick={() => { setTodayOnly(false); clearDateFilters(); }}>Баары</button>
+          <button className={`toggle-btn ${todayOnly ? 'active' : ''}`}
+            onClick={() => { setTodayOnly(true); setSelectedDate(''); setDateFrom(''); setDateTo(''); loadOrders(true); }}>
+            Бүгүнкү
           </button>
         </div>
 
         <div className="filter-group date-picker-group">
           <CalendarDays size={20} />
           <div className="date-field-inline">
-            <span className="date-picker-trigger">
-              {formatDateLabel(selectedDate)}
-            </span>
-            {selectedDate && (
-              <button type="button" className="date-clear-inline" onClick={clearSelectedDate} title="Күндү тазалоо">
-                <X size={12} />
-              </button>
-            )}
-            <input
-              className="native-date-input overlay-input"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSelectedDate(value);
-                setTodayOnly(false);
-                setDateFrom('');
-                setDateTo('');
-                loadOrders(false, value);
-              }}
-            />
+            <span className="date-picker-trigger">{formatDateLabel(selectedDate)}</span>
+            {selectedDate && <button type="button" className="date-clear-inline" onClick={clearSelectedDate}><X size={12} /></button>}
+            <input className="native-date-input overlay-input" type="date" value={selectedDate}
+              onChange={e => { setSelectedDate(e.target.value); setTodayOnly(false); setDateFrom(''); setDateTo(''); loadOrders(false, e.target.value); }} />
           </div>
         </div>
 
@@ -383,49 +293,17 @@ export default function OrdersPage() {
           <CalendarDays size={20} />
           <div className="range-inputs">
             <div className="date-field-inline">
-              <span className="date-picker-trigger range">
-                {dateFrom ? formatDateLabel(dateFrom) : 'Башталышы'}
-              </span>
-              {dateFrom && (
-                <button type="button" className="date-clear-inline" onClick={clearDateFrom} title="Башталышын тазалоо">
-                  <X size={12} />
-                </button>
-              )}
-              <input
-                className="native-date-input overlay-input"
-                type="date"
-                value={dateFrom}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setDateFrom(value);
-                  setSelectedDate('');
-                  setTodayOnly(false);
-                  loadOrders(false, '', value, dateTo);
-                }}
-              />
+              <span className="date-picker-trigger range">{dateFrom ? formatDateLabel(dateFrom) : 'Башталышы'}</span>
+              {dateFrom && <button type="button" className="date-clear-inline" onClick={clearDateFrom}><X size={12} /></button>}
+              <input className="native-date-input overlay-input" type="date" value={dateFrom}
+                onChange={e => { setDateFrom(e.target.value); setSelectedDate(''); setTodayOnly(false); loadOrders(false, '', e.target.value, dateTo); }} />
             </div>
             <span>—</span>
             <div className="date-field-inline">
-              <span className="date-picker-trigger range">
-                {dateTo ? formatDateLabel(dateTo) : 'Аягы'}
-              </span>
-              {dateTo && (
-                <button type="button" className="date-clear-inline" onClick={clearDateTo} title="Аягын тазалоо">
-                  <X size={12} />
-                </button>
-              )}
-              <input
-                className="native-date-input overlay-input"
-                type="date"
-                value={dateTo}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setDateTo(value);
-                  setSelectedDate('');
-                  setTodayOnly(false);
-                  loadOrders(false, '', dateFrom, value);
-                }}
-              />
+              <span className="date-picker-trigger range">{dateTo ? formatDateLabel(dateTo) : 'Аягы'}</span>
+              {dateTo && <button type="button" className="date-clear-inline" onClick={clearDateTo}><X size={12} /></button>}
+              <input className="native-date-input overlay-input" type="date" value={dateTo}
+                onChange={e => { setDateTo(e.target.value); setSelectedDate(''); setTodayOnly(false); loadOrders(false, '', dateFrom, e.target.value); }} />
             </div>
           </div>
         </div>
@@ -434,141 +312,109 @@ export default function OrdersPage() {
       {hasDateFilter && (
         <div className="selected-date-strip">
           <span>{selectedDateText}</span>
-          <button type="button" className="clear-date-btn" onClick={clearDateFilters}>
-            Очистить
-          </button>
+          <button type="button" className="clear-date-btn" onClick={clearDateFilters}>Тазалоо</button>
         </div>
       )}
 
-      <div className="orders-table-container">
-        <table className="orders-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Колдонуучу</th>
-              <th>Курьер</th>
-              <th>Маршрут</th>
-              <th>Баасы</th>
-              <th>Статус</th>
-              <th>Дата</th>
-              <th>Аракеттер</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedOrders.map((order) => {
-              const isIntercity = order.category === 'intercity';
-              const noCode = !order.verification_code && order.status === 'DELIVERED';
-              return (
-              <tr
+      {/* ── Cards grid ── */}
+      {filteredOrders.length === 0 ? (
+        <div className="op-empty">
+          <Package size={48} opacity={0.2} />
+          <p>Заказдар табылган жок</p>
+        </div>
+      ) : (
+        <div className="op-cards-grid">
+          {paginatedOrders.map(order => {
+            const isIntercity = order.category === 'intercity';
+            const noCode = !order.verification_code && order.status === 'DELIVERED';
+            const color = STATUS_COLORS[order.status] ?? '#6b7280';
+            const bg    = STATUS_BG[order.status]    ?? '#f9fafb';
+            return (
+              <div
                 key={order.id}
+                className={`op-card ${isIntercity ? 'op-card--intercity' : ''} ${noCode ? 'op-card--nocode' : ''}`}
                 onClick={() => openOrderDetails(order.id)}
-                className={[isIntercity ? 'intercity-row' : '', noCode ? 'no-code-row' : ''].filter(Boolean).join(' ')}
-                style={{ cursor: 'pointer' }}
               >
-                <td className="order-id">
-                  #{order.id}
-                  {isIntercity && (
-                    <span className="intercity-badge">🚌 Шаарлар аралык</span>
-                  )}
-                  {noCode && (
-                    <span className="no-code-badge" title="Тастыктоо коду жок">Код жок</span>
-                  )}
-                </td>
-                <td>{order.user_phone || '-'}</td>
-                <td>{order.courier_phone || 'Жок'}</td>
-                <td className="route-cell">
-                  <div className="route-info">
-                    <span className="route-point">
-                      {(order.pickup_location || '-').substring(0, 30)}...
-                    </span>
-                    <span className="route-arrow">→</span>
-                    <span className="route-point">
-                      {(order.delivery_location || '-').substring(0, 30)}...
-                    </span>
+                {/* Header */}
+                <div className="op-card-header">
+                  <div className="op-card-id">
+                    #{order.id}
+                    {isIntercity && <span className="op-badge op-badge--intercity">🚌 Шаарлар аралык</span>}
+                    {noCode && <span className="op-badge op-badge--nocode">Код жок</span>}
                   </div>
-                  {!isIntercity && (
-                    <div className="route-distance">
-                      {order.distance_km.toFixed(1)} км
-                    </div>
-                  )}
-                </td>
-                <td className="price-cell">{order.estimated_price} сом</td>
-                <td>
-                  <span
-                    className="status-badge"
-                    style={{ background: STATUS_COLORS[order.status] }}
-                  >
+                  <span className="op-status-badge" style={{ background: color, boxShadow: `0 2px 8px ${color}55` }}>
                     {STATUS_LABELS[order.status]}
                   </span>
-                </td>
-                <td className="date-cell">
-                  {fmtDate(order.created_at)}
-                </td>
-                <td>
-                  <div className="row-action-buttons">
-                    <button
-                      className="action-button view-button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openOrderDetails(order.id);
-                      }}
-                    >
-                      <Eye size={16} />
+                </div>
+
+                {/* Status color line */}
+                <div className="op-card-colorline" style={{ background: color }} />
+
+                {/* People row */}
+                <div className="op-card-people">
+                  <div className="op-person">
+                    <User size={13} />
+                    <span>{order.user_phone || '—'}</span>
+                  </div>
+                  <div className="op-person op-person--courier">
+                    <Truck size={13} />
+                    <span>{order.courier_phone || 'Курьер жок'}</span>
+                  </div>
+                </div>
+
+                {/* Route */}
+                <div className="op-card-route" style={{ background: bg }}>
+                  <div className="op-route-point op-route-from">
+                    <MapPin size={12} color="#6366f1" />
+                    <span>{(order.pickup_location || '—').substring(0, 40)}</span>
+                  </div>
+                  <div className="op-route-divider" />
+                  <div className="op-route-point op-route-to">
+                    <MapPin size={12} color="#ef4444" />
+                    <span>{(order.delivery_location || '—').substring(0, 40)}</span>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="op-card-footer">
+                  <div className="op-card-meta">
+                    <span className="op-card-price">{order.estimated_price} сом</span>
+                    {!isIntercity && <span className="op-card-km">{order.distance_km.toFixed(1)} км</span>}
+                    <span className="op-card-date">{fmtDate(order.created_at)}</span>
+                  </div>
+                  <div className="op-card-actions" onClick={e => e.stopPropagation()}>
+                    <button className="op-btn op-btn-view" title="Карап чыгуу"
+                      onClick={() => openOrderDetails(order.id)}>
+                      <Eye size={15} />
                     </button>
-                    <button
-                      className="action-button row-delete-button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        quickDeleteOrder(order.id);
-                      }}
-                      disabled={deletingOrderIds.has(order.id)}
-                      title="Базадан өчүрүү"
-                    >
-                      <Trash2 size={16} />
+                    <button className="op-btn op-btn-delete" title="Өчүрүү"
+                      onClick={() => quickDeleteOrder(order.id)}
+                      disabled={deletingOrderIds.has(order.id)}>
+                      <Trash2 size={15} />
                     </button>
                   </div>
-                </td>
-              </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-        {filteredOrders.length === 0 && (
-          <div className="empty-state">
-            <p>Заказдар табылган жок</p>
-          </div>
-        )}
-      </div>
-
-      {filteredOrders.length > 0 && (
+      {/* ── Pagination ── */}
+      {filteredOrders.length > ITEMS_PER_PAGE && (
         <div className="table-pagination-wrap">
-          <p className="table-pagination-label">Навигация</p>
           <div className="table-pagination">
-            <button
-              className="page-btn"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              Артка
-            </button>
-            <span className="page-indicator">
-              Бет {currentPage} / {totalPages}
-            </span>
-            <button
-              className="page-btn"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Алга
-            </button>
+            <button className="page-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Артка</button>
+            <span className="page-indicator">Бет {currentPage} / {totalPages}</span>
+            <button className="page-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Алга</button>
           </div>
         </div>
       )}
 
+      {/* ── Detail drawer ── */}
       {(detailLoading || selectedOrder) && (
         <div className="order-detail-overlay" onClick={() => setSelectedOrder(null)}>
-          <div className="order-detail-drawer" onClick={(e) => e.stopPropagation()}>
+          <div className="order-detail-drawer" onClick={e => e.stopPropagation()}>
             <div className="order-detail-header">
               <h3>{detailLoading ? 'Жүктөлүүдө...' : `Заказ #${selectedOrder?.id}`}</h3>
               <button className="close-detail" onClick={() => setSelectedOrder(null)}>×</button>
@@ -628,30 +474,17 @@ export default function OrdersPage() {
                 <div className="detail-section">
                   <h4>Статус өзгөртүү</h4>
                   <div className="status-actions">
-                    <select
-                      value={statusDraft}
-                      onChange={(e) => setStatusDraft(e.target.value as OrderStatus)}
-                    >
-                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
+                    <select value={statusDraft} onChange={e => setStatusDraft(e.target.value as OrderStatus)}>
+                      {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
-                    <input
-                      placeholder="Комментарий (optional)"
-                      value={statusNote}
-                      onChange={(e) => setStatusNote(e.target.value)}
-                    />
-                    <button onClick={applyStatusChange} disabled={actionLoading} className="apply-btn">
-                      Сактоо
-                    </button>
+                    <input placeholder="Комментарий (optional)" value={statusNote} onChange={e => setStatusNote(e.target.value)} />
+                    <button onClick={applyStatusChange} disabled={actionLoading} className="apply-btn">Сактоо</button>
                   </div>
                 </div>
 
                 <div className="detail-section">
                   <h4>Админ аракеттери</h4>
-                  <button onClick={deleteSelectedOrder} disabled={actionLoading} className="delete-btn">
-                    Заказды өчүрүү
-                  </button>
+                  <button onClick={deleteSelectedOrder} disabled={actionLoading} className="delete-btn">Заказды өчүрүү</button>
                 </div>
 
                 <div className="detail-section">
@@ -665,9 +498,79 @@ export default function OrdersPage() {
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="muted">Тарых жок</p>
-                  )}
+                  ) : <p className="muted">Тарых жок</p>}
+                </div>
+
+                {(selectedOrder.pickup_lat !== 0 || selectedOrder.from_latitude) && (
+                  <div className="detail-section">
+                    <h4>Карта</h4>
+                    {(() => {
+                      const pLat = selectedOrder.from_latitude ?? selectedOrder.pickup_lat;
+                      const pLon = selectedOrder.from_longitude ?? selectedOrder.pickup_lon;
+                      const dLat = selectedOrder.to_latitude ?? selectedOrder.delivery_lat;
+                      const dLon = selectedOrder.to_longitude ?? selectedOrder.delivery_lon;
+                      if (!pLat && !dLat) return <p className="muted">Координаттар жок</p>;
+                      const hasPickup = pLat && pLon;
+                      const hasDelivery = dLat && dLon;
+                      return (
+                        <div className="order-map-links">
+                          {hasPickup && (
+                            <a
+                              className="map-link map-link--pickup"
+                              href={`https://www.openstreetmap.org/?mlat=${pLat}&mlon=${pLon}&zoom=15`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Алуу орду (OSM)
+                            </a>
+                          )}
+                          {hasDelivery && (
+                            <a
+                              className="map-link map-link--delivery"
+                              href={`https://www.openstreetmap.org/?mlat=${dLat}&mlon=${dLon}&zoom=15`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Жеткирүү орду (OSM)
+                            </a>
+                          )}
+                          {hasPickup && (
+                            <iframe
+                              className="order-map-iframe"
+                              title="Алуу орду"
+                              src={`https://www.openstreetmap.org/export/embed.html?bbox=${pLon - 0.01},${pLat - 0.01},${pLon + 0.01},${pLat + 0.01}&layer=mapnik&marker=${pLat},${pLon}`}
+                            />
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                <div className="detail-section">
+                  <h4>Колдонуучуга билдирүү жөнөтүү</h4>
+                  <div className="notify-form">
+                    <input
+                      className="notify-input"
+                      placeholder="Аталышы (же бош калтырыңыз)"
+                      value={notifyTitle}
+                      onChange={e => setNotifyTitle(e.target.value)}
+                    />
+                    <textarea
+                      className="notify-textarea"
+                      placeholder="Билдирүүнүн тексти..."
+                      rows={3}
+                      value={notifyMessage}
+                      onChange={e => setNotifyMessage(e.target.value)}
+                    />
+                    <button
+                      className="apply-btn"
+                      onClick={sendNotifyToUser}
+                      disabled={notifySending}
+                    >
+                      {notifySending ? 'Жөнөтүлүүдө...' : 'Жөнөтүү'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

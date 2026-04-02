@@ -18,6 +18,10 @@ interface BackendAdminOrder {
   description?: string;
   from_address?: string;
   to_address?: string;
+  from_latitude?: number | null;
+  from_longitude?: number | null;
+  to_latitude?: number | null;
+  to_longitude?: number | null;
   distance_km?: number;
   price: number;
   status: Order['status'];
@@ -34,10 +38,14 @@ function mapOrder(item: BackendAdminOrder): Order {
     id: item.id,
     pickup_location: item.from_address ?? '-',
     delivery_location: item.to_address ?? '-',
-    pickup_lat: 0,
-    pickup_lon: 0,
-    delivery_lat: 0,
-    delivery_lon: 0,
+    pickup_lat: item.from_latitude ?? 0,
+    pickup_lon: item.from_longitude ?? 0,
+    delivery_lat: item.to_latitude ?? 0,
+    delivery_lon: item.to_longitude ?? 0,
+    from_latitude: item.from_latitude ?? null,
+    from_longitude: item.from_longitude ?? null,
+    to_latitude: item.to_latitude ?? null,
+    to_longitude: item.to_longitude ?? null,
     distance_km: item.distance_km ?? 0,
     estimated_price: item.price,
     status: item.status,

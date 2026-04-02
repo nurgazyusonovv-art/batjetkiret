@@ -11,6 +11,8 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [paymentRange, setPaymentRange] = useState<'all' | 'today' | '7days' | '30days'>('all');
+  const [commissionPercent, setCommissionPercent] = useState<number>(10);
+  const [commissionData, setCommissionData] = useState<{ percent: number; total_completed_amount: number; commission_amount: number } | null>(null);
 
   const load = async () => {
     try {
@@ -48,6 +50,12 @@ export default function StatsPage() {
   useEffect(() => {
     loadPaymentStats(paymentRange);
   }, [paymentRange]);
+
+  useEffect(() => {
+    statsService.getCommission(commissionPercent)
+      .then(data => setCommissionData(data))
+      .catch(() => {});
+  }, [commissionPercent]);
 
   if (loading) {
     return <div className="loading-container"><p>Жүктөлүүдө...</p></div>;
@@ -173,6 +181,37 @@ export default function StatsPage() {
             <p className="stats-detail-sub">{paymentStats?.pending_topups_amount ?? 0} сом</p>
           </div>
         </div>
+      </div>
+      <div className="stats-details commission-section">
+        <div className="payment-stats-header">
+          <div>
+            <h3>Комиссия эсеби</h3>
+            <p>Аяктаган заказдардын жалпы суммасынан комиссия</p>
+          </div>
+          <div className="payment-stats-filters">
+            {[5, 10, 15, 20].map(p => (
+              <button
+                key={p}
+                className={`filter-btn ${commissionPercent === p ? 'active' : ''}`}
+                onClick={() => setCommissionPercent(p)}
+              >
+                {p}%
+              </button>
+            ))}
+          </div>
+        </div>
+        {commissionData && (
+          <div className="stats-details-grid">
+            <div className="stats-detail-item">
+              <p className="stats-detail-label">Аяктаган заказдардын суммасы</p>
+              <p className="stats-detail-value">{commissionData.total_completed_amount.toFixed(0)} сом</p>
+            </div>
+            <div className="stats-detail-item stats-detail-approved">
+              <p className="stats-detail-label">Комиссия суммасы ({commissionData.percent}%)</p>
+              <p className="stats-detail-value">{commissionData.commission_amount.toFixed(0)} сом</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

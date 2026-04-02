@@ -8,7 +8,8 @@ import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart'
 import 'package:frontend/features/profile/presentation/cubit/profile_state.dart';
 import 'package:frontend/features/profile/presentation/notifications_page.dart';
 import 'package:frontend/features/profile/presentation/transaction_history_page.dart';
-import 'package:frontend/features/profile/presentation/support_chat_page.dart';
+import 'package:frontend/features/profile/presentation/contact_admin_page.dart';
+import 'package:frontend/features/profile/presentation/change_password_page.dart';
 import '../data/user_api.dart' as user_api_lib;
 import 'package:frontend/features/profile/presentation/topup_page.dart';
 
@@ -697,6 +698,16 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
       _MenuItem(
+        icon: Icons.lock_outline,
+        label: 'Сырсөздү өзгөртүү',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChangePasswordPage(token: widget.token),
+          ),
+        ),
+      ),
+      _MenuItem(
         icon: Icons.support_agent_outlined,
         label: 'Администраторго жазуу',
         onTap: _openSupportChat,
@@ -859,30 +870,19 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _openSupportChat() async {
+  void _openSupportChat() {
     final user = context.read<ProfileCubit>().state.user;
     if (user == null) return;
-    try {
-      final chatId = await user_api_lib.UserApi().startSupportChat(widget.token);
-      if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SupportChatPage(
-            token: widget.token,
-            chatId: chatId,
-            title: 'Администратор',
-            myUserId: user.id,
-          ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ContactAdminPage(
+          token: widget.token,
+          userId: user.id,
+          startChatFn: () => user_api_lib.UserApi().startSupportChat(widget.token),
         ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.toString().replaceFirst('Exception: ', '')),
-        backgroundColor: AppColors.danger,
-      ));
-    }
+      ),
+    );
   }
 
   void _showEditBottomSheet() {

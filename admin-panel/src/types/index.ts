@@ -72,6 +72,10 @@ export interface Order {
   pickup_lon: number;
   delivery_lat: number;
   delivery_lon: number;
+  from_latitude?: number | null;
+  from_longitude?: number | null;
+  to_latitude?: number | null;
+  to_longitude?: number | null;
   distance_km: number;
   estimated_price: number;
   user_commission?: number;

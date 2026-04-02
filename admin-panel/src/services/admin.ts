@@ -137,6 +137,11 @@ export const statsService = {
     return response.data;
   },
 
+  async getCommission(percent = 10): Promise<{ percent: number; total_completed_amount: number; commission_amount: number }> {
+    const r = await api.get('/admin/commission', { params: { percent } });
+    return r.data as { percent: number; total_completed_amount: number; commission_amount: number };
+  },
+
   async getPaymentStats(range: string = 'all'): Promise<PaymentStats> {
     const response = await api.get<Partial<PaymentStats>>('/admin/topup-stats', {
       params: { range },

@@ -703,6 +703,10 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                   ),
                   Row(
                     children: [
+                      if (order.cancelRequested) ...[
+                        _buildCancelRequestedBadge(),
+                        const SizedBox(width: 8),
+                      ],
                       if (unreadCount > 0) ...[
                         _buildUnreadChatBadge(unreadCount),
                         const SizedBox(width: 8),
@@ -803,6 +807,25 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCancelRequestedBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3CD),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFFFD966), width: 1),
+      ),
+      child: const Text(
+        'Отмена суралды',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF7A5800),
         ),
       ),
     );

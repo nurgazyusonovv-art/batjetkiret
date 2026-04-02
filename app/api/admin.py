@@ -431,6 +431,10 @@ def all_orders(
             "status": o.status,
             "admin_note": o.admin_note,
             "created_at": o.created_at,
+            "from_latitude": float(o.from_latitude) if o.from_latitude is not None else None,
+            "from_longitude": float(o.from_longitude) if o.from_longitude is not None else None,
+            "to_latitude": float(o.to_latitude) if o.to_latitude is not None else None,
+            "to_longitude": float(o.to_longitude) if o.to_longitude is not None else None,
         }
         for o in orders
     ]
@@ -1065,6 +1069,32 @@ def admin_change_user_password(
 
     return {"message": "Password changed successfully", "user_id": user_id}
 
+@router.post("/users/{user_id}/notify")
+def send_notification_to_user(
+    user_id: int,
+    payload: NotificationCreate,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Send an admin message notification to a specific user."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Колдонуучу табылган жок")
+
+    notif = Notification(
+        user_id=user_id,
+        title=payload.title,
+        message=payload.message,
+        is_read=False,
+    )
+    db.add(notif)
+    db.commit()
+
+    fcm_service.send_push_to_user(user, title=payload.title, body=payload.message)
+
+    return {"ok": True}
+
+
 @router.post("/users/{user_id}/remove-admin")
 def remove_admin(
     user_id: int,
@@ -1355,6 +1385,10 @@ def admin_order_detail(
         "hidden_for_courier": order.hidden_for_courier,
         "admin_note": order.admin_note,
         "created_at": order.created_at,
+        "from_latitude": float(order.from_latitude) if order.from_latitude is not None else None,
+        "from_longitude": float(order.from_longitude) if order.from_longitude is not None else None,
+        "to_latitude": float(order.to_latitude) if order.to_latitude is not None else None,
+        "to_longitude": float(order.to_longitude) if order.to_longitude is not None else None,
         "status_audit": [
             {
                 "actor_user_id": log.actor_user_id,
