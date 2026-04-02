@@ -134,6 +134,8 @@ export default function OrdersPage() {
       setSelectedOrder(order);
       setStatusDraft(order.status);
       setStatusNote(order.admin_note ?? '');
+      setNotifyTitle(`Заказ №${order.id} жөнүндө`);
+      setNotifyMessage('');
     } catch {
       alert('Заказ деталын жүктөө мүмкүн болгон жок');
     } finally {
@@ -162,7 +164,7 @@ export default function OrdersPage() {
     try {
       const { default: api } = await import('@/services/api');
       await api.post(`/admin/users/${selectedOrder.user_id}/notify`, {
-        title: notifyTitle || 'Билдирүү',
+        title: notifyTitle || `Заказ №${selectedOrder.id} жөнүндө`,
         message: notifyMessage,
       });
       setNotifyTitle('');
