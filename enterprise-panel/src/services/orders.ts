@@ -112,8 +112,13 @@ export const ordersService = {
     return res.data;
   },
 
-  async getMe(): Promise<{ id: number; name: string; payment_qr_url: string | null }> {
+  async getMe(): Promise<{ id: number; name: string; payment_qr_url: string | null; lat: number | null; lon: number | null }> {
     const res = await api.get('/enterprise-portal/me');
+    return res.data;
+  },
+
+  async updateLocation(lat: number, lon: number): Promise<{ lat: number; lon: number }> {
+    const res = await api.patch('/enterprise-portal/me/location', { lat, lon });
     return res.data;
   },
 

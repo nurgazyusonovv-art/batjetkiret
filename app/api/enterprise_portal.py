@@ -76,8 +76,31 @@ def get_my_enterprise(db: Session = Depends(get_db), auth: Tuple = Depends(requi
     return {
         "id": e.id, "name": e.name, "category": e.category,
         "phone": e.phone, "address": e.address, "description": e.description,
-        "lat": e.lat, "lon": e.lon, "is_active": e.is_active,
+        "lat": float(e.lat) if e.lat is not None else None,
+        "lon": float(e.lon) if e.lon is not None else None,
+        "is_active": e.is_active,
         "payment_qr_url": e.payment_qr_url,
+    }
+
+
+class LocationUpdate(BaseModel):
+    lat: float
+    lon: float
+
+
+@router.patch("/me/location")
+def update_my_location(
+    data: LocationUpdate,
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    _user, e = auth
+    e.lat = data.lat
+    e.lon = data.lon
+    db.commit()
+    return {
+        "lat": float(e.lat),
+        "lon": float(e.lon),
     }
 
 
