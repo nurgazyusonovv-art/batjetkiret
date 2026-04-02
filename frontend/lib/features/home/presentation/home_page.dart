@@ -15,6 +15,7 @@ import 'package:frontend/features/orders/presentation/cubit/orders_cubit.dart';
 import 'package:frontend/features/home/presentation/order_payment_sheet.dart';
 import 'package:frontend/features/orders/presentation/order_detail_page.dart';
 import 'package:frontend/features/orders/presentation/order_success_page.dart';
+import 'package:frontend/features/profile/data/support_api.dart';
 import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:geolocator/geolocator.dart';
 import 'intercity_order_page.dart';
@@ -607,6 +608,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   bool _isGettingFromLocation = false;
   bool _isGettingToLocation = false;
 
+  // App settings (fetched from backend)
+  AppSettings _appSettings = AppSettings.defaults;
+
   // Enterprise list
   List<Enterprise>? _enterprises;
   bool _isLoadingEnterprises = false;
@@ -639,6 +643,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     _fromAddressController.addListener(() => setState(() {}));
     _toAddressController.addListener(() => setState(() {}));
     _fetchEnterprises();
+    _fetchAppSettings();
   }
 
   @override
@@ -651,6 +656,14 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   }
 
   // ── Data fetching ──────────────────────────────────────────────────────────
+
+  Future<void> _fetchAppSettings() async {
+    try {
+      final settings = await SupportApi().getAppSettings();
+      if (!mounted) return;
+      setState(() => _appSettings = settings);
+    } catch (_) {}
+  }
 
   Future<void> _fetchEnterprises() async {
     setState(() {
@@ -1358,13 +1371,32 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           ),
         ),
 
-        // Product list
+        // Product grid — 2 columns
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
             itemCount: menu.categories.length,
             itemBuilder: (_, catIdx) {
               final cat = menu.categories[catIdx];
+              // Build pairs for 2-column grid
+              final products = cat.products;
+              final rows = <Widget>[];
+              for (int i = 0; i < products.length; i += 2) {
+                rows.add(
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildProductCard(products[i], state)),
+                      const SizedBox(width: 10),
+                      if (i + 1 < products.length)
+                        Expanded(child: _buildProductCard(products[i + 1], state))
+                      else
+                        const Expanded(child: SizedBox()),
+                    ],
+                  ),
+                );
+                rows.add(const SizedBox(height: 10));
+              }
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1379,128 +1411,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                       ),
                     ),
                   ),
-                  ...cat.products.map((product) {
-                    final qty = state.selectedItems[product.id] ?? 0;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: qty > 0 ? AppColors.primarySoft : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: qty > 0 ? AppColors.primary : AppColors.border,
-                          width: qty > 0 ? 1.5 : 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          if (product.imageUrl != null &&
-                              product.imageUrl!.isNotEmpty)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                product.imageUrl!,
-                                width: 70,
-                                height: 70,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    const SizedBox.shrink(),
-                              ),
-                            ),
-                          if (product.imageUrl != null &&
-                              product.imageUrl!.isNotEmpty)
-                            const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(product.name,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600, fontSize: 14)),
-                                if (product.description != null &&
-                                    product.description!.isNotEmpty) ...[
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    product.description!,
-                                    style: TextStyle(
-                                        fontSize: 12, color: Colors.grey[600]),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${product.price.toStringAsFixed(0)} сом',
-                                  style: const TextStyle(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Quantity control
-                          if (qty == 0)
-                            GestureDetector(
-                              onTap: () => _cubit.addItem(product.id),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Text('+',
-                                    style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold)),
-                              ),
-                            )
-                          else
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                GestureDetector(
-                                  onTap: () => _cubit.removeItem(product.id),
-                                  child: Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(Icons.remove, size: 18),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 32,
-                                  child: Text('$qty',
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold, fontSize: 16)),
-                                ),
-                                GestureDetector(
-                                  onTap: () => _cubit.addItem(product.id),
-                                  child: Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(Icons.add,
-                                        size: 18, color: Colors.white),
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    );
-                  }),
+                  ...rows,
                 ],
               );
             },
@@ -1664,7 +1575,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
   Widget _buildDescriptionBody(OrderCreateState state) {
     final distKm = state.calculatedDistance;
-    final price = distKm != null ? (80 + distKm * 20) : null;
+    final price = distKm != null
+        ? (_appSettings.deliveryBasePrice + distKm * _appSettings.deliveryPricePerKm)
+        : null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1756,10 +1669,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               children: [
                 Icon(Icons.info_outline, size: 16, color: Colors.amber.shade700),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Заказ жаратылганда 5 сом сервис акы алынат',
-                    style: TextStyle(fontSize: 12),
+                    'Заказ жаратылганда ${_appSettings.userServiceFee.toStringAsFixed(0)} сом сервис акы алынат',
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ),
               ],
@@ -1986,5 +1899,138 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     );
   }
 
+  Widget _buildProductCard(EnterpriseMenuProduct product, OrderCreateState state) {
+    final qty = state.selectedItems[product.id] ?? 0;
+    final hasImage = product.imageUrl != null && product.imageUrl!.isNotEmpty;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: qty > 0 ? AppColors.primarySoft : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: qty > 0 ? AppColors.primary : AppColors.border,
+          width: qty > 0 ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Image or placeholder
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+            child: hasImage
+                ? Image.network(
+                    product.imageUrl!,
+                    height: 120,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _productImagePlaceholder(),
+                  )
+                : _productImagePlaceholder(),
+          ),
+
+          // Info
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.name,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (product.description != null && product.description!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    product.description!,
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 6),
+                Text(
+                  '${product.price.toStringAsFixed(0)} сом',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (qty == 0)
+                  GestureDetector(
+                    onTap: () => _cubit.addItem(product.id),
+                    child: Container(
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        '+ Кошуу',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => _cubit.removeItem(product.id),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.remove, size: 17),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '$qty',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => _cubit.addItem(product.id),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.add, size: 17, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _productImagePlaceholder() {
+    return Container(
+      height: 120,
+      color: AppColors.primarySoft,
+      child: const Center(
+        child: Icon(Icons.fastfood_rounded, size: 48, color: AppColors.primary),
+      ),
+    );
+  }
 
 }

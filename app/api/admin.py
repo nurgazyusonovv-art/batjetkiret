@@ -1758,7 +1758,14 @@ SETTING_DEFAULTS = {
 }
 
 # Keys that are visible to all authenticated users (no admin required)
-PUBLIC_SETTING_KEYS = {"contact_telegram", "contact_whatsapp"}
+PUBLIC_SETTING_KEYS = {
+    "contact_telegram",
+    "contact_whatsapp",
+    "user_service_fee",
+    "courier_service_fee",
+    "delivery_base_price",
+    "delivery_price_per_km",
+}
 
 
 def _get_setting(db: Session, key: str) -> str:
