@@ -83,7 +83,7 @@ function MapPicker({ initialLat, initialLon, onConfirm, onClose }: MapPickerProp
     let cancelled = false;
     loadYmaps(YANDEX_API_KEY).then(() => {
       if (cancelled || !mapRef.current) return;
-      const center = picked ? [picked.lat, picked.lon] : [42.87, 74.59]; // Bishkek default
+      const center = picked ? [picked.lat, picked.lon] : [37.85, 70.03]; // Batken default
       const ymap = new window.ymaps.Map(mapRef.current, {
         center,
         zoom: 13,
