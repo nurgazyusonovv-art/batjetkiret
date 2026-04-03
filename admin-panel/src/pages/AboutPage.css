@@ -1,0 +1,183 @@
+.about-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.about-hero {
+  background: linear-gradient(135deg, #e53935, #b71c1c);
+  border-radius: 20px;
+  padding: 40px 24px;
+  text-align: center;
+  color: white;
+  margin-bottom: 24px;
+}
+
+.about-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: contain;
+  background: white;
+  padding: 6px;
+  margin-bottom: 14px;
+}
+
+.about-hero h1 {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  margin: 0 0 6px;
+}
+
+.about-version {
+  font-size: 13px;
+  opacity: 0.75;
+  margin: 0;
+}
+
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.about-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+
+.about-card-developer {
+  grid-column: 1 / -1;
+}
+
+.about-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.about-card-title svg {
+  color: #e53935;
+}
+
+.about-desc {
+  font-size: 13.5px;
+  color: #555;
+  line-height: 1.7;
+  margin: 0 0 14px;
+}
+
+.about-features {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.about-feature {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #444;
+}
+
+.about-feature svg {
+  color: #e53935;
+  flex-shrink: 0;
+}
+
+.about-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.about-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: #444;
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  background: #e53935;
+  color: white;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.developer-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 16px;
+}
+
+.developer-contacts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.contact-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.contact-link:hover { opacity: 0.8; }
+
+.contact-link.whatsapp  { background: rgba(37,211,102,0.08);  border: 1px solid rgba(37,211,102,0.25); }
+.contact-link.telegram  { background: rgba(42,171,238,0.08);  border: 1px solid rgba(42,171,238,0.25); }
+.contact-link.instagram { background: rgba(225,48,108,0.08);  border: 1px solid rgba(225,48,108,0.25); }
+
+.contact-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.whatsapp  .contact-icon { background: #25d366; color: white; }
+.telegram  .contact-icon { background: #2aabee; color: white; }
+.instagram .contact-icon { background: #e1306c; color: white; }
+
+.contact-label { font-size: 11px; color: #999; }
+.contact-value { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+
+.about-copyright {
+  text-align: center;
+  color: #aaa;
+  font-size: 12px;
+  margin-top: 24px;
+}
+
+@media (max-width: 640px) {
+  .about-grid { grid-template-columns: 1fr; }
+  .about-card-developer { grid-column: 1; }
+  .developer-contacts { grid-template-columns: 1fr; }
+}

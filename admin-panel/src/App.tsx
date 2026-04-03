@@ -12,6 +12,8 @@ import IntercityPage from './pages/IntercityPage';
 import UserDetailPage from './pages/UserDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import CancelRequestsPage from './pages/CancelRequestsPage';
+import AboutPage from './pages/AboutPage';
+import BannersPage from './pages/BannersPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 
@@ -148,6 +150,28 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <CancelRequestsPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/banners"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <BannersPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/about"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <AboutPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

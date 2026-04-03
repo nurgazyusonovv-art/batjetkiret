@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend/core/theme/app_colors.dart';
@@ -8,6 +9,9 @@ import 'package:frontend/features/common/widgets/compact_map_preview.dart';
 import 'package:frontend/features/home/data/category_model.dart' as models;
 import 'package:frontend/features/home/data/enterprise_api.dart';
 import 'package:frontend/features/home/data/enterprise_model.dart';
+import 'package:frontend/features/home/data/banner_api.dart';
+import 'package:frontend/features/home/data/banner_model.dart';
+import 'banner_carousel.dart';
 import 'package:frontend/features/home/presentation/cubit/home_cubit.dart';
 import 'package:frontend/features/home/presentation/cubit/order_create_cubit.dart';
 import 'package:frontend/features/home/presentation/cubit/order_create_state.dart';
@@ -31,12 +35,18 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int? _pressedCategoryIndex;
   List<models.Category> _filteredCategories = [];
+  List<BannerItem> _banners = [];
 
   @override
   void initState() {
     super.initState();
-    // Restore categories from category_model.dart
     _filteredCategories = models.categories;
+    _fetchBanners();
+  }
+
+  Future<void> _fetchBanners() async {
+    final list = await BannerApi().fetchBanners();
+    if (mounted) setState(() => _banners = list);
   }
 
   Future<void> _acceptOrder(order) async {
@@ -80,18 +90,21 @@ class _HomePageState extends State<HomePage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
-                          Icons.flash_on,
-                          size: 28,
-                          color: AppColors.primary,
+                        ClipOval(
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                        SizedBox(width: 8),
-                        Text(
-                          'BATKEN EXPRESS',
+                        const SizedBox(width: 8),
+                        const Text(
+                          'БАТКЕН ЭКСПРЕСС',
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: 17,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primary,
                           ),
@@ -379,168 +392,182 @@ class _HomePageState extends State<HomePage> {
                                       );
                                     },
                                   )
-                    : GridView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 14,
-                              mainAxisSpacing: 14,
-                              childAspectRatio: 0.92,
-                            ),
-                        itemCount: _filteredCategories.length,
-                        itemBuilder: (context, index) {
-                          final category = _filteredCategories[index];
-                          final cardColor = _categoryColor(index);
-                          final iconBgColor = _categoryIconBg(index);
-
-                          return TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0, end: 1),
-                            duration: Duration(
-                              milliseconds: 230 + ((index % 8) * 45),
-                            ),
-                            curve: Curves.easeOutCubic,
-                            builder: (context, value, child) {
-                              return Opacity(
-                                opacity: value,
-                                child: Transform.translate(
-                                  offset: Offset(0, (1 - value) * 18),
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: GestureDetector(
-                              onTapDown: (_) {
-                                setState(() {
-                                  _pressedCategoryIndex = index;
-                                });
-                              },
-                              onTapCancel: () {
-                                setState(() {
-                                  _pressedCategoryIndex = null;
-                                });
-                              },
-                              onTapUp: (_) {
-                                setState(() {
-                                  _pressedCategoryIndex = null;
-                                });
-                              },
-                              onTap: () {
-                                if (category.id == 'intercity') {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => IntercityOrderPage(
-                                        token: widget.token,
-                                        userId: user?.id ?? 0,
-                                      ),
-                                    ),
-                                  );
-                                } else {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => OrderCreatePage(
-                                        token: widget.token,
-                                        selectedCategory: category,
-                                        initialFromAddress:
-                                            user?.address ??
-                                            (homeState.selectedLocation !=
-                                                    'адрес киргиз'
-                                                ? homeState.selectedLocation
-                                                : null),
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                              child: AnimatedScale(
-                                scale: _pressedCategoryIndex == index
-                                    ? 0.97
-                                    : 1.0,
-                                duration: const Duration(milliseconds: 120),
-                                curve: Curves.easeOut,
-                                child: Stack(
-                                  children: [
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: cardColor,
-                                        borderRadius: BorderRadius.circular(26),
-                                      ),
-                                      child: Stack(
-                                        children: [
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Container(
-                                                width: 68,
-                                                height: 68,
-                                                decoration: BoxDecoration(
-                                                  color: iconBgColor,
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                ),
-                                                child: Center(
-                                                  child: Icon(
-                                                    category.icon,
-                                                    size: 32,
-                                                    color: Colors.white,
-                                                  ),
-                                                ),
-                                              ),
-                                              const Spacer(),
-                                              Text(
-                                                category.name,
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 20,
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              const Text(
-                                                'Тандоо үчүн басыңыз',
-                                                style: TextStyle(
-                                                  color: Color(0xFFFDF2E8),
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          
-                                        ),
-                                      ],
-                                      ),), 
-                                    Positioned(
-                                      right: 0,
-                                      top: 0,
-                                      child: Container(
-                                        width: 42,
-                                        height: 42,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.rectangle,
-                                          borderRadius: BorderRadius.only(
-                                            topRight: Radius.circular(26),
-                                            bottomLeft: Radius.circular(26),
-                                          ),
-                                        ),
-                                        child: Icon(
-                                          Icons.north_east,
-                                          size: 18,
-                                          color: cardColor,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                    : CustomScrollView(
+                        slivers: [
+                          // ── Реклама карусели ──────────────────────────────
+                          if (_banners.isNotEmpty)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(0, 0, 0, 14),
+                                child: BannerCarousel(banners: _banners),
                               ),
                             ),
-                          );
-                        },
+
+                          // ── Категориялар ──────────────────────────────────
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            sliver: SliverGrid(
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: 1.15,
+                              ),
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final category = _filteredCategories[index];
+                                  final cardColor = _categoryColor(index);
+                                  final iconBgColor = _categoryIconBg(index);
+
+                                  return TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0, end: 1),
+                                    duration: Duration(
+                                      milliseconds: 200 + ((index % 8) * 40),
+                                    ),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (context, value, child) =>
+                                        Opacity(
+                                      opacity: value,
+                                      child: Transform.translate(
+                                        offset: Offset(0, (1 - value) * 14),
+                                        child: child,
+                                      ),
+                                    ),
+                                    child: GestureDetector(
+                                      onTapDown: (_) => setState(
+                                          () => _pressedCategoryIndex = index),
+                                      onTapCancel: () => setState(
+                                          () => _pressedCategoryIndex = null),
+                                      onTapUp: (_) => setState(
+                                          () => _pressedCategoryIndex = null),
+                                      onTap: () {
+                                        if (category.id == 'intercity') {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => IntercityOrderPage(
+                                                token: widget.token,
+                                                userId: user?.id ?? 0,
+                                              ),
+                                            ),
+                                          );
+                                        } else {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  OrderCreatePage(
+                                                token: widget.token,
+                                                selectedCategory: category,
+                                                initialFromAddress:
+                                                    user?.address ??
+                                                    (homeState.selectedLocation !=
+                                                            'адрес киргиз'
+                                                        ? homeState
+                                                            .selectedLocation
+                                                        : null),
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      child: AnimatedScale(
+                                        scale: _pressedCategoryIndex == index
+                                            ? 0.97
+                                            : 1.0,
+                                        duration:
+                                            const Duration(milliseconds: 120),
+                                        curve: Curves.easeOut,
+                                        child: Stack(
+                                          children: [
+                                            Container(
+                                              width: double.infinity,
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: cardColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(22),
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Container(
+                                                    width: 52,
+                                                    height: 52,
+                                                    decoration: BoxDecoration(
+                                                      color: iconBgColor,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              13),
+                                                    ),
+                                                    child: Center(
+                                                      child: Icon(
+                                                        category.icon,
+                                                        size: 26,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const Spacer(),
+                                                  Text(
+                                                    category.name,
+                                                    maxLines: 2,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 15,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  const Text(
+                                                    'Тандоо үчүн басыңыз',
+                                                    style: TextStyle(
+                                                      color: Color(0xFFFDF2E8),
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Positioned(
+                                              right: 0,
+                                              top: 0,
+                                              child: Container(
+                                                width: 34,
+                                                height: 34,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius:
+                                                      const BorderRadius.only(
+                                                    topRight:
+                                                        Radius.circular(22),
+                                                    bottomLeft:
+                                                        Radius.circular(22),
+                                                  ),
+                                                ),
+                                                child: Icon(
+                                                  Icons.north_east,
+                                                  size: 15,
+                                                  color: cardColor,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                childCount: _filteredCategories.length,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
               ),
               const SizedBox(height: 16),
@@ -1435,22 +1462,42 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
             ),
             child: Row(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('${state.totalItemCount} товар',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                    Text(
-                      '${itemsTotal.toStringAsFixed(0)} сом',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          color: AppColors.primary),
+                GestureDetector(
+                  onTap: () => _showSelectedItemsSheet(state),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                     ),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.receipt_long, size: 18, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('${state.totalItemCount} товар',
+                                style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+                            Text(
+                              '${itemsTotal.toStringAsFixed(0)} сом',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.keyboard_arrow_up, size: 18, color: AppColors.primary),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
                   child: AppButton.primary(
                     label: 'Улантуу →',
@@ -1461,6 +1508,181 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
             ),
           ),
       ],
+    );
+  }
+
+  void _showSelectedItemsSheet(OrderCreateState state) {
+    final menu = _enterpriseMenu;
+    if (menu == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final selectedItems = _cubit.state.selectedItems;
+          int count = 0;
+          final rows = <Widget>[];
+          for (final cat in menu.categories) {
+            for (final product in cat.products) {
+              final qty = selectedItems[product.id] ?? 0;
+              if (qty > 0) {
+                count += qty;
+                rows.add(
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        // Minus
+                        GestureDetector(
+                          onTap: () {
+                            _cubit.removeItem(product.id);
+                            setSheetState(() {});
+                            setState(() {});
+                            if (_cubit.state.totalItemCount == 0) {
+                              Navigator.of(ctx).pop();
+                            }
+                          },
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySoft,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                            ),
+                            child: const Icon(Icons.remove, size: 16, color: AppColors.primary),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        const SizedBox(width: 8),
+                        // Plus
+                        GestureDetector(
+                          onTap: () {
+                            _cubit.addItem(product.id);
+                            setSheetState(() {});
+                            setState(() {});
+                          },
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.add, size: 16, color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(product.name,
+                              style: const TextStyle(fontSize: 14)),
+                        ),
+                        Text(
+                          '${(product.price * qty).toStringAsFixed(0)} сом',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                              fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+            }
+          }
+
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Icon(Icons.receipt_long, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Тандалган товарлар',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                    ),
+                    const Spacer(),
+                    Text('$count даана',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Divider(),
+                if (rows.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: Text('Эч нерсе тандалган жок',
+                          style: TextStyle(color: Colors.grey[500])),
+                    ),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(ctx).size.height * 0.5,
+                    ),
+                    child: SingleChildScrollView(child: Column(children: rows)),
+                  ),
+                const Divider(),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Text('Жалпы:',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Spacer(),
+                    Text(
+                      '${_buildItemsTotal().toStringAsFixed(0)} сом',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          color: AppColors.primary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: AppButton.primary(
+                    label: 'Улантуу →',
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _goToNextStep();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -1920,12 +2142,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
             child: hasImage
-                ? Image.network(
-                    product.imageUrl!,
-                    height: 120,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _productImagePlaceholder(),
-                  )
+                ? _buildProductImage(product.imageUrl!, height: 120)
                 : _productImagePlaceholder(),
           ),
 
@@ -2021,6 +2238,33 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildProductImage(String imageUrl, {double height = 120}) {
+    if (imageUrl.startsWith('data:')) {
+      // base64 data URL — extract the base64 part after the comma
+      final commaIdx = imageUrl.indexOf(',');
+      if (commaIdx != -1) {
+        try {
+          final bytes = base64Decode(imageUrl.substring(commaIdx + 1));
+          return Image.memory(
+            bytes,
+            height: height,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _productImagePlaceholder(),
+          );
+        } catch (_) {}
+      }
+      return _productImagePlaceholder();
+    }
+    return Image.network(
+      imageUrl,
+      height: height,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _productImagePlaceholder(),
     );
   }
 

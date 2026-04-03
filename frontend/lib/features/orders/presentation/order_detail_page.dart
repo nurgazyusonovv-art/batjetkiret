@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'web_map_helper.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/utils/distance_calculator.dart';
@@ -725,29 +726,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       currentOrder.toLatitude != null &&
                       currentOrder.toLongitude != null) ...[
                     const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => _FullScreenMapPage(
-                            from: LatLng(
-                              latitude: currentOrder.fromLatitude!,
-                              longitude: currentOrder.fromLongitude!,
-                            ),
-                            to: LatLng(
-                              latitude: currentOrder.toLatitude!,
-                              longitude: currentOrder.toLongitude!,
-                            ),
-                            isCourier: widget.isCourier,
-                            courierLat: widget.isCourier ? null : currentOrder.courierLatitude,
-                            courierLon: widget.isCourier ? null : currentOrder.courierLongitude,
-                          ),
-                        ));
-                      },
-                      child: SizedBox(
-                        height: 220,
-                        child: Stack(
-                          children: [
-                            _OrderRouteMap(
+                    SizedBox(
+                      height: 220,
+                      child: kIsWeb
+                          ? _WebMapPreview(
                               from: LatLng(
                                 latitude: currentOrder.fromLatitude!,
                                 longitude: currentOrder.fromLongitude!,
@@ -760,22 +742,56 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                               userLon: widget.isCourier ? _userPosition?.longitude : null,
                               courierLat: widget.isCourier ? null : currentOrder.courierLatitude,
                               courierLon: widget.isCourier ? null : currentOrder.courierLongitude,
-                            ),
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(Icons.fullscreen, size: 20, color: Colors.black87),
+                            )
+                          : GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).push(MaterialPageRoute(
+                                  builder: (_) => _FullScreenMapPage(
+                                    from: LatLng(
+                                      latitude: currentOrder.fromLatitude!,
+                                      longitude: currentOrder.fromLongitude!,
+                                    ),
+                                    to: LatLng(
+                                      latitude: currentOrder.toLatitude!,
+                                      longitude: currentOrder.toLongitude!,
+                                    ),
+                                    isCourier: widget.isCourier,
+                                    courierLat: widget.isCourier ? null : currentOrder.courierLatitude,
+                                    courierLon: widget.isCourier ? null : currentOrder.courierLongitude,
+                                  ),
+                                ));
+                              },
+                              child: Stack(
+                                children: [
+                                  _OrderRouteMap(
+                                    from: LatLng(
+                                      latitude: currentOrder.fromLatitude!,
+                                      longitude: currentOrder.fromLongitude!,
+                                    ),
+                                    to: LatLng(
+                                      latitude: currentOrder.toLatitude!,
+                                      longitude: currentOrder.toLongitude!,
+                                    ),
+                                    userLat: widget.isCourier ? _userPosition?.latitude : null,
+                                    userLon: widget.isCourier ? _userPosition?.longitude : null,
+                                    courierLat: widget.isCourier ? null : currentOrder.courierLatitude,
+                                    courierLon: widget.isCourier ? null : currentOrder.courierLongitude,
+                                  ),
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.9),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.fullscreen, size: 20, color: Colors.black87),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
                     ),
                   ] else
                     Container(
@@ -2393,6 +2409,7 @@ class _OrderRouteMap extends StatefulWidget {
     this.userLon,
     this.courierLat,
     this.courierLon,
+    this.fullscreen = false,
   });
 
   final LatLng from;
@@ -2401,24 +2418,37 @@ class _OrderRouteMap extends StatefulWidget {
   final double? userLon;
   final double? courierLat;
   final double? courierLon;
+  final bool fullscreen;
 
   @override
   State<_OrderRouteMap> createState() => _OrderRouteMapState();
 }
 
 class _OrderRouteMapState extends State<_OrderRouteMap> {
-  late WebViewController _controller;
+  late WebViewController _controller; // only used on non-web
   bool _isLoading = true;
+  late String _webViewId;
 
   @override
   void initState() {
     super.initState();
-    _buildController();
+    if (kIsWeb) {
+      _webViewId =
+          'ymap_${widget.from.latitude}_${widget.from.longitude}_${widget.to.latitude}_${widget.to.longitude}_${DateTime.now().microsecondsSinceEpoch}';
+      registerWebIframe(
+        _webViewId,
+        _buildHtml(widget.from, widget.to, widget.userLat, widget.userLon,
+            widget.courierLat, widget.courierLon),
+      );
+    } else {
+      _buildController();
+    }
   }
 
   @override
   void didUpdateWidget(_OrderRouteMap oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (kIsWeb) return;
     // Full reload only if route endpoints changed
     if (oldWidget.from.latitude != widget.from.latitude ||
         oldWidget.from.longitude != widget.from.longitude ||
@@ -2458,6 +2488,28 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) {
+      if (widget.fullscreen) {
+        // Fullscreen: толук iframe карта
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: buildWebIframeMap(
+            _buildHtml(widget.from, widget.to, widget.userLat, widget.userLon,
+                widget.courierLat, widget.courierLon),
+            _webViewId,
+          ),
+        );
+      }
+      // Preview: static image + tap => dialog
+      return _WebMapPreview(
+        from: widget.from,
+        to: widget.to,
+        userLat: widget.userLat,
+        userLon: widget.userLon,
+        courierLat: widget.courierLat,
+        courierLon: widget.courierLon,
+      );
+    }
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: Stack(
@@ -2474,7 +2526,12 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
   }
 
   String _buildHtml(LatLng from, LatLng to, double? userLat, double? userLon,
-      [double? courierLat, double? courierLon]) {
+      [double? courierLat, double? courierLon]) =>
+      _buildYandexMapHtml(from, to, userLat, userLon, courierLat, courierLon);
+}
+
+String _buildYandexMapHtml(LatLng from, LatLng to, double? userLat,
+    double? userLon, [double? courierLat, double? courierLon]) {
     final centerLat = (from.latitude + to.latitude) / 2;
     final centerLon = (from.longitude + to.longitude) / 2;
     final hasUser = userLat != null && userLon != null;
@@ -2562,6 +2619,124 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
 </body>
 </html>
   ''';
+}
+
+// ─── Web Map Preview (web-only: static thumbnail → fullscreen iframe dialog) ──
+
+class _WebMapPreview extends StatelessWidget {
+  const _WebMapPreview({
+    required this.from,
+    required this.to,
+    this.userLat,
+    this.userLon,
+    this.courierLat,
+    this.courierLon,
+  });
+
+  final LatLng from;
+  final LatLng to;
+  final double? userLat;
+  final double? userLon;
+  final double? courierLat;
+  final double? courierLon;
+
+  String get _staticUrl {
+    final centerLat = (from.latitude + to.latitude) / 2;
+    final centerLon = (from.longitude + to.longitude) / 2;
+    final fromPt = '${from.longitude},${from.latitude},pm2grm';
+    final toPt = '${to.longitude},${to.latitude},pm2rdm';
+    String pt = '$fromPt~$toPt';
+    if (courierLat != null && courierLon != null) {
+      pt += '~$courierLon,$courierLat,pm2blm';
+    }
+    return 'https://static-maps.yandex.ru/1.x/?ll=$centerLon,$centerLat&z=12&size=650,400&l=map&pt=$pt';
+  }
+
+  void _openFullscreen(BuildContext context) {
+    final viewId =
+        'ymap_fs_${from.latitude}_${from.longitude}_${DateTime.now().microsecondsSinceEpoch}';
+    final html = _buildYandexMapHtml(from, to, userLat, userLon, courierLat, courierLon);
+    registerWebIframe(viewId, html);
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (_) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        backgroundColor: Colors.transparent,
+        child: SizedBox(
+          width: double.infinity,
+          height: MediaQuery.of(context).size.height * 0.85,
+          child: Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: buildWebIframeMap(html, viewId),
+              ),
+              Positioned(
+                top: 8,
+                left: 8,
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.close, size: 22, color: Colors.black87),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _openFullscreen(context),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              _staticUrl,
+              fit: BoxFit.cover,
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) return child;
+                return const ColoredBox(
+                  color: Color(0xFFE8E8E8),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              },
+              errorBuilder: (_, __, ___) => const ColoredBox(
+                color: Color(0xFFE8E8E8),
+                child: Center(
+                  child: Icon(Icons.map_outlined, size: 48, color: Colors.grey),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.fullscreen, size: 20, color: Colors.black87),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

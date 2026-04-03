@@ -13,6 +13,8 @@ import {
   MapPin,
   Settings,
   AlertTriangle,
+  Info,
+  Image,
 } from 'lucide-react';
 import api from '@/services/api';
 import { authService } from '@/services/auth';
@@ -94,14 +96,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { path: '/intercity', icon: MapPin, label: 'Шаарлар аралык' },
     { path: '/cancel-requests', icon: AlertTriangle, label: 'Отмена суроолору', badge: cancelRequestCount },
     { path: '/settings', icon: Settings, label: 'Жөндөөлөр' },
+    { path: '/banners', icon: Image, label: 'Реклама баннерлери' },
+    { path: '/about', icon: Info, label: 'Программа жөнүндө' },
   ];
 
   return (
     <div className="dashboard-layout">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <h2>BATKEN EXPRESS</h2>
-          <p>Admin Panel</p>
+          <img src="/logo.png" alt="Баткен Экспресс" className="sidebar-logo" />
+          <p>Админ панель</p>
         </div>
 
         <nav className="sidebar-nav">
