@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../data/banner_model.dart';
 import '../../../core/theme/app_colors.dart';
+import 'banner_detail_page.dart';
 
 class BannerCarousel extends StatefulWidget {
   final List<BannerItem> banners;
@@ -45,13 +45,10 @@ class _BannerCarouselState extends State<BannerCarousel> {
     super.dispose();
   }
 
-  Future<void> _onTap(BannerItem b) async {
-    if (b.linkUrl != null && b.linkUrl!.isNotEmpty) {
-      final uri = Uri.tryParse(b.linkUrl!);
-      if (uri != null && await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    }
+  void _onTap(BannerItem b) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => BannerDetailPage(banner: b)),
+    );
   }
 
   @override
