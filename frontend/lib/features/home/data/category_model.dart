@@ -17,6 +17,7 @@ final List<Category> categories = [
   Category(id: 'pharmacy', name: 'Дарыкана', icon: Icons.local_pharmacy),
   Category(id: 'clothes', name: 'Кийим-кече', icon: Icons.checkroom),
   Category(id: 'electronics', name: 'Электроника', icon: Icons.phone_android),
+  Category(id: 'household', name: 'Үй-тиричилик буюмдары', icon: Icons.chair),
   Category(id: 'flowers', name: 'Гүлдөр', icon: Icons.local_florist),
   Category(id: 'documents', name: 'Документтер', icon: Icons.description),
   Category(id: 'other', name: 'Башка', icon: Icons.category),

@@ -1018,6 +1018,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       'pharmacy': Icons.local_pharmacy,
       'clothes': Icons.checkroom,
       'electronics': Icons.phone_android,
+      'household': Icons.chair,
       'flowers': Icons.local_florist,
       'documents': Icons.description,
       'other': Icons.category,
