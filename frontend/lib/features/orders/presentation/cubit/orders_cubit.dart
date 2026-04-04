@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/order_api.dart';
 import '../../data/order_model.dart';
 import 'orders_state.dart';
+import '../../../../core/auth_event_bus.dart';
 
 class OrdersCubit extends Cubit<OrdersState> {
   OrdersCubit({OrderApi? orderApi})
@@ -55,6 +56,8 @@ class OrdersCubit extends Cubit<OrdersState> {
           clearError: true,
         ),
       );
+    } on UnauthorizedException {
+      emit(state.copyWith(isLoading: false, clearError: true));
     } catch (error) {
       emit(
         state.copyWith(

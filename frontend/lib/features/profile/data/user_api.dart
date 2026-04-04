@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../../../core/config.dart';
+import '../../../core/auth_event_bus.dart';
 import 'notification_item.dart';
 import 'user_model.dart';
 
@@ -21,6 +22,11 @@ class UserApi {
       final data = _decode(response.body);
       if (response.statusCode == 200) {
         return User.fromJson(data);
+      }
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       }
 
       throw Exception(

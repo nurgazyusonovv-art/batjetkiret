@@ -2,6 +2,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import '../../../core/config.dart';
+import '../../../core/auth_event_bus.dart';
 import 'chat_message_model.dart';
 import 'chat_context_model.dart';
 import 'order_model.dart';
@@ -39,7 +40,8 @@ class OrderApi {
       }
 
       if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       }
 
       final dynamic body = jsonDecode(response.body);
@@ -102,7 +104,8 @@ class OrderApi {
       }
 
       if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       }
 
       final dynamic decoded = jsonDecode(response.body);
@@ -147,7 +150,8 @@ class OrderApi {
             .toList();
         return result;
       } else if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       } else {
         final dynamic body = jsonDecode(response.body);
         final detail = body is Map<String, dynamic> ? body['detail'] : null;
@@ -184,7 +188,8 @@ class OrderApi {
             .toList();
         return result;
       } else if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       } else if (response.statusCode == 403) {
         throw Exception('Бул бөлүм курьерлер үчүн гана.');
       } else {
@@ -222,7 +227,8 @@ class OrderApi {
             .map((order) => Order.fromJson(order as Map<String, dynamic>))
             .toList();
       } else if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       } else if (response.statusCode == 403) {
         throw Exception('Бул бөлүм курьерлер үчүн гана.');
       } else {
@@ -258,7 +264,8 @@ class OrderApi {
       if (response.statusCode == 200) {
         return;
       } else if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       } else if (response.statusCode == 403) {
         throw Exception('Бул аракет курьерлер үчүн гана.');
       } else if (response.statusCode == 404) {
@@ -294,7 +301,8 @@ class OrderApi {
       if (response.statusCode == 200) {
         return;
       } else if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       } else if (response.statusCode == 403) {
         throw Exception('Бул аракет курьерлер үчүн гана.');
       } else if (response.statusCode == 404) {
@@ -335,7 +343,8 @@ class OrderApi {
       if (response.statusCode == 200) {
         return;
       } else if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       } else if (response.statusCode == 403) {
         throw Exception('Бул аракет курьерлер үчүн гана.');
       } else if (response.statusCode == 404) {
@@ -418,7 +427,8 @@ class OrderApi {
         }
         throw Exception('Тастыктоо коду алынган жок');
       } else if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       } else if (response.statusCode == 403) {
         throw Exception('Бул аракет курьерлер үчүн гана.');
       } else if (response.statusCode == 404) {
@@ -455,7 +465,8 @@ class OrderApi {
       if (response.statusCode == 200) {
         return;
       } else if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       } else if (response.statusCode == 403) {
         throw Exception('Сизде бул заказды жокко чыгаруу укугу жок.');
       } else if (response.statusCode == 404) {
@@ -513,7 +524,8 @@ class OrderApi {
       if (response.statusCode == 200) {
         return;
       } else if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       } else if (response.statusCode == 403) {
         throw Exception('Сизде бул заказды жокко чыгаруу укугу жок.');
       } else if (response.statusCode == 404) {
@@ -670,7 +682,8 @@ class OrderApi {
       }
 
       if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       }
 
       final dynamic body = jsonDecode(response.body);
@@ -710,7 +723,8 @@ class OrderApi {
       }
 
       if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       }
 
       final dynamic body = jsonDecode(response.body);
@@ -749,7 +763,8 @@ class OrderApi {
       }
 
       if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       }
 
       final dynamic body = jsonDecode(response.body);
@@ -788,7 +803,8 @@ class OrderApi {
       if (response.statusCode == 200) return;
 
       if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       }
 
       final dynamic body = jsonDecode(response.body);
@@ -916,7 +932,8 @@ class OrderApi {
       if (response.statusCode == 200) {
         return;
       } else if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       } else if (response.statusCode == 403) {
         throw Exception('Бул заказды өчүрүүгө укугуңуз жок.');
       } else if (response.statusCode == 404) {
@@ -958,7 +975,8 @@ class OrderApi {
       }
 
       if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       }
 
       if (response.statusCode == 403) {
@@ -998,7 +1016,8 @@ class OrderApi {
       }
 
       if (response.statusCode == 401) {
-        throw Exception('Сессия бүттү. Кайра кириңиз.');
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
       }
 
       if (response.statusCode == 403) {

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -24,26 +25,53 @@ import 'features/onboarding/presentation/onboarding_page.dart';
 import 'features/orders/presentation/cubit/orders_cubit.dart';
 import 'features/orders/presentation/my_orders_page.dart';
 import 'features/splash/presentation/splash_screen.dart';
+import 'core/auth_event_bus.dart';
 
 final _navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HiveService.initialize();
-  await NotificationsService.initialize();
-  await Firebase.initializeApp();
+  if (!kIsWeb) {
+    await NotificationsService.initialize();
+    await Firebase.initializeApp();
+  }
   NotificationNavigator.navigatorKey = _navigatorKey;
   runApp(const BatkenExpressApp());
 }
 
-class BatkenExpressApp extends StatelessWidget {
+class BatkenExpressApp extends StatefulWidget {
   const BatkenExpressApp({super.key});
+
+  @override
+  State<BatkenExpressApp> createState() => _BatkenExpressAppState();
+}
+
+class _BatkenExpressAppState extends State<BatkenExpressApp> {
+  late final AuthCubit _authCubit;
+  StreamSubscription<void>? _unauthorizedSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _authCubit = AuthCubit()..bootstrap();
+    _unauthorizedSub = AuthEventBus.instance.onUnauthorized.listen((_) {
+      _authCubit.logout();
+    });
+  }
+
+  @override
+  void dispose() {
+    _unauthorizedSub?.cancel();
+    _authCubit.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => AuthCubit()..bootstrap()),
+        BlocProvider.value(value: _authCubit),
         BlocProvider(create: (_) => OrdersCubit()),
         BlocProvider(create: (_) => HomeCubit()),
         BlocProvider(create: (_) => ProfileCubit()),

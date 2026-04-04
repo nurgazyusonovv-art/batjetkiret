@@ -4,6 +4,7 @@ import '../../data/user_api.dart';
 import '../../../orders/data/order_api.dart';
 import 'profile_state.dart';
 import '../../../../core/storage/hive_service.dart';
+import '../../../../core/auth_event_bus.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {
   ProfileCubit({UserApi? userApi, OrderApi? orderApi})
@@ -70,6 +71,8 @@ class ProfileCubit extends Cubit<ProfileState> {
           unreadNotifications: unreadNotifications,
         ),
       );
+    } on UnauthorizedException {
+      emit(state.copyWith(isLoading: false, clearError: true));
     } catch (error) {
       emit(
         state.copyWith(
