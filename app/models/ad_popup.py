@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from app.core.database import Base
 
@@ -10,6 +10,7 @@ class AdPopup(Base):
     title = Column(String, nullable=True)
     subtitle = Column(String, nullable=True)
     image_data = Column(Text, nullable=True)   # base64 data URL
-    link_url = Column(String, nullable=True)
+    link_url = Column(String, nullable=True)   # external URL (kept for backward compat)
+    enterprise_id = Column(Integer, ForeignKey("enterprises.id", ondelete="SET NULL"), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

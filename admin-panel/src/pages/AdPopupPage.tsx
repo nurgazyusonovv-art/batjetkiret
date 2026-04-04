@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Trash2, Upload, XCircle, CheckCircle, Clock, ImagePlus, X } from 'lucide-react';
+import { Send, Trash2, Upload, XCircle, CheckCircle, Clock, ImagePlus, X, Building2, Search } from 'lucide-react';
 import api from '@/services/api';
 import './AdPopupPage.css';
 
@@ -9,11 +9,20 @@ interface AdPopup {
   subtitle: string | null;
   image_data: string | null;
   link_url: string | null;
+  enterprise_id: number | null;
+  enterprise_name: string | null;
+  enterprise_category: string | null;
   is_active: boolean;
   created_at: string | null;
 }
 
-const emptyForm = { title: '', subtitle: '', link_url: '' };
+interface EnterpriseOption {
+  id: number;
+  name: string;
+  category: string;
+}
+
+const emptyForm = { title: '', subtitle: '', enterprise_id: null as number | null };
 
 export default function AdPopupPage() {
   const [popups, setPopups] = useState<AdPopup[]>([]);
@@ -23,6 +32,8 @@ export default function AdPopupPage() {
   const [formImagePreview, setFormImagePreview] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
+  const [enterprises, setEnterprises] = useState<EnterpriseOption[]>([]);
+  const [entSearch, setEntSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formImageInputRef = useRef<HTMLInputElement>(null);
   const pendingIdRef = useRef<number | null>(null);
@@ -36,7 +47,16 @@ export default function AdPopupPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  const loadEnterprises = async () => {
+    try {
+      const res = await api.get('/enterprises/admin/list?limit=500&is_active=true');
+      setEnterprises((res.data ?? []).map((e: any) => ({
+        id: e.id, name: e.name, category: e.category,
+      })));
+    } catch {}
+  };
+
+  useEffect(() => { load(); loadEnterprises(); }, []);
 
   const handleFormImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -58,7 +78,7 @@ export default function AdPopupPage() {
       const res = await api.post('/admin/ad-popup', {
         title: form.title || null,
         subtitle: form.subtitle || null,
-        link_url: form.link_url || null,
+        enterprise_id: form.enterprise_id ?? null,
       });
       const newId: number = res.data.id;
 
@@ -71,6 +91,7 @@ export default function AdPopupPage() {
       }
 
       setForm(emptyForm);
+      setEntSearch('');
       clearFormImage();
       await load();
     } finally {
@@ -150,7 +171,10 @@ export default function AdPopupPage() {
               {activePopup.subtitle && (
                 <div className="ap-active-sub">{activePopup.subtitle}</div>
               )}
-              {activePopup.link_url && (
+              {activePopup.enterprise_name && (
+                <div className="ap-active-link">🏪 {activePopup.enterprise_name}</div>
+              )}
+              {activePopup.link_url && !activePopup.enterprise_name && (
                 <div className="ap-active-link">🔗 {activePopup.link_url}</div>
               )}
             </div>
@@ -211,13 +235,48 @@ export default function AdPopupPage() {
               placeholder="Кыскача сыпаттама"
             />
           </div>
+          {/* Enterprise selector */}
           <div className="ap-field ap-field-full">
-            <label>Шилтеме (URL) — милдеттүү эмес</label>
-            <input
-              value={form.link_url}
-              onChange={e => setForm(f => ({ ...f, link_url: e.target.value }))}
-              placeholder="https://..."
-            />
+            <label><Building2 size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />Ишкана тандоо — милдеттүү эмес</label>
+            {form.enterprise_id ? (
+              <div className="ap-ent-selected">
+                <Building2 size={16} color="#1565c0" />
+                <span>{enterprises.find(e => e.id === form.enterprise_id)?.name ?? `#${form.enterprise_id}`}</span>
+                <button className="ap-ent-clear" onClick={() => setForm(f => ({ ...f, enterprise_id: null }))}>
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="ap-ent-search-wrap">
+                <Search size={15} className="ap-ent-search-icon" />
+                <input
+                  className="ap-ent-search-input"
+                  placeholder="Ишкана атын жаз..."
+                  value={entSearch}
+                  onChange={e => setEntSearch(e.target.value)}
+                />
+                {entSearch && (
+                  <div className="ap-ent-dropdown">
+                    {enterprises
+                      .filter(e => e.name.toLowerCase().includes(entSearch.toLowerCase()))
+                      .slice(0, 8)
+                      .map(e => (
+                        <div
+                          key={e.id}
+                          className="ap-ent-option"
+                          onClick={() => { setForm(f => ({ ...f, enterprise_id: e.id })); setEntSearch(''); }}
+                        >
+                          <span className="ap-ent-name">{e.name}</span>
+                          <span className="ap-ent-cat">{e.category}</span>
+                        </div>
+                      ))}
+                    {enterprises.filter(e => e.name.toLowerCase().includes(entSearch.toLowerCase())).length === 0 && (
+                      <div className="ap-ent-empty">Табылган жок</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Image picker */}
@@ -250,7 +309,7 @@ export default function AdPopupPage() {
         <button
           className="ap-send-btn"
           onClick={handleSend}
-          disabled={sending || (!form.title && !form.subtitle && !form.link_url && !formImage)}
+          disabled={sending || (!form.title && !form.subtitle && !form.enterprise_id && !formImage)}
         >
           <Send size={16} />
           {sending ? 'Жиберилүүдө...' : 'Баардык колдонуучуга жиберүү'}

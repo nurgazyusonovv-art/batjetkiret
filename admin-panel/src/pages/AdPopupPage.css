@@ -312,6 +312,88 @@
   white-space: nowrap;
 }
 
+/* ── Enterprise selector ── */
+.ap-ent-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #e3f2fd;
+  border: 1.5px solid #90caf9;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1565c0;
+}
+
+.ap-ent-selected span { flex: 1; }
+
+.ap-ent-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+.ap-ent-clear:hover { color: #c62828; }
+
+.ap-ent-search-wrap {
+  position: relative;
+}
+
+.ap-ent-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #aaa;
+  pointer-events: none;
+}
+
+.ap-ent-search-input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 9px;
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.ap-ent-search-input:focus { border-color: #ff5252; }
+
+.ap-ent-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: #fff;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  z-index: 100;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.ap-ent-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ap-ent-option:hover { background: #f5f5f5; }
+
+.ap-ent-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+.ap-ent-cat  { font-size: 12px; color: #aaa; }
+
+.ap-ent-empty { padding: 12px 14px; color: #aaa; font-size: 13px; text-align: center; }
+
 /* ── Form image picker ── */
 .ap-img-pick-btn {
   display: flex;

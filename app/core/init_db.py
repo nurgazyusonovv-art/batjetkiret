@@ -23,6 +23,7 @@ def _migrate(engine):
         "ALTER TABLE orders ADD COLUMN cancel_requested BOOLEAN DEFAULT FALSE",
         "ALTER TABLE orders ADD COLUMN cancel_request_reason TEXT",
         "ALTER TABLE enterprise_products ADD COLUMN image_url TEXT",
+        "ALTER TABLE ad_popups ADD COLUMN enterprise_id INTEGER REFERENCES enterprises(id) ON DELETE SET NULL",
     ]
     for sql in migrations:
         try:

@@ -8,8 +8,14 @@ import '../../../core/theme/app_colors.dart';
 class AdPopupOverlay extends StatefulWidget {
   final AdPopupItem popup;
   final VoidCallback onClose;
+  final void Function(int enterpriseId, String category)? onNavigateToEnterprise;
 
-  const AdPopupOverlay({super.key, required this.popup, required this.onClose});
+  const AdPopupOverlay({
+    super.key,
+    required this.popup,
+    required this.onClose,
+    this.onNavigateToEnterprise,
+  });
 
   @override
   State<AdPopupOverlay> createState() => _AdPopupOverlayState();
@@ -201,7 +207,37 @@ class _AdPopupOverlayState extends State<AdPopupOverlay>
                                                 fontWeight: FontWeight.w600)),
                                       ),
                                     ),
-                                    if (hasLink) ...[
+                                    // Enterprise button (priority over link)
+                                    if (p.hasEnterprise && widget.onNavigateToEnterprise != null) ...[
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        flex: 2,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () {
+                                            widget.onNavigateToEnterprise!(
+                                              p.enterpriseId!,
+                                              p.enterpriseCategory ?? 'food',
+                                            );
+                                          },
+                                          icon: const Icon(Icons.storefront,
+                                              size: 16),
+                                          label: const Text('Менюга өтүү',
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.w700)),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.primary,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 13),
+                                            elevation: 0,
+                                          ),
+                                        ),
+                                      ),
+                                    ] else if (hasLink) ...[
                                       const SizedBox(width: 10),
                                       Expanded(
                                         flex: 2,

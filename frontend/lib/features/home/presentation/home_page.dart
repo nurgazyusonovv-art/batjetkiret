@@ -72,6 +72,26 @@ class _HomePageState extends State<HomePage> {
       builder: (_) => AdPopupOverlay(
         popup: popup,
         onClose: () => Navigator.of(context, rootNavigator: true).pop(),
+        onNavigateToEnterprise: (enterpriseId, category) {
+          Navigator.of(context, rootNavigator: true).pop();
+          _openEnterpriseDirectly(enterpriseId, category);
+        },
+      ),
+    );
+  }
+
+  void _openEnterpriseDirectly(int enterpriseId, String category) {
+    final cat = models.categories.firstWhere(
+      (c) => c.id == category,
+      orElse: () => models.categories.first,
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => OrderCreatePage(
+          token: widget.token,
+          selectedCategory: cat,
+          initialEnterpriseId: enterpriseId,
+        ),
       ),
     );
   }
@@ -635,12 +655,14 @@ class OrderCreatePage extends StatefulWidget {
   final String token;
   final models.Category selectedCategory;
   final String? initialFromAddress;
+  final int? initialEnterpriseId;
 
   const OrderCreatePage({
     super.key,
     required this.token,
     required this.selectedCategory,
     this.initialFromAddress,
+    this.initialEnterpriseId,
   });
 
   @override
@@ -697,7 +719,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     // Rebuild when address text changes (for suggestions dropdown)
     _fromAddressController.addListener(() => setState(() {}));
     _toAddressController.addListener(() => setState(() {}));
-    _fetchEnterprises();
+    _fetchEnterprises().then((_) {
+      if (widget.initialEnterpriseId != null && mounted) {
+        _autoSelectEnterprise(widget.initialEnterpriseId!);
+      }
+    });
     _fetchAppSettings();
   }
 
@@ -741,6 +767,53 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       setState(() {
         _enterpriseError = e.toString();
         _isLoadingEnterprises = false;
+      });
+    }
+  }
+
+  void _autoSelectEnterprise(int enterpriseId) {
+    // Try from already-loaded list first
+    final found = _enterprises?.where((e) => e.id == enterpriseId).firstOrNull;
+    if (found != null) {
+      _onEnterpriseSelected(found);
+      return;
+    }
+    // Not in list — fetch menu directly (menu response includes enterprise info)
+    setState(() {
+      _isLoadingMenu = true;
+      _menuError = null;
+      _enterpriseMenu = null;
+    });
+    _cubit.goToEnterpriseMenuStep();
+    _fetchEnterpriseMenuAndSelectEnterprise(enterpriseId);
+  }
+
+  Future<void> _fetchEnterpriseMenuAndSelectEnterprise(int enterpriseId) async {
+    final version = ++_menuFetchVersion;
+    try {
+      final menu = await EnterpriseApi().fetchEnterpriseMenu(
+        token: widget.token,
+        enterpriseId: enterpriseId,
+      );
+      if (!mounted || version != _menuFetchVersion) return;
+      final ent = menu.enterprise;
+      _cubit.selectEnterprise(
+        id: ent.id,
+        name: ent.name,
+        address: ent.address ?? '',
+        lat: ent.lat,
+        lon: ent.lon,
+      );
+      _fromAddressController.text = ent.address ?? '';
+      setState(() {
+        _enterpriseMenu = menu;
+        _isLoadingMenu = false;
+      });
+    } catch (e) {
+      if (!mounted || version != _menuFetchVersion) return;
+      setState(() {
+        _menuError = e.toString();
+        _isLoadingMenu = false;
       });
     }
   }
