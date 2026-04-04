@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../orders/data/order_api.dart';
 import '../../../orders/data/order_model.dart';
 import '../../../../core/storage/hive_service.dart';
+import '../../../../core/auth_event_bus.dart';
 import 'home_state.dart';
 
 class HomeCubit extends Cubit<HomeState> {
@@ -78,6 +79,8 @@ class HomeCubit extends Cubit<HomeState> {
           clearCourierError: true,
         ),
       );
+    } on UnauthorizedException {
+      emit(state.copyWith(isCourierLoading: false, clearCourierError: true));
     } catch (error) {
       emit(
         state.copyWith(
