@@ -15,6 +15,8 @@ from app.models.enterprise_product import EnterpriseProduct
 from app.models.intercity_city import IntercityCity
 from app.models.order_payment import OrderPayment
 from app.models.setting import Setting
+from app.models.banner import Banner
+from app.models.ad_popup import AdPopup
 
 __all__ = [
     "User",
@@ -34,4 +36,6 @@ __all__ = [
     "IntercityCity",
     "OrderPayment",
     "Setting",
+    "Banner",
+    "AdPopup",
 ]

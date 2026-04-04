@@ -21,6 +21,7 @@ from app.api import enterprises
 from app.api import enterprise_portal
 from app.api import intercity
 from app.api import banners
+from app.api import ad_popup
 from app.core.init_db import init_db
 
 configure_logging(level=settings.LOG_LEVEL, json_logs=settings.LOG_JSON)
@@ -118,6 +119,7 @@ app.include_router(enterprises.router)
 app.include_router(enterprise_portal.router)
 app.include_router(intercity.router)
 app.include_router(banners.router)
+app.include_router(ad_popup.router)
 
 app.include_router(chat.router)
 

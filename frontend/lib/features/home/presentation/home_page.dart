@@ -11,7 +11,10 @@ import 'package:frontend/features/home/data/enterprise_api.dart';
 import 'package:frontend/features/home/data/enterprise_model.dart';
 import 'package:frontend/features/home/data/banner_api.dart';
 import 'package:frontend/features/home/data/banner_model.dart';
+import 'package:frontend/features/home/data/ad_popup_api.dart';
+import 'package:frontend/features/home/data/ad_popup_model.dart';
 import 'banner_carousel.dart';
+import 'ad_popup_overlay.dart';
 import 'package:frontend/features/home/presentation/cubit/home_cubit.dart';
 import 'package:frontend/features/home/presentation/cubit/order_create_cubit.dart';
 import 'package:frontend/features/home/presentation/cubit/order_create_state.dart';
@@ -22,6 +25,7 @@ import 'package:frontend/features/orders/presentation/order_success_page.dart';
 import 'package:frontend/features/profile/data/support_api.dart';
 import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'intercity_order_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -42,11 +46,34 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _filteredCategories = models.categories;
     _fetchBanners();
+    _checkAndShowPopup();
   }
 
   Future<void> _fetchBanners() async {
     final list = await BannerApi().fetchBanners();
     if (mounted) setState(() => _banners = list);
+  }
+
+  Future<void> _checkAndShowPopup() async {
+    final popup = await AdPopupApi.fetchCurrent();
+    if (popup == null || !mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final seenKey = 'seen_ad_popup_${popup.id}';
+    if (prefs.getBool(seenKey) == true) return;
+
+    await prefs.setBool(seenKey, true);
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: false,
+      builder: (_) => AdPopupOverlay(
+        popup: popup,
+        onClose: () => Navigator.of(context, rootNavigator: true).pop(),
+      ),
+    );
   }
 
   Future<void> _acceptOrder(order) async {

@@ -14,6 +14,7 @@ import SettingsPage from './pages/SettingsPage';
 import CancelRequestsPage from './pages/CancelRequestsPage';
 import AboutPage from './pages/AboutPage';
 import BannersPage from './pages/BannersPage';
+import AdPopupPage from './pages/AdPopupPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 
@@ -161,6 +162,17 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <BannersPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/ad-popup"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <AdPopupPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Info,
   Image,
+  Megaphone,
 } from 'lucide-react';
 import api from '@/services/api';
 import { authService } from '@/services/auth';
@@ -97,6 +98,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { path: '/cancel-requests', icon: AlertTriangle, label: 'Отмена суроолору', badge: cancelRequestCount },
     { path: '/settings', icon: Settings, label: 'Жөндөөлөр' },
     { path: '/banners', icon: Image, label: 'Реклама баннерлери' },
+    { path: '/ad-popup', icon: Megaphone, label: 'Жарнама жиберүү' },
     { path: '/about', icon: Info, label: 'Программа жөнүндө' },
   ];
 
