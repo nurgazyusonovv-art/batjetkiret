@@ -130,6 +130,8 @@ class ProfileCubit extends Cubit<ProfileState> {
           clearCourierStatsError: true,
         ),
       );
+    } on UnauthorizedException {
+      emit(state.copyWith(isCourierStatsLoading: false, clearCourierStatsError: true));
     } catch (e) {
       emit(
         state.copyWith(

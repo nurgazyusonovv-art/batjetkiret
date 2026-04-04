@@ -9,6 +9,16 @@ import 'notification_item.dart';
 import 'user_model.dart';
 
 class UserApi {
+  /// Fires the auth event bus and throws [UnauthorizedException] if the
+  /// response is 401 or 403. Call this before any generic error throw in
+  /// methods that require authentication.
+  void _checkAuth(http.Response response) {
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      AuthEventBus.instance.fireUnauthorized();
+      throw const UnauthorizedException();
+    }
+  }
+
   Future<User> getMe(String token) async {
     try {
       final response = await http.get(
@@ -51,13 +61,9 @@ class UserApi {
     );
 
     final data = _decode(response.body);
-    if (response.statusCode == 200) {
-      return;
-    }
-
-    throw Exception(
-      _extractError(data, fallback: 'Failed to activate courier mode'),
-    );
+    if (response.statusCode == 200) return;
+    _checkAuth(response);
+    throw Exception(_extractError(data, fallback: 'Failed to activate courier mode'));
   }
 
   Future<void> removeCourier(String token) async {
@@ -70,13 +76,9 @@ class UserApi {
     );
 
     final data = _decode(response.body);
-    if (response.statusCode == 200) {
-      return;
-    }
-
-    throw Exception(
-      _extractError(data, fallback: 'Failed to deactivate courier mode'),
-    );
+    if (response.statusCode == 200) return;
+    _checkAuth(response);
+    throw Exception(_extractError(data, fallback: 'Failed to deactivate courier mode'));
   }
 
   Future<User> updateProfile(
@@ -102,10 +104,8 @@ class UserApi {
     );
 
     final data = _decode(response.body);
-    if (response.statusCode == 200) {
-      return User.fromJson(data);
-    }
-
+    if (response.statusCode == 200) return User.fromJson(data);
+    _checkAuth(response);
     throw Exception(_extractError(data, fallback: 'Failed to update profile'));
   }
 
@@ -120,13 +120,11 @@ class UserApi {
       );
 
       final data = _decode(response.body);
-      if (response.statusCode == 200) {
-        return data;
-      }
-
-      throw Exception(
-        _extractError(data, fallback: 'Рейтингти алуу ишке ашпады'),
-      );
+      if (response.statusCode == 200) return data;
+      _checkAuth(response);
+      throw Exception(_extractError(data, fallback: 'Рейтингти алуу ишке ашпады'));
+    } on UnauthorizedException {
+      rethrow;
     } on SocketException {
       throw Exception(AppConfig.networkErrorMessage);
     } on http.ClientException {
@@ -147,13 +145,11 @@ class UserApi {
       );
 
       final data = _decode(response.body);
-      if (response.statusCode == 200) {
-        return data;
-      }
-
-      throw Exception(
-        _extractError(data, fallback: 'Рейтингти алуу ишке ашпады'),
-      );
+      if (response.statusCode == 200) return data;
+      _checkAuth(response);
+      throw Exception(_extractError(data, fallback: 'Рейтингти алуу ишке ашпады'));
+    } on UnauthorizedException {
+      rethrow;
     } on SocketException {
       throw Exception(AppConfig.networkErrorMessage);
     } on http.ClientException {
@@ -209,9 +205,10 @@ class UserApi {
       }
 
       final data = _decode(response.body);
-      throw Exception(
-        _extractError(data, fallback: 'Билдирмелерди жүктөөдө ката кетти'),
-      );
+      _checkAuth(response);
+      throw Exception(_extractError(data, fallback: 'Билдирмелерди жүктөөдө ката кетти'));
+    } on UnauthorizedException {
+      rethrow;
     } on SocketException {
       throw Exception(AppConfig.networkErrorMessage);
     } on http.ClientException {
@@ -255,11 +252,9 @@ class UserApi {
     );
 
     if (response.statusCode == 200) return;
-
+    _checkAuth(response);
     final data = _decode(response.body);
-    throw Exception(
-      _extractError(data, fallback: 'Билдирмени белгилөөдө ката кетти'),
-    );
+    throw Exception(_extractError(data, fallback: 'Билдирмени белгилөөдө ката кетти'));
   }
 
   Future<void> updateLocation(String token, double lat, double lon) async {
@@ -291,9 +286,10 @@ class UserApi {
       }
 
       final data = _decode(response.body);
-      throw Exception(
-        _extractError(data, fallback: 'Балансты толуктоодо ката кетти'),
-      );
+      _checkAuth(response);
+      throw Exception(_extractError(data, fallback: 'Балансты толуктоодо ката кетти'));
+    } on UnauthorizedException {
+      rethrow;
     } on SocketException {
       throw Exception(AppConfig.networkErrorMessage);
     } on http.ClientException {
@@ -322,9 +318,10 @@ class UserApi {
       }
 
       final data = _decode(response.body);
-      throw Exception(
-        _extractError(data, fallback: 'Транзакцияларды жүктөөдө ката кетти'),
-      );
+      _checkAuth(response);
+      throw Exception(_extractError(data, fallback: 'Транзакцияларды жүктөөдө ката кетти'));
+    } on UnauthorizedException {
+      rethrow;
     } on SocketException {
       throw Exception(AppConfig.networkErrorMessage);
     } on http.ClientException {
@@ -343,9 +340,8 @@ class UserApi {
       },
     );
     final data = _decode(response.body);
-    if (response.statusCode == 200) {
-      return (data['chat_id'] as num).toInt();
-    }
+    if (response.statusCode == 200) return (data['chat_id'] as num).toInt();
+    _checkAuth(response);
     throw Exception(_extractError(data, fallback: 'Чат ачылбады'));
   }
 

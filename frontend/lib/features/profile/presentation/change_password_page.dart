@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:frontend/core/config.dart';
 import 'package:frontend/core/theme/app_colors.dart';
+import 'package:frontend/core/auth_event_bus.dart';
 
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key, required this.token});
@@ -59,6 +60,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           ),
         );
         Navigator.pop(context);
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        AuthEventBus.instance.fireUnauthorized();
       } else {
         final body = jsonDecode(response.body);
         setState(() {
