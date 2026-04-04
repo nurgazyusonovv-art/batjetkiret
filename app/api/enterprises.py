@@ -128,7 +128,6 @@ def get_enterprise_payment_qr(
 def get_enterprise_menu(
     enterprise_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """Get enterprise menu (categories + products) for customers placing orders."""
     from app.models.enterprise_category import EnterpriseCategory
@@ -216,7 +215,6 @@ def list_active_enterprises(
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """List all active enterprises (optionally filtered by category)."""
     query = db.query(Enterprise).filter(Enterprise.is_active == True)
@@ -224,11 +222,7 @@ def list_active_enterprises(
         query = query.filter(Enterprise.category == category)
     enterprises = query.order_by(Enterprise.name).offset(skip).limit(limit).all()
 
-    result = []
-    for e in enterprises:
-        owner = db.query(User).filter(User.id == e.owner_user_id).first()
-        result.append(_enterprise_dict(e, owner))
-    return result
+    return [_enterprise_dict(e) for e in enterprises]
 
 
 # ── Admin endpoints ───────────────────────────────────────────────────────────

@@ -5,19 +5,15 @@ import 'enterprise_model.dart';
 
 class EnterpriseApi {
   Future<List<Enterprise>> fetchEnterprises({
-    required String token,
+    String? token,
     required String category,
   }) async {
     final url = Uri.parse(
       '${AppConfig.baseUrl}/enterprises/active?category=$category',
     );
-    final response = await http.get(
-      url,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    final response = await http
+        .get(url, headers: {'Content-Type': 'application/json'})
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((e) => Enterprise.fromJson(e)).toList();
@@ -27,19 +23,15 @@ class EnterpriseApi {
   }
 
   Future<EnterpriseMenu> fetchEnterpriseMenu({
-    required String token,
+    String? token,
     required int enterpriseId,
   }) async {
     final url = Uri.parse(
       '${AppConfig.baseUrl}/enterprises/$enterpriseId/menu',
     );
-    final response = await http.get(
-      url,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    final response = await http
+        .get(url, headers: {'Content-Type': 'application/json'})
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return EnterpriseMenu.fromJson(data);
