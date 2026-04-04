@@ -1,6 +1,7 @@
 """Public + admin banner endpoints."""
 import base64
 from typing import Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -15,8 +16,8 @@ _EXT_MIME = {".jpg": "image/jpeg", ".jpeg": "image/jpeg",
              ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif"}
 
 
-def _banner_out(b: Banner) -> dict:
-    return {
+def _banner_out(b: Banner, admin: bool = False) -> dict:
+    d = {
         "id": b.id,
         "title": b.title,
         "subtitle": b.subtitle,
@@ -24,7 +25,22 @@ def _banner_out(b: Banner) -> dict:
         "link_url": b.link_url,
         "is_active": b.is_active,
         "sort_order": b.sort_order,
+        "show_days": b.show_days or 0,
+        "view_count": b.view_count or 0,
+        "created_at": b.created_at.isoformat() if b.created_at else None,
     }
+    return d
+
+
+def _is_within_show_days(b: Banner) -> bool:
+    """Return True if the banner is still within its show_days window."""
+    if not b.show_days:
+        return True  # 0 = unlimited
+    if not b.created_at:
+        return True
+    now = datetime.now(timezone.utc)
+    created = b.created_at.replace(tzinfo=timezone.utc) if b.created_at.tzinfo is None else b.created_at
+    return (now - created).days < b.show_days
 
 
 # ── Public ────────────────────────────────────────────────────────────────────
@@ -38,7 +54,18 @@ def get_active_banners(db: Session = Depends(get_db)):
         .order_by(Banner.sort_order.asc(), Banner.id.asc())
         .all()
     )
-    return [_banner_out(b) for b in banners]
+    return [_banner_out(b) for b in banners if _is_within_show_days(b)]
+
+
+@router.post("/banners/{banner_id}/view")
+def record_banner_view(banner_id: int, db: Session = Depends(get_db)):
+    """Increment view counter for a banner. No auth required."""
+    b = db.query(Banner).filter(Banner.id == banner_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Баннер табылган жок")
+    b.view_count = (b.view_count or 0) + 1
+    db.commit()
+    return {"view_count": b.view_count}
 
 
 # ── Admin ─────────────────────────────────────────────────────────────────────
@@ -49,6 +76,7 @@ class BannerCreate(BaseModel):
     link_url: Optional[str] = None
     is_active: bool = True
     sort_order: int = 0
+    show_days: int = 0
 
 
 class BannerUpdate(BaseModel):
@@ -57,6 +85,7 @@ class BannerUpdate(BaseModel):
     link_url: Optional[str] = None
     is_active: Optional[bool] = None
     sort_order: Optional[int] = None
+    show_days: Optional[int] = None
 
 
 @router.get("/admin/banners")
@@ -73,6 +102,8 @@ def admin_create_banner(data: BannerCreate, db: Session = Depends(get_db), admin
         link_url=data.link_url,
         is_active=data.is_active,
         sort_order=data.sort_order,
+        show_days=data.show_days,
+        created_at=datetime.now(timezone.utc),
     )
     db.add(b)
     db.commit()
@@ -95,6 +126,8 @@ def admin_update_banner(banner_id: int, data: BannerUpdate, db: Session = Depend
         b.is_active = data.is_active
     if data.sort_order is not None:
         b.sort_order = data.sort_order
+    if data.show_days is not None:
+        b.show_days = data.show_days
     db.commit()
     db.refresh(b)
     return _banner_out(b)

@@ -16,4 +16,12 @@ class BannerApi {
     } catch (_) {}
     return [];
   }
+
+  Future<void> trackView(int bannerId) async {
+    try {
+      await http
+          .post(Uri.parse('${AppConfig.baseUrl}/banners/$bannerId/view'))
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {}
+  }
 }

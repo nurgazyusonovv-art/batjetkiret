@@ -24,6 +24,9 @@ def _migrate(engine):
         "ALTER TABLE orders ADD COLUMN cancel_request_reason TEXT",
         "ALTER TABLE enterprise_products ADD COLUMN image_url TEXT",
         "ALTER TABLE ad_popups ADD COLUMN enterprise_id INTEGER REFERENCES enterprises(id) ON DELETE SET NULL",
+        "ALTER TABLE banners ADD COLUMN view_count INTEGER DEFAULT 0",
+        "ALTER TABLE banners ADD COLUMN show_days INTEGER DEFAULT 0",
+        "ALTER TABLE banners ADD COLUMN created_at DATETIME",
     ]
     for sql in migrations:
         try:

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../data/banner_model.dart';
+import '../data/banner_api.dart';
 import '../../../core/theme/app_colors.dart';
 import 'banner_detail_page.dart';
 
@@ -18,12 +19,22 @@ class _BannerCarouselState extends State<BannerCarousel> {
   late PageController _pageController;
   int _currentIndex = 0;
   Timer? _timer;
+  final _api = BannerApi();
+  final _trackedIds = <int>{};
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 0.92);
     if (widget.banners.length > 1) _startTimer();
+    // Track first banner view on load
+    if (widget.banners.isNotEmpty) _trackView(widget.banners[0].id);
+  }
+
+  void _trackView(int bannerId) {
+    if (_trackedIds.contains(bannerId)) return;
+    _trackedIds.add(bannerId);
+    _api.trackView(bannerId);
   }
 
   void _startTimer() {
@@ -62,7 +73,10 @@ class _BannerCarouselState extends State<BannerCarousel> {
           child: PageView.builder(
             controller: _pageController,
             itemCount: widget.banners.length,
-            onPageChanged: (i) => setState(() => _currentIndex = i),
+            onPageChanged: (i) {
+              setState(() => _currentIndex = i);
+              _trackView(widget.banners[i].id);
+            },
             itemBuilder: (_, i) {
               final b = widget.banners[i];
               return GestureDetector(
