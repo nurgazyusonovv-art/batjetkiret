@@ -67,6 +67,8 @@ class Order {
         return 'Электроника';
       case 'household':
         return 'Үй-тиричилик буюмдары';
+      case 'autoparts':
+        return 'Унаа тетиктери';
       case 'flowers':
         return 'Гүлдөр';
       case 'documents':

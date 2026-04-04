@@ -35,6 +35,7 @@ const CATEGORIES = [
   { value: 'clothes', label: 'Кийим' },
   { value: 'electronics', label: 'Электроника' },
   { value: 'household', label: 'Үй-тиричилик буюмдары' },
+  { value: 'autoparts', label: 'Унаа тетиктери' },
   { value: 'flowers', label: 'Гүлдөр' },
   { value: 'documents', label: 'Документтер' },
   { value: 'other', label: 'Башка' },
