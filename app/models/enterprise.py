@@ -4,7 +4,7 @@ from app.core.database import Base
 
 
 VALID_CATEGORIES = {
-    'food', 'groceries', 'pharmacy', 'clothes',
+    'food', 'taxi', 'intercity', 'groceries', 'pharmacy', 'clothes',
     'electronics', 'household', 'autoparts', 'flowers', 'documents', 'other',
 }
 

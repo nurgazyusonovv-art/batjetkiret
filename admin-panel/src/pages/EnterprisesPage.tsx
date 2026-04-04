@@ -30,9 +30,11 @@ const YANDEX_API_KEY = import.meta.env.VITE_YANDEX_API_KEY ?? '';
 
 const CATEGORIES = [
   { value: 'food', label: 'Тамак-аш' },
+  { value: 'taxi', label: 'Такси' },
+  { value: 'intercity', label: 'Шаарлар аралык' },
   { value: 'groceries', label: 'Азык-түлүк' },
   { value: 'pharmacy', label: 'Дарыкана' },
-  { value: 'clothes', label: 'Кийим' },
+  { value: 'clothes', label: 'Кийим-кече' },
   { value: 'electronics', label: 'Электроника' },
   { value: 'household', label: 'Үй-тиричилик буюмдары' },
   { value: 'autoparts', label: 'Унаа тетиктери' },
