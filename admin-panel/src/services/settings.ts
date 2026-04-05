@@ -11,6 +11,8 @@ export const SETTING_KEYS = {
   COURIER_CANCEL_PENALTY: 'courier_cancel_penalty',
   DELIVERY_BASE: 'delivery_base_price',
   DELIVERY_PER_KM: 'delivery_price_per_km',
+  TAXI_BASE: 'taxi_base_price',
+  TAXI_PER_KM: 'taxi_price_per_km',
   CONTACT_TELEGRAM: 'contact_telegram',
   CONTACT_WHATSAPP: 'contact_whatsapp',
 } as const;

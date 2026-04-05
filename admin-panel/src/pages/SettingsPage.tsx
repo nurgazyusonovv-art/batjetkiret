@@ -30,6 +30,12 @@ export default function SettingsPage() {
   const [priceSaving, setPriceSaving] = useState(false);
   const [priceMsg, setPriceMsg] = useState('');
 
+  // ── Taxi pricing ──────────────────────────────────────────────────────────
+  const [taxiBase, setTaxiBase] = useState('100');
+  const [taxiPerKm, setTaxiPerKm] = useState('30');
+  const [taxiSaving, setTaxiSaving] = useState(false);
+  const [taxiMsg, setTaxiMsg] = useState('');
+
   // ── Contact info ──────────────────────────────────────────────────────────
   const [telegram, setTelegram] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
@@ -65,6 +71,8 @@ export default function SettingsPage() {
       if (data[SETTING_KEYS.COURIER_CANCEL_PENALTY]) setPenalty(data[SETTING_KEYS.COURIER_CANCEL_PENALTY].value);
       if (data[SETTING_KEYS.DELIVERY_BASE]) setBasePrice(data[SETTING_KEYS.DELIVERY_BASE].value);
       if (data[SETTING_KEYS.DELIVERY_PER_KM]) setPerKm(data[SETTING_KEYS.DELIVERY_PER_KM].value);
+      if (data[SETTING_KEYS.TAXI_BASE]) setTaxiBase(data[SETTING_KEYS.TAXI_BASE].value);
+      if (data[SETTING_KEYS.TAXI_PER_KM]) setTaxiPerKm(data[SETTING_KEYS.TAXI_PER_KM].value);
       if (data[SETTING_KEYS.CONTACT_TELEGRAM]) setTelegram(data[SETTING_KEYS.CONTACT_TELEGRAM].value);
       if (data[SETTING_KEYS.CONTACT_WHATSAPP]) setWhatsapp(data[SETTING_KEYS.CONTACT_WHATSAPP].value);
     } catch { /* silent */ }
@@ -147,6 +155,28 @@ export default function SettingsPage() {
     }
   };
 
+  const saveTaxiPricing = async () => {
+    const base = parseFloat(taxiBase);
+    const km = parseFloat(taxiPerKm);
+    if (isNaN(base) || base < 0 || isNaN(km) || km < 0) {
+      setTaxiMsg('Туура сан киргизиңиз');
+      return;
+    }
+    setTaxiSaving(true);
+    setTaxiMsg('');
+    try {
+      await Promise.all([
+        settingsService.updateSetting(SETTING_KEYS.TAXI_BASE, String(base)),
+        settingsService.updateSetting(SETTING_KEYS.TAXI_PER_KM, String(km)),
+      ]);
+      setTaxiMsg('✓ Сакталды');
+    } catch {
+      setTaxiMsg('Сактоодо ката кетти');
+    } finally {
+      setTaxiSaving(false);
+    }
+  };
+
   const saveContact = async () => {
     setContactSaving(true);
     setContactMsg('');
@@ -168,6 +198,12 @@ export default function SettingsPage() {
     const km = parseFloat(perKm) || 0;
     return [1, 3, 5, 10].map(d => ({ km: d, price: Math.round(base + d * km) }));
   }, [basePrice, perKm]);
+
+  const taxiPreview = useMemo(() => {
+    const base = parseFloat(taxiBase) || 0;
+    const km = parseFloat(taxiPerKm) || 0;
+    return [1, 3, 5, 10].map(d => ({ km: d, price: Math.round(base + d * km) }));
+  }, [taxiBase, taxiPerKm]);
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return users;
@@ -383,11 +419,80 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* ── Section 3: Balance top-up ── */}
+      {/* ── Section 3: Taxi pricing ── */}
+      <div className="sp-section">
+        <div className="sp-section-title">
+          <Truck size={18} />
+          Такси акысынын формуласы
+        </div>
+
+        <div className="sp-delivery-pricing">
+          <div className="sp-delivery-formula">
+            <div className="sp-formula-field">
+              <div className="sp-fee-label">Башкы баа (сом)</div>
+              <div className="sp-fee-desc">Такси заказынын аралыгынан көз карандысыз туруктуу баа</div>
+              <div className="sp-fee-input-wrap" style={{ marginTop: 8 }}>
+                <input
+                  type="number" min="0" step="1"
+                  value={taxiBase}
+                  onChange={e => { setTaxiBase(e.target.value); setTaxiMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="100"
+                />
+                <span className="sp-fee-unit">сом</span>
+              </div>
+            </div>
+
+            <div className="sp-formula-plus">+</div>
+
+            <div className="sp-formula-field">
+              <div className="sp-fee-label">1 км үчүн баа (сом)</div>
+              <div className="sp-fee-desc">Ар бир километр үчүн кошулуучу сумма</div>
+              <div className="sp-fee-input-wrap" style={{ marginTop: 8 }}>
+                <input
+                  type="number" min="0" step="1"
+                  value={taxiPerKm}
+                  onChange={e => { setTaxiPerKm(e.target.value); setTaxiMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="30"
+                />
+                <span className="sp-fee-unit">сом/км</span>
+              </div>
+            </div>
+
+            <div className="sp-formula-plus">×</div>
+            <div className="sp-formula-km-label">км</div>
+          </div>
+
+          <div className="sp-delivery-preview">
+            <div className="sp-preview-title">Мисалдар:</div>
+            {taxiPreview.map(({ km, price }) => (
+              <div key={km} className="sp-preview-row">
+                <span>{km} км</span>
+                <span className="sp-preview-price">{price} сом</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="sp-fee-input-row" style={{ marginTop: 16 }}>
+          <button className="sp-save-btn" onClick={saveTaxiPricing} disabled={taxiSaving}>
+            <Save size={15} />
+            {taxiSaving ? 'Сакталууда...' : 'Сактоо'}
+          </button>
+          {taxiMsg && (
+            <div className={`sp-fee-msg ${taxiMsg.startsWith('✓') ? 'success' : 'error'}`}>
+              {taxiMsg}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Section 4: Balance top-up ── */}
       <div className="sp-section">
         <div className="sp-section-title">
           <Wallet size={18} />
-          Колдонуучуга баланс кошуу
+          Колдонуучуга баланс кошуу (эскирген, UserDetail бетти колдонуңуз)
         </div>
 
         <div className="sp-topup-layout">

@@ -5,7 +5,7 @@ import { User } from '@/types';
 import {
   ArrowLeft, User as UserIcon, Phone, Shield, Truck,
   Star, Package, CheckCircle, XCircle, RefreshCw,
-  Wallet, Calendar, ChevronLeft, ChevronRight,
+  Wallet, Calendar, ChevronLeft, ChevronRight, PlusCircle, MinusCircle,
 } from 'lucide-react';
 import './UserDetailPage.css';
 
@@ -52,6 +52,10 @@ export default function UserDetailPage() {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [page, setPage] = useState(1);
 
+  const [balanceAmount, setBalanceAmount] = useState('');
+  const [balanceSaving, setBalanceSaving] = useState(false);
+  const [balanceError, setBalanceError] = useState<string | null>(null);
+
   useEffect(() => {
     loadUser();
   }, [userId]);
@@ -83,6 +87,25 @@ export default function UserDetailPage() {
       /* silent */
     } finally {
       setOrdersLoading(false);
+    }
+  };
+
+  const handleBalanceAdjust = async (sign: 1 | -1) => {
+    const parsed = parseFloat(balanceAmount);
+    if (!balanceAmount || isNaN(parsed) || parsed <= 0) {
+      setBalanceError('Туура сумма жазыңыз');
+      return;
+    }
+    setBalanceSaving(true);
+    setBalanceError(null);
+    try {
+      await userService.adjustBalance(userId, sign * parsed, 'admin_manual');
+      setBalanceAmount('');
+      await loadUser();
+    } catch {
+      setBalanceError('Баланс өзгөртүүдө ката кетти');
+    } finally {
+      setBalanceSaving(false);
     }
   };
 
@@ -209,6 +232,40 @@ export default function UserDetailPage() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Balance adjust */}
+      <div className="ud-section">
+        <h2 className="ud-section-title">Баланс өзгөртүү</h2>
+        <div className="ud-balance-adjust">
+          <input
+            className="ud-balance-input"
+            type="number"
+            min="0"
+            step="any"
+            placeholder="Сумма (сом)"
+            value={balanceAmount}
+            onChange={e => { setBalanceAmount(e.target.value); setBalanceError(null); }}
+            disabled={balanceSaving}
+          />
+          <button
+            className="ud-balance-btn ud-balance-add"
+            onClick={() => handleBalanceAdjust(1)}
+            disabled={balanceSaving}
+            title="Кошуу"
+          >
+            <PlusCircle size={16} /> Кошуу
+          </button>
+          <button
+            className="ud-balance-btn ud-balance-sub"
+            onClick={() => handleBalanceAdjust(-1)}
+            disabled={balanceSaving}
+            title="Алып салуу"
+          >
+            <MinusCircle size={16} /> Алып салуу
+          </button>
+        </div>
+        {balanceError && <div className="ud-balance-error">{balanceError}</div>}
       </div>
 
       {/* Ratings section (couriers only) */}

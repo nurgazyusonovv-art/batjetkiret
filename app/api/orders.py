@@ -20,7 +20,7 @@ from app.models.user_rating import UserRating
 from app.schemas.order import OrderCreateRequest, OrderResponse
 from app.core.config import settings
 from app.services.pricing import calculate_price
-from app.api.admin import get_delivery_pricing, get_user_service_fee
+from app.api.admin import get_delivery_pricing, get_taxi_pricing, get_user_service_fee
 from app.services.wallet import charge_platform_fee
 from app.services.order_status import apply_status_change
 
@@ -170,7 +170,7 @@ def create_order(
             detail="Балансыңыз терс. Заказ берүү үчүн алгач балансыңызды толуктаңыз",
         )
 
-    # Intercity orders use fixed city price; regular orders use distance-based price.
+    # Intercity orders use fixed city price; taxi uses taxi pricing; others use delivery pricing.
     if data.category == "intercity":
         if not data.intercity_city_id:
             raise HTTPException(status_code=400, detail="intercity_city_id is required for intercity orders")
@@ -181,6 +181,9 @@ def create_order(
         if not city:
             raise HTTPException(status_code=404, detail="City not found or inactive")
         price = float(city.price)
+    elif data.category == "taxi":
+        base, per_km = get_taxi_pricing(db)
+        price = calculate_price(data.distance_km, base, per_km)
     else:
         base, per_km = get_delivery_pricing(db)
         price = calculate_price(data.distance_km, base, per_km)
@@ -503,7 +506,10 @@ def update_order(
 
     # Recalculate price if distance changed
     if "distance_km" in data and data["distance_km"] is not None:
-        base, per_km = get_delivery_pricing(db)
+        if order.category == "taxi":
+            base, per_km = get_taxi_pricing(db)
+        else:
+            base, per_km = get_delivery_pricing(db)
         order.price = calculate_price(float(data["distance_km"]), base, per_km)
 
     db.commit()

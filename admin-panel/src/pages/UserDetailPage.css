@@ -281,3 +281,38 @@
   .ud-info-grid { grid-template-columns: 1fr 1fr; }
   .ud-addr-cell { max-width: 120px; }
 }
+
+.ud-balance-adjust {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ud-balance-input {
+  width: 160px;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.ud-balance-input:focus { border-color: #6366f1; }
+.ud-balance-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.ud-balance-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ud-balance-add { background: #dcfce7; color: #15803d; }
+.ud-balance-add:hover:not(:disabled) { background: #bbf7d0; }
+.ud-balance-sub { background: #fee2e2; color: #b91c1c; }
+.ud-balance-sub:hover:not(:disabled) { background: #fecaca; }
+.ud-balance-error { margin-top: 8px; color: #b91c1c; font-size: 13px; }

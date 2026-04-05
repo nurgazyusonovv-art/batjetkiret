@@ -1782,13 +1782,15 @@ def test_push(
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 SETTING_DEFAULTS = {
-    "courier_service_fee":    ("5",  "Курьерден алынуучу комиссия (сом, ар бир аяктаган заказ үчүн)"),
-    "user_service_fee":       ("5",  "Колдонуучудан алынуучу комиссия (сом, заказ берген учурда)"),
-    "courier_cancel_penalty": ("10", "Курьер заказдан баш тарткандагы штраф (сом)"),
-    "delivery_base_price":    ("80", "Жеткирүү акысынын башкы баасы (сом)"),
-    "delivery_price_per_km":  ("20", "1 км үчүн жеткирүү баасы (сом)"),
-    "contact_telegram":       ("",   "Администратордун Telegram username (@жок)"),
-    "contact_whatsapp":       ("",   "Администратордун WhatsApp номери (996XXXXXXXXX)"),
+    "courier_service_fee":    ("5",   "Курьерден алынуучу комиссия (сом, ар бир аяктаган заказ үчүн)"),
+    "user_service_fee":       ("5",   "Колдонуучудан алынуучу комиссия (сом, заказ берген учурда)"),
+    "courier_cancel_penalty": ("10",  "Курьер заказдан баш тарткандагы штраф (сом)"),
+    "delivery_base_price":    ("80",  "Жеткирүү акысынын башкы баасы (сом)"),
+    "delivery_price_per_km":  ("20",  "1 км үчүн жеткирүү баасы (сом)"),
+    "taxi_base_price":        ("100", "Такси акысынын башкы баасы (сом)"),
+    "taxi_price_per_km":      ("30",  "Такси: 1 км үчүн баа (сом)"),
+    "contact_telegram":       ("",    "Администратордун Telegram username (@жок)"),
+    "contact_whatsapp":       ("",    "Администратордун WhatsApp номери (996XXXXXXXXX)"),
 }
 
 # Keys that are visible to all authenticated users (no admin required)
@@ -1799,6 +1801,8 @@ PUBLIC_SETTING_KEYS = {
     "courier_service_fee",
     "delivery_base_price",
     "delivery_price_per_km",
+    "taxi_base_price",
+    "taxi_price_per_km",
 }
 
 
@@ -1819,6 +1823,19 @@ def get_delivery_pricing(db: Session) -> tuple[float, float]:
         per_km = float(_get_setting(db, "delivery_price_per_km"))
     except (ValueError, TypeError):
         per_km = 20.0
+    return base, per_km
+
+
+def get_taxi_pricing(db: Session) -> tuple[float, float]:
+    """Return (base_price, price_per_km) for taxi orders from DB settings."""
+    try:
+        base = float(_get_setting(db, "taxi_base_price"))
+    except (ValueError, TypeError):
+        base = 100.0
+    try:
+        per_km = float(_get_setting(db, "taxi_price_per_km"))
+    except (ValueError, TypeError):
+        per_km = 30.0
     return base, per_km
 
 
