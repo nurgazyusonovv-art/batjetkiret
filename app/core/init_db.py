@@ -7,34 +7,37 @@ def _migrate(engine):
     """Incremental schema migrations — each runs in its own connection/transaction."""
     import logging
     logger = logging.getLogger("app.init_db")
-    # Note: SQLite <3.37.0 doesn't support IF NOT EXISTS in ALTER TABLE ADD COLUMN,
-    # so we use plain ADD COLUMN and let the try/except catch "duplicate column" errors.
+    # PostgreSQL-safe migrations using IF NOT EXISTS (supported in PG 9.6+).
+    # lock_timeout prevents ALTER TABLE from hanging indefinitely waiting for locks.
     migrations = [
-        "ALTER TABLE orders ADD COLUMN order_type VARCHAR DEFAULT 'delivery'",
-        "ALTER TABLE orders ADD COLUMN table_number VARCHAR",
-        "ALTER TABLE orders ADD COLUMN hidden_for_enterprise BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE users ADD COLUMN current_latitude FLOAT",
-        "ALTER TABLE users ADD COLUMN current_longitude FLOAT",
-        "ALTER TABLE orders ADD COLUMN intercity_city_id INTEGER",
-        "ALTER TABLE users ADD COLUMN fcm_token VARCHAR",
-        "ALTER TABLE orders ADD COLUMN items_total NUMERIC(10,2)",
-        "ALTER TABLE orders ADD COLUMN source VARCHAR DEFAULT 'online'",
-        "ALTER TABLE enterprises ADD COLUMN payment_qr_url VARCHAR",
-        "ALTER TABLE orders ADD COLUMN cancel_requested BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE orders ADD COLUMN cancel_request_reason TEXT",
-        "ALTER TABLE enterprise_products ADD COLUMN image_url TEXT",
-        "ALTER TABLE ad_popups ADD COLUMN enterprise_id INTEGER REFERENCES enterprises(id) ON DELETE SET NULL",
-        "ALTER TABLE banners ADD COLUMN view_count INTEGER DEFAULT 0",
-        "ALTER TABLE banners ADD COLUMN show_days INTEGER DEFAULT 0",
-        "ALTER TABLE banners ADD COLUMN created_at TIMESTAMP",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR DEFAULT 'delivery'",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS table_number VARCHAR",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS hidden_for_enterprise BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_latitude FLOAT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_longitude FLOAT",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS intercity_city_id INTEGER",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS items_total NUMERIC(10,2)",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS source VARCHAR DEFAULT 'online'",
+        "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS payment_qr_url VARCHAR",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_requested BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_request_reason TEXT",
+        "ALTER TABLE enterprise_products ADD COLUMN IF NOT EXISTS image_url TEXT",
+        "ALTER TABLE ad_popups ADD COLUMN IF NOT EXISTS enterprise_id INTEGER REFERENCES enterprises(id) ON DELETE SET NULL",
+        "ALTER TABLE banners ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0",
+        "ALTER TABLE banners ADD COLUMN IF NOT EXISTS show_days INTEGER DEFAULT 0",
+        "ALTER TABLE banners ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
     ]
     for sql in migrations:
         try:
             with engine.connect() as conn:
+                # 3-second lock timeout prevents ALTER TABLE from blocking requests
+                conn.execute(text("SET lock_timeout = '3s'"))
                 conn.execute(text(sql))
                 conn.commit()
         except Exception as e:
-            logger.debug(f"Migration skipped (already applied): {sql.split('ADD COLUMN')[1].strip().split()[0] if 'ADD COLUMN' in sql else sql}")
+            col = sql.split('ADD COLUMN')[1].strip().split()[1] if 'ADD COLUMN' in sql else sql[:40]
+            logger.debug(f"Migration skipped: {col} — {e}")
 
     # Data migration: backfill items_total for existing enterprise local/dine-in orders
     # For these orders price was already set to items total (not delivery fee).

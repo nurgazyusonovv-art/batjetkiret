@@ -22,7 +22,7 @@ from app.api import enterprise_portal
 from app.api import intercity
 from app.api import banners
 from app.api import ad_popup
-from app.core.init_db import _init_db_with_retry
+from app.core.init_db import init_db
 
 configure_logging(level=settings.LOG_LEVEL, json_logs=settings.LOG_JSON)
 logger = logging.getLogger("app.request")
@@ -33,7 +33,7 @@ app.state.limiter = limiter
 
 @app.on_event("startup")
 def startup_init_db():
-    _init_db_with_retry()
+    init_db()  # runs in background daemon thread — does not block the event loop
 
 # Custom exception handler for rate limit exceeded
 @app.exception_handler(RateLimitExceeded)
