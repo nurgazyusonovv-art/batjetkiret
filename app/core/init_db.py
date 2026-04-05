@@ -26,7 +26,7 @@ def _migrate(engine):
         "ALTER TABLE ad_popups ADD COLUMN enterprise_id INTEGER REFERENCES enterprises(id) ON DELETE SET NULL",
         "ALTER TABLE banners ADD COLUMN view_count INTEGER DEFAULT 0",
         "ALTER TABLE banners ADD COLUMN show_days INTEGER DEFAULT 0",
-        "ALTER TABLE banners ADD COLUMN created_at DATETIME",
+        "ALTER TABLE banners ADD COLUMN created_at TIMESTAMP",
     ]
     for sql in migrations:
         try:
