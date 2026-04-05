@@ -895,11 +895,11 @@ def adjust_balance(
     if not user:
         raise HTTPException(status_code=404)
 
-    user.balance += amount
+    user.balance = (user.balance or Decimal("0")) + Decimal(str(amount))
     db.add(
         Transaction(
             user_id=user.id,
-            amount=amount,
+            amount=Decimal(str(amount)),
             type="ADMIN_ADJUST",
         )
     )
