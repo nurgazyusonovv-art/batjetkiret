@@ -137,7 +137,8 @@ async def upload_enterprise_logo(
     e = db.query(Enterprise).filter(Enterprise.id == enterprise_id).first()
     if not e:
         raise HTTPException(status_code=404, detail="Ишкана табылган жок")
-    if e.owner_user_id != current_user.id and not current_user.is_admin:
+    is_portal_user = current_user.is_enterprise and current_user.enterprise_id == enterprise_id
+    if e.owner_user_id != current_user.id and not current_user.is_admin and not is_portal_user:
         raise HTTPException(status_code=403, detail="Уруксат жок")
 
     content_type = file.content_type or ""
@@ -170,7 +171,8 @@ def update_working_hours(
     e = db.query(Enterprise).filter(Enterprise.id == enterprise_id).first()
     if not e:
         raise HTTPException(status_code=404, detail="Ишкана табылган жок")
-    if e.owner_user_id != current_user.id and not current_user.is_admin:
+    is_portal_user = current_user.is_enterprise and current_user.enterprise_id == enterprise_id
+    if e.owner_user_id != current_user.id and not current_user.is_admin and not is_portal_user:
         raise HTTPException(status_code=403, detail="Уруксат жок")
 
     e.open_time = data.open_time
