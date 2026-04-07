@@ -1233,26 +1233,20 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     );
   }
 
-  Widget _buildEnterpriseLogoWidget(Enterprise ent) {
+  Widget _buildEnterpriseCardBackground(Enterprise ent) {
     if (ent.logoData != null && ent.logoData!.isNotEmpty) {
       try {
         final bytes = base64Decode(ent.logoData!.contains(',')
             ? ent.logoData!.split(',').last
             : ent.logoData!);
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.memory(bytes, width: 40, height: 40, fit: BoxFit.contain),
-        );
+        return Image.memory(bytes, fit: BoxFit.cover);
       } catch (_) {}
     }
     return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
+      color: AppColors.primarySoft,
+      child: const Center(
+        child: Icon(Icons.store, color: AppColors.primary, size: 48),
       ),
-      child: const Icon(Icons.store, color: AppColors.primary, size: 22),
     );
   }
 
@@ -1375,7 +1369,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1.05,
+                childAspectRatio: 0.85,
               ),
               itemCount: enterprises.length,
               itemBuilder: (_, i) {
@@ -1384,73 +1378,87 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 return GestureDetector(
                   onTap: () => _onEnterpriseSelected(ent),
                   child: Opacity(
-                    opacity: isClosed ? 0.65 : 1.0,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.primarySoft,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    opacity: isClosed ? 0.7 : 1.0,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Stack(
+                        fit: StackFit.expand,
                         children: [
-                          Row(
-                            children: [
-                              _buildEnterpriseLogoWidget(ent),
-                              if (isClosed) ...[
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade50,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: Colors.red.shade200),
-                                  ),
-                                  child: Text(
-                                    'Жабык',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.red.shade700,
+                          // Background: logo image or color
+                          _buildEnterpriseCardBackground(ent),
+
+                          // Bottom gradient overlay
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withValues(alpha: 0.62),
+                                  ],
+                                ),
+                              ),
+                              padding: const EdgeInsets.fromLTRB(10, 20, 10, 10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    ent.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      shadows: [
+                                        Shadow(blurRadius: 4, color: Colors.black54),
+                                      ],
                                     ),
                                   ),
+                                  if (ent.openTime != null && ent.closeTime != null) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${ent.openTime} – ${ent.closeTime}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isClosed
+                                            ? Colors.red.shade300
+                                            : Colors.green.shade300,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // "Жабык" badge top-right
+                          if (isClosed)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade600,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                              ],
-                            ],
-                          ),
-                          const Spacer(),
-                          Text(
-                            ent.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          if (ent.address != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              ent.address!,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[600],
+                                child: const Text(
+                                  'Жабык',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
                             ),
-                          ],
-                          if (ent.openTime != null && ent.closeTime != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              '${ent.openTime} – ${ent.closeTime}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: isClosed ? Colors.red.shade400 : Colors.green.shade600,
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ),
@@ -1565,6 +1573,32 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                   ],
                 ),
               ),
+              if (ent.prepTimeMinutes != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.timer_outlined, size: 13, color: AppColors.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        '~${ent.prepTimeMinutes} мүн',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (ent.phone != null)
                 Icon(Icons.phone, color: Colors.grey[400], size: 18),
             ],

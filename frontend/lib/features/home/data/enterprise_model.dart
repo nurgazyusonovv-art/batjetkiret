@@ -11,6 +11,7 @@ class Enterprise {
   final String? openTime;
   final String? closeTime;
   final bool? isOpen;
+  final int? prepTimeMinutes;
 
   Enterprise({
     required this.id,
@@ -25,6 +26,7 @@ class Enterprise {
     this.openTime,
     this.closeTime,
     this.isOpen,
+    this.prepTimeMinutes,
   });
 
   factory Enterprise.fromJson(Map<String, dynamic> json) {
@@ -41,6 +43,7 @@ class Enterprise {
       openTime: json['open_time'] as String?,
       closeTime: json['close_time'] as String?,
       isOpen: json['is_open'] as bool?,
+      prepTimeMinutes: json['prep_time_minutes'] as int?,
     );
   }
 }
