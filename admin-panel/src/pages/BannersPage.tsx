@@ -23,11 +23,14 @@ export default function BannersPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [createImageFile, setCreateImageFile] = useState<File | null>(null);
+  const [createImagePreview, setCreateImagePreview] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState(emptyForm);
   const [editSaving, setEditSaving] = useState(false);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const createFileInputRef = useRef<HTMLInputElement>(null);
   const pendingBannerIdRef = useRef<number | null>(null);
 
   const load = async () => {
@@ -42,10 +45,25 @@ export default function BannersPage() {
 
   useEffect(() => { load(); }, []);
 
+  const handleCreateImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCreateImageFile(file);
+    setCreateImagePreview(URL.createObjectURL(file));
+  };
+
+  const clearCreateForm = () => {
+    setForm(emptyForm);
+    setCreateImageFile(null);
+    if (createImagePreview) URL.revokeObjectURL(createImagePreview);
+    setCreateImagePreview(null);
+    setShowForm(false);
+  };
+
   const handleCreate = async () => {
     setSaving(true);
     try {
-      await api.post('/admin/banners', {
+      const res = await api.post<Banner>('/admin/banners', {
         title: form.title || null,
         subtitle: form.subtitle || null,
         link_url: form.link_url || null,
@@ -53,8 +71,15 @@ export default function BannersPage() {
         sort_order: Number(form.sort_order),
         show_days: Number(form.show_days),
       });
-      setForm(emptyForm);
-      setShowForm(false);
+      // Upload image immediately if one was selected
+      if (createImageFile) {
+        const fd = new FormData();
+        fd.append('file', createImageFile);
+        await api.post(`/admin/banners/${res.data.id}/image`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
+      clearCreateForm();
       load();
     } finally {
       setSaving(false);
@@ -153,8 +178,38 @@ export default function BannersPage() {
         <div className="banner-form-card">
           <div className="banner-form-title">
             <span>Жаңы баннер</span>
-            <button onClick={() => setShowForm(false)}><X size={18} /></button>
+            <button onClick={clearCreateForm}><X size={18} /></button>
           </div>
+
+          {/* Image picker */}
+          <div className="banner-create-image-area" onClick={() => createFileInputRef.current?.click()}>
+            {createImagePreview ? (
+              <img src={createImagePreview} alt="preview" className="banner-create-image-preview" />
+            ) : (
+              <div className="banner-create-image-placeholder">
+                <Upload size={28} />
+                <span>Сүрөт тандоо (милдеттүү эмес)</span>
+              </div>
+            )}
+          </div>
+          {createImagePreview && (
+            <button className="banner-create-image-clear" onClick={() => {
+              URL.revokeObjectURL(createImagePreview);
+              setCreateImagePreview(null);
+              setCreateImageFile(null);
+              if (createFileInputRef.current) createFileInputRef.current.value = '';
+            }}>
+              <X size={14} /> Сүрөттү алып салуу
+            </button>
+          )}
+          <input
+            ref={createFileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleCreateImageChange}
+          />
+
           <div className="banner-form-grid">
             <div className="form-field">
               <label>Аталышы</label>
@@ -184,7 +239,7 @@ export default function BannersPage() {
             </div>
           </div>
           <div className="banner-form-actions">
-            <button className="btn-cancel" onClick={() => setShowForm(false)}>Жокко чыгаруу</button>
+            <button className="btn-cancel" onClick={clearCreateForm}>Жокко чыгаруу</button>
             <button className="btn-save" onClick={handleCreate} disabled={saving}>
               <Save size={16} /> {saving ? 'Сакталууда...' : 'Сактоо'}
             </button>
