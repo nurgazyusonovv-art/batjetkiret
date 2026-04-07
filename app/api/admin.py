@@ -1978,6 +1978,8 @@ def cancel_requests_count(
 
 class CancelDecisionBody(BaseModel):
     admin_note: str = ""
+    user_deduct_amount: float | None = None   # custom amount to deduct/refund from user; None = use default
+    courier_payout_amount: float | None = None  # custom payout to courier; None = use default
 
 
 @router.post("/cancel-requests/{order_id}/approve")
@@ -1993,17 +1995,20 @@ def approve_cancel_request(
     if not order:
         raise HTTPException(status_code=404, detail="Суроо табылган жок")
 
-    user_refund_amt = get_user_service_fee(db)
-    courier_payout_amt = float(_get_setting(db, "courier_service_fee") or "5")
+    # Use custom amounts if provided, else fall back to defaults from settings
+    default_user_refund = get_user_service_fee(db)
+    default_courier_payout = float(_get_setting(db, "courier_service_fee") or "5")
+    user_refund_amt = body.user_deduct_amount if body.user_deduct_amount is not None else default_user_refund
+    courier_payout_amt = body.courier_payout_amount if body.courier_payout_amount is not None else default_courier_payout
 
     # Refund user's service fee (was charged on order creation)
-    if order.user_id:
+    if order.user_id and user_refund_amt > 0:
         user = db.query(User).filter(User.id == order.user_id).first()
         if user:
             refund(db, user, order.id, user_refund_amt)
 
     # Payout courier compensation for accepted but cancelled order
-    if order.courier_id:
+    if order.courier_id and courier_payout_amt > 0:
         courier = db.query(User).filter(User.id == order.courier_id).first()
         if courier:
             payout(db, courier, order.id, courier_payout_amt)

@@ -27,8 +27,17 @@ export const cancelRequestsService = {
     return res.data.count;
   },
 
-  async approve(orderId: number, adminNote = ''): Promise<void> {
-    await api.post(`/admin/cancel-requests/${orderId}/approve`, { admin_note: adminNote });
+  async approve(
+    orderId: number,
+    adminNote = '',
+    userDeductAmount?: number,
+    courierPayoutAmount?: number,
+  ): Promise<void> {
+    await api.post(`/admin/cancel-requests/${orderId}/approve`, {
+      admin_note: adminNote,
+      user_deduct_amount: userDeductAmount,
+      courier_payout_amount: courierPayoutAmount,
+    });
   },
 
   async reject(orderId: number, adminNote = ''): Promise<void> {

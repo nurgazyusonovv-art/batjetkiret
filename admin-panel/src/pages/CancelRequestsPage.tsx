@@ -19,6 +19,8 @@ const STATUS_COLORS: Record<string, string> = {
 interface ConfirmModal {
   req: CancelRequest;
   note: string;
+  userDeductAmount: number;
+  courierPayoutAmount: number;
 }
 
 export default function CancelRequestsPage() {
@@ -26,6 +28,8 @@ export default function CancelRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
   const [noteMap, setNoteMap] = useState<Record<number, string>>({});
+  const [userDeductMap, setUserDeductMap] = useState<Record<number, string>>({});
+  const [courierPayoutMap, setCourierPayoutMap] = useState<Record<number, string>>({});
   const [confirmModal, setConfirmModal] = useState<ConfirmModal | null>(null);
 
   const load = async () => {
@@ -33,6 +37,15 @@ export default function CancelRequestsPage() {
     try {
       const data = await cancelRequestsService.list();
       setRequests(data);
+      // Pre-fill amount fields from server defaults
+      const deductInit: Record<number, string> = {};
+      const payoutInit: Record<number, string> = {};
+      data.forEach(r => {
+        deductInit[r.id] = String(r.user_refund_amount);
+        payoutInit[r.id] = String(r.courier_payout_amount);
+      });
+      setUserDeductMap(deductInit);
+      setCourierPayoutMap(payoutInit);
     } finally {
       setLoading(false);
     }
@@ -41,16 +54,21 @@ export default function CancelRequestsPage() {
   useEffect(() => { load(); }, []);
 
   const openApproveModal = (req: CancelRequest) => {
-    setConfirmModal({ req, note: noteMap[req.id] || '' });
+    setConfirmModal({
+      req,
+      note: noteMap[req.id] || '',
+      userDeductAmount: parseFloat(userDeductMap[req.id] ?? String(req.user_refund_amount)) || 0,
+      courierPayoutAmount: parseFloat(courierPayoutMap[req.id] ?? String(req.courier_payout_amount)) || 0,
+    });
   };
 
   const confirmApprove = async () => {
     if (!confirmModal) return;
-    const { req, note } = confirmModal;
+    const { req, note, userDeductAmount, courierPayoutAmount } = confirmModal;
     setConfirmModal(null);
     setActionId(req.id);
     try {
-      await cancelRequestsService.approve(req.id, note);
+      await cancelRequestsService.approve(req.id, note, userDeductAmount, courierPayoutAmount);
       setRequests(prev => prev.filter(r => r.id !== req.id));
     } catch {
       alert('Ката кетти');
@@ -139,11 +157,27 @@ export default function CancelRequestsPage() {
                 <div className="crp-finance-preview">
                   <div className="crp-finance-item crp-finance-refund">
                     <ArrowDownLeft size={14} />
-                    <span>Колдонуучуга кайтарылат: <strong>{req.user_refund_amount} сом</strong></span>
+                    <span>Колдонуучуга кайтарылат:</span>
+                    <input
+                      className="crp-amount-input"
+                      type="number"
+                      min="0"
+                      value={userDeductMap[req.id] ?? String(req.user_refund_amount)}
+                      onChange={e => setUserDeductMap(prev => ({ ...prev, [req.id]: e.target.value }))}
+                    />
+                    <span>сом</span>
                   </div>
                   <div className="crp-finance-item crp-finance-payout">
                     <ArrowUpRight size={14} />
-                    <span>Курьерге берилет: <strong>{req.courier_payout_amount} сом</strong></span>
+                    <span>Курьерге берилет:</span>
+                    <input
+                      className="crp-amount-input"
+                      type="number"
+                      min="0"
+                      value={courierPayoutMap[req.id] ?? String(req.courier_payout_amount)}
+                      onChange={e => setCourierPayoutMap(prev => ({ ...prev, [req.id]: e.target.value }))}
+                    />
+                    <span>сом</span>
                   </div>
                 </div>
 
@@ -206,7 +240,7 @@ export default function CancelRequestsPage() {
                 <ArrowDownLeft size={16} />
                 <div>
                   <div className="crp-modal-finance-label">Колдонуучуга кайтарылат</div>
-                  <div className="crp-modal-finance-amount">+{confirmModal.req.user_refund_amount} сом</div>
+                  <div className="crp-modal-finance-amount">+{confirmModal.userDeductAmount} сом</div>
                   <div className="crp-modal-finance-desc">{confirmModal.req.user_name || confirmModal.req.user_phone}</div>
                 </div>
               </div>
@@ -214,7 +248,7 @@ export default function CancelRequestsPage() {
                 <ArrowUpRight size={16} />
                 <div>
                   <div className="crp-modal-finance-label">Курьерге компенсация</div>
-                  <div className="crp-modal-finance-amount">+{confirmModal.req.courier_payout_amount} сом</div>
+                  <div className="crp-modal-finance-amount">+{confirmModal.courierPayoutAmount} сом</div>
                   <div className="crp-modal-finance-desc">{confirmModal.req.courier_name || confirmModal.req.courier_phone || '—'}</div>
                 </div>
               </div>

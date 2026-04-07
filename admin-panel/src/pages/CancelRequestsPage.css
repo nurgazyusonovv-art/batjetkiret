@@ -129,6 +129,21 @@
   background: #eff6ff; color: #1e40af;
   border: 1px solid #bfdbfe;
 }
+.crp-amount-input {
+  width: 70px;
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  background: transparent;
+  color: inherit;
+  text-align: right;
+  outline: none;
+}
+.crp-amount-input:focus {
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+}
 
 /* Modal overlay */
 .crp-modal-overlay {

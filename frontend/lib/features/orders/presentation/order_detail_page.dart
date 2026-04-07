@@ -1715,28 +1715,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Future<void> _cancelUserOrder() async {
-    // Тастыктоо диалогу
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Жокко чыгаруу'),
-        content: const Text('Бул заказды жокко чыгарууну каалайсызбы?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Жок'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.accent5),
-            child: const Text('Ооба'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
+    // No confirmation needed for pending (unaccepted) orders — cancel immediately
     try {
       await _detailCubit.cancelOrder(widget.token);
       if (!mounted) return;
@@ -1748,7 +1727,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         ),
       );
 
-      // Артка кайтуу
       Navigator.pop(context);
     } catch (error) {
       if (!mounted) return;
