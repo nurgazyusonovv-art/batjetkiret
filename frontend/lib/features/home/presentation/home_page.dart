@@ -1233,6 +1233,29 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     );
   }
 
+  Widget _buildEnterpriseLogoWidget(Enterprise ent) {
+    if (ent.logoData != null && ent.logoData!.isNotEmpty) {
+      try {
+        final bytes = base64Decode(ent.logoData!.contains(',')
+            ? ent.logoData!.split(',').last
+            : ent.logoData!);
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.memory(bytes, width: 40, height: 40, fit: BoxFit.contain),
+        );
+      } catch (_) {}
+    }
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: const Icon(Icons.store, color: AppColors.primary, size: 22),
+    );
+  }
+
   // ── Step bodies ─────────────────────────────────────────────────────────────
 
   Widget _buildEnterpriseSelectionBody() {
@@ -1357,54 +1380,79 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               itemCount: enterprises.length,
               itemBuilder: (_, i) {
                 final ent = enterprises[i];
+                final isClosed = ent.isOpen == false;
                 return GestureDetector(
                   onTap: () => _onEnterpriseSelected(ent),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.primarySoft,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
+                  child: Opacity(
+                    opacity: isClosed ? 0.65 : 1.0,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.primarySoft,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              _buildEnterpriseLogoWidget(ent),
+                              if (isClosed) ...[
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.red.shade200),
+                                  ),
+                                  child: Text(
+                                    'Жабык',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.red.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                          child: const Icon(
-                            Icons.store,
-                            color: AppColors.primary,
-                            size: 22,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          ent.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                        if (ent.address != null) ...[
-                          const SizedBox(height: 4),
+                          const Spacer(),
                           Text(
-                            ent.address!,
+                            ent.name,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[600],
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
                             ),
                           ),
+                          if (ent.address != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              ent.address!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                          if (ent.openTime != null && ent.closeTime != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '${ent.openTime} – ${ent.closeTime}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isClosed ? Colors.red.shade400 : Colors.green.shade600,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 );

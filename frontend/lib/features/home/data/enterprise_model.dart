@@ -7,6 +7,10 @@ class Enterprise {
   final String? phone;
   final double? lat;
   final double? lon;
+  final String? logoData;
+  final String? openTime;
+  final String? closeTime;
+  final bool? isOpen;
 
   Enterprise({
     required this.id,
@@ -17,6 +21,10 @@ class Enterprise {
     this.phone,
     this.lat,
     this.lon,
+    this.logoData,
+    this.openTime,
+    this.closeTime,
+    this.isOpen,
   });
 
   factory Enterprise.fromJson(Map<String, dynamic> json) {
@@ -29,6 +37,10 @@ class Enterprise {
       phone: json['phone'] as String?,
       lat: (json['lat'] as num?)?.toDouble(),
       lon: (json['lon'] as num?)?.toDouble(),
+      logoData: json['logo_data'] as String?,
+      openTime: json['open_time'] as String?,
+      closeTime: json['close_time'] as String?,
+      isOpen: json['is_open'] as bool?,
     );
   }
 }
