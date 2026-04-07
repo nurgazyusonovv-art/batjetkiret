@@ -310,10 +310,15 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: hasLocation
-                          ? () => Navigator.of(context).pop({
-                                'location': _selectedLocation,
-                                'address': _selectedAddress,
-                              })
+                          ? () {
+                              // Pass data via callback (reliable on Flutter web),
+                              // then simply close the screen without return value.
+                              widget.onLocationSelected(
+                                _selectedLocation!,
+                                _selectedAddress!,
+                              );
+                              Navigator.of(context).pop();
+                            }
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
@@ -446,10 +451,11 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
                   ),
                 ),
                 onPressed: () {
-                  Navigator.of(context).pop({
-                    'location': _selectedLocation,
-                    'address': _selectedAddress,
-                  });
+                  widget.onLocationSelected(
+                    _selectedLocation!,
+                    _selectedAddress!,
+                  );
+                  Navigator.of(context).pop();
                 },
                 child: const Text(
                   'Бул адресстерди танда',

@@ -34,27 +34,25 @@ class _CompactMapPreviewState extends State<CompactMapPreview> {
   }
 
   Future<void> _openFullMap() async {
-    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+    await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (context) => MapPickerWidget(
           initialLocation: _selectedLocation,
           initialAddress: _selectedAddress,
           title: widget.label,
-          onLocationSelected: (location, address) {},
+          // Data is transferred here (callback) — not via pop return value,
+          // which is unreliable on Flutter web.
+          onLocationSelected: (location, address) {
+            setState(() {
+              _selectedLocation = location;
+              _selectedAddress = address;
+            });
+            widget.onLocationChanged(location, address);
+          },
         ),
         fullscreenDialog: true,
       ),
     );
-
-    if (result != null && mounted) {
-      final location = result['location'] as LatLng;
-      final address = result['address'] as String;
-      setState(() {
-        _selectedLocation = location;
-        _selectedAddress = address;
-      });
-      widget.onLocationChanged(location, address);
-    }
   }
 
   @override
