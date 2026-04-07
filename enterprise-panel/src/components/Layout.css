@@ -72,6 +72,19 @@
   flex-shrink: 0;
 }
 
+.ep-logo-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.ep-logo-img.mini {
+  width: 36px;
+  height: 36px;
+}
+
 .ep-sidebar-info h2 {
   font-size: 14px;
   font-weight: 700;

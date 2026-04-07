@@ -10,6 +10,7 @@ import 'package:frontend/features/profile/presentation/notifications_page.dart';
 import 'package:frontend/features/profile/presentation/transaction_history_page.dart';
 import 'package:frontend/features/profile/presentation/contact_admin_page.dart';
 import 'package:frontend/features/profile/presentation/change_password_page.dart';
+import 'package:frontend/features/profile/presentation/about_page.dart';
 import '../data/user_api.dart' as user_api_lib;
 import 'package:frontend/features/profile/presentation/topup_page.dart';
 
@@ -716,6 +717,14 @@ class _ProfilePageState extends State<ProfilePage> {
         icon: Icons.share_outlined,
         label: 'Достор менен бөлүшүү',
         onTap: () {},
+      ),
+      _MenuItem(
+        icon: Icons.info_outline,
+        label: 'Программа жөнүндө',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AboutPage()),
+        ),
       ),
     ];
 

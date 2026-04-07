@@ -12,7 +12,7 @@ import 'package:frontend/features/home/data/enterprise_model.dart';
 import 'package:frontend/features/home/data/banner_api.dart';
 import 'package:frontend/features/home/data/banner_model.dart';
 import 'package:frontend/features/home/data/ad_popup_api.dart';
-import 'package:frontend/features/home/data/ad_popup_model.dart';
+import 'package:http/http.dart';
 import 'banner_carousel.dart';
 import 'ad_popup_overlay.dart';
 import 'package:frontend/features/home/presentation/cubit/home_cubit.dart';
@@ -215,7 +215,7 @@ class _HomePageState extends State<HomePage> {
                               ],
                             ),
                           ),
-                        )
+                        ),
                   ],
                 ),
               ),
@@ -237,7 +237,10 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 8),
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 0),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFEE2E2),
                     borderRadius: BorderRadius.circular(12),
@@ -265,180 +268,180 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: homeState.isCourier
                     ? homeState.isCourierLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : homeState.courierError != null
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.error_outline,
-                                      size: 46,
-                                      color: Colors.grey[400],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                      ),
-                                      child: Text(
-                                        homeState.courierError!,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(color: Colors.grey[600]),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    AppButton.primary(
-                                      onPressed: () => context
-                                          .read<HomeCubit>()
-                                          .loadCourierHomeData(widget.token),
-                                      label: 'Кайра жүктөө',
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : homeState.availableOrders.isEmpty
-                                ? Center(
-                                    child: Text(
-                                      'Азыр күтүүдөгү заказдар жок',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  )
-                                : ListView.builder(
+                          ? const Center(child: CircularProgressIndicator())
+                          : homeState.courierError != null
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    size: 46,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Padding(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 16.0,
+                                      horizontal: 24,
                                     ),
-                                    itemCount: homeState.availableOrders.length,
-                                    itemBuilder: (context, index) {
-                                      final order = homeState.availableOrders[index];
-                                      final isAccepting = homeState.acceptingOrderIds
-                                          .contains(order.id);
-                                      return Container(
-                                        margin: const EdgeInsets.only(bottom: 12),
-                                        padding: const EdgeInsets.all(14),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(16),
-                                          border: Border.all(color: AppColors.border),
+                                    child: Text(
+                                      homeState.courierError!,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: Colors.grey[600]),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  AppButton.primary(
+                                    onPressed: () => context
+                                        .read<HomeCubit>()
+                                        .loadCourierHomeData(widget.token),
+                                    label: 'Кайра жүктөө',
+                                  ),
+                                ],
+                              ),
+                            )
+                          : homeState.availableOrders.isEmpty
+                          ? Center(
+                              child: Text(
+                                'Азыр күтүүдөгү заказдар жок',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 16,
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0,
+                              ),
+                              itemCount: homeState.availableOrders.length,
+                              itemBuilder: (context, index) {
+                                final order = homeState.availableOrders[index];
+                                final isAccepting = homeState.acceptingOrderIds
+                                    .contains(order.id);
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: AppColors.border),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primarySoft,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Center(
+                                              child: Icon(
+                                                _categoryIconFor(
+                                                  order.category,
+                                                ),
+                                                size: 20,
+                                                color: AppColors.primary,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              order.categoryName,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.textPrimary,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            '${(order.estimatedPrice ?? 0).toStringAsFixed(0)} сом',
+                                            style: const TextStyle(
+                                              color: AppColors.primary,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        '${order.fromAddress} → ${order.toAddress}',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          height: 1.35,
                                         ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Container(
-                                                  width: 40,
-                                                  height: 40,
-                                                  decoration: BoxDecoration(
-                                                    color: AppColors.primarySoft,
-                                                    borderRadius:
-                                                        BorderRadius.circular(12),
-                                                  ),
-                                                  child: Center(
-                                                    child: Icon(
-                                                      _categoryIconFor(
-                                                        order.category,
-                                                      ),
-                                                      size: 20,
-                                                      color: AppColors.primary,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Expanded(
-                                                  child: Text(
-                                                    order.categoryName,
-                                                    style: const TextStyle(
-                                                      fontWeight: FontWeight.w700,
-                                                      color: AppColors.textPrimary,
-                                                      fontSize: 16,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Text(
-                                                  '${(order.estimatedPrice ?? 0).toStringAsFixed(0)} сом',
-                                                  style: const TextStyle(
-                                                    color: AppColors.primary,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 10),
-                                            Text(
-                                              '${order.fromAddress} → ${order.toAddress}',
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: AppColors.textSecondary,
-                                                height: 1.35,
-                                              ),
-                                            ),
-                                            if (order.description
-                                                .trim()
-                                                .isNotEmpty) ...[
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                order.description,
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  color: AppColors.textPrimary,
-                                                  fontSize: 13,
-                                                ),
-                                              ),
-                                            ],
-                                            const SizedBox(height: 12),
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: OutlinedButton(
-                                                    onPressed: () {
-                                                      Navigator.of(context).push(
-                                                        MaterialPageRoute(
-                                                          builder: (context) =>
-                                                              OrderDetailPage(
-                                                                order: order,
-                                                                token: widget.token,
-                                                                isCourier: homeState
-                                                                    .isCourier,
-                                                              ),
+                                      ),
+                                      if (order.description
+                                          .trim()
+                                          .isNotEmpty) ...[
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          order.description,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: AppColors.textPrimary,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: OutlinedButton(
+                                              onPressed: () {
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        OrderDetailPage(
+                                                          order: order,
+                                                          token: widget.token,
+                                                          isCourier: homeState
+                                                              .isCourier,
                                                         ),
-                                                      );
-                                                    },
-                                                    style: OutlinedButton.styleFrom(
-                                                      side: BorderSide(
-                                                        color: AppColors.border,
-                                                      ),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(12),
-                                                      ),
-                                                    ),
-                                                    child: const Text('Деталь'),
                                                   ),
+                                                );
+                                              },
+                                              style: OutlinedButton.styleFrom(
+                                                side: BorderSide(
+                                                  color: AppColors.border,
                                                 ),
-                                                const SizedBox(width: 10),
-                                                Expanded(
-                                                  child: AppButton.primary(
-                                                    onPressed: isAccepting
-                                                        ? null
-                                                        : () => _acceptOrder(order),
-                                                    isLoading: isAccepting,
-                                                    label: 'Кабыл алуу',
-                                                  ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
                                                 ),
-                                              ],
+                                              ),
+                                              child: const Text('Деталь'),
                                             ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  )
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: AppButton.primary(
+                                              onPressed: isAccepting
+                                                  ? null
+                                                  : () => _acceptOrder(order),
+                                              isLoading: isAccepting,
+                                              label: 'Кабыл алуу',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            )
                     : CustomScrollView(
                         slivers: [
                           // ── Реклама карусели ──────────────────────────────
@@ -456,162 +459,101 @@ class _HomePageState extends State<HomePage> {
                             sliver: SliverGrid(
                               gridDelegate:
                                   const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: 1.15,
-                              ),
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) {
-                                  final category = _filteredCategories[index];
-                                  final cardColor = _categoryColor(index);
-                                  final iconBgColor = _categoryIconBg(index);
+                                    crossAxisCount: 2,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: 1.15,
+                                  ),
+                              delegate: SliverChildBuilderDelegate((
+                                context,
+                                index,
+                              ) {
+                                final category = _filteredCategories[index];
+                                final cardColor = _categoryColor(index);
+                                final iconBgColor = _categoryIconBg(index);
 
-                                  return TweenAnimationBuilder<double>(
-                                    tween: Tween(begin: 0, end: 1),
-                                    duration: Duration(
-                                      milliseconds: 200 + ((index % 8) * 40),
+                                return TweenAnimationBuilder<double>(
+                                  tween: Tween(begin: 0, end: 1),
+                                  duration: Duration(
+                                    milliseconds: 200 + ((index % 8) * 40),
+                                  ),
+                                  curve: Curves.easeOutCubic,
+                                  builder: (context, value, child) => Opacity(
+                                    opacity: value,
+                                    child: Transform.translate(
+                                      offset: Offset(0, (1 - value) * 14),
+                                      child: child,
                                     ),
-                                    curve: Curves.easeOutCubic,
-                                    builder: (context, value, child) =>
-                                        Opacity(
-                                      opacity: value,
-                                      child: Transform.translate(
-                                        offset: Offset(0, (1 - value) * 14),
-                                        child: child,
-                                      ),
+                                  ),
+                                  child: GestureDetector(
+                                    onTapDown: (_) => setState(
+                                      () => _pressedCategoryIndex = index,
                                     ),
-                                    child: GestureDetector(
-                                      onTapDown: (_) => setState(
-                                          () => _pressedCategoryIndex = index),
-                                      onTapCancel: () => setState(
-                                          () => _pressedCategoryIndex = null),
-                                      onTapUp: (_) => setState(
-                                          () => _pressedCategoryIndex = null),
-                                      onTap: () {
-                                        if (category.id == 'intercity') {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) => IntercityOrderPage(
-                                                token: widget.token,
-                                                userId: user?.id ?? 0,
-                                              ),
+                                    onTapCancel: () => setState(
+                                      () => _pressedCategoryIndex = null,
+                                    ),
+                                    onTapUp: (_) => setState(
+                                      () => _pressedCategoryIndex = null,
+                                    ),
+                                    onTap: () {
+                                      if (category.id == 'intercity') {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => IntercityOrderPage(
+                                              token: widget.token,
+                                              userId: user?.id ?? 0,
                                             ),
-                                          );
-                                        } else {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  OrderCreatePage(
-                                                token: widget.token,
-                                                selectedCategory: category,
-                                                initialFromAddress:
-                                                    user?.address ??
-                                                    (homeState.selectedLocation !=
-                                                            'адрес киргиз'
-                                                        ? homeState
+                                          ),
+                                        );
+                                      } else {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) => OrderCreatePage(
+                                              token: widget.token,
+                                              selectedCategory: category,
+                                              initialFromAddress:
+                                                  user?.address ??
+                                                  (homeState.selectedLocation !=
+                                                          'адрес киргиз'
+                                                      ? homeState
                                                             .selectedLocation
-                                                        : null),
-                                              ),
+                                                      : null),
                                             ),
-                                          );
-                                        }
-                                      },
-                                      child: AnimatedScale(
-                                        scale: _pressedCategoryIndex == index
-                                            ? 0.97
-                                            : 1.0,
-                                        duration:
-                                            const Duration(milliseconds: 120),
-                                        curve: Curves.easeOut,
-                                        child: Stack(
-                                          children: [
-                                            Container(
-                                              width: double.infinity,
-                                              padding: const EdgeInsets.all(12),
-                                              decoration: BoxDecoration(
-                                                color: cardColor,
-                                                borderRadius:
-                                                    BorderRadius.circular(22),
-                                              ),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Container(
-                                                    width: 52,
-                                                    height: 52,
-                                                    decoration: BoxDecoration(
-                                                      color: iconBgColor,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              13),
-                                                    ),
-                                                    child: Center(
-                                                      child: Icon(
-                                                        category.icon,
-                                                        size: 26,
-                                                        color: Colors.white,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const Spacer(),
-                                                  Text(
-                                                    category.name,
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 15,
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  const Text(
-                                                    'Тандоо үчүн басыңыз',
-                                                    style: TextStyle(
-                                                      color: Color(0xFFFDF2E8),
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            Positioned(
-                                              right: 0,
-                                              top: 0,
-                                              child: Container(
-                                                width: 34,
-                                                height: 34,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius:
-                                                      const BorderRadius.only(
-                                                    topRight:
-                                                        Radius.circular(22),
-                                                    bottomLeft:
-                                                        Radius.circular(22),
-                                                  ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: AnimatedScale(
+                                      scale: _pressedCategoryIndex == index
+                                          ? 0.97
+                                          : 1.0,
+                                      duration: const Duration(
+                                        milliseconds: 120,
+                                      ),
+                                      curve: Curves.easeOut,
+                                      child: Stack(
+                                        children: [
+                                          Container(
+                                            width: double.infinity,
+                                            decoration: BoxDecoration(
+                                              color: cardColor,
+                                              image: DecorationImage(
+                                                image: AssetImage(
+                                                  category.icon,
                                                 ),
-                                                child: Icon(
-                                                  Icons.north_east,
-                                                  size: 15,
-                                                  color: cardColor,
-                                                ),
+                                                fit: BoxFit.fill,
                                               ),
+                                              borderRadius:
+                                                  BorderRadius.circular(22),
                                             ),
-                                          ],
-                                        ),
+                                            child: SizedBox(height: 155),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  );
-                                },
-                                childCount: _filteredCategories.length,
-                              ),
+                                  ),
+                                );
+                              }, childCount: _filteredCategories.length),
                             ),
                           ),
                         ],
@@ -647,7 +589,6 @@ class _HomePageState extends State<HomePage> {
     return palette[index % palette.length];
   }
 }
-
 
 // ── Order creation screen — Multi-step wizard ─────────────────────────────────
 
@@ -899,8 +840,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
   Future<void> _getMyLocation({required bool isFrom}) async {
     setState(() {
-      if (isFrom) { _isGettingFromLocation = true; }
-      else { _isGettingToLocation = true; }
+      if (isFrom) {
+        _isGettingFromLocation = true;
+      } else {
+        _isGettingToLocation = true;
+      }
     });
     try {
       LocationPermission permission = await Geolocator.checkPermission();
@@ -949,8 +893,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     } finally {
       if (mounted) {
         setState(() {
-          if (isFrom) { _isGettingFromLocation = false; }
-          else { _isGettingToLocation = false; }
+          if (isFrom) {
+            _isGettingFromLocation = false;
+          } else {
+            _isGettingToLocation = false;
+          }
         });
       }
     }
@@ -1021,7 +968,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
       if (enterpriseId != null) {
         final orderId = orderData['id'] as int?;
-        final amount = (orderData['items_total'] as num?)?.toDouble() ?? itemsTotal;
+        final amount =
+            (orderData['items_total'] as num?)?.toDouble() ?? itemsTotal;
         if (orderId != null) {
           await showModalBottomSheet(
             context: context,
@@ -1048,9 +996,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     } catch (error) {
       if (!mounted) return;
       final msg = error.toString().replaceFirst('Exception: ', '');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.red),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
     }
   }
 
@@ -1139,11 +1087,17 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                         ),
                         child: Center(
                           child: isCompleted
-                              ? const Icon(Icons.check, color: Colors.white, size: 16)
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 16,
+                                )
                               : Text(
                                   '$stepNum',
                                   style: TextStyle(
-                                    color: isActive ? Colors.white : Colors.grey[600],
+                                    color: isActive
+                                        ? Colors.white
+                                        : Colors.grey[600],
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
                                   ),
@@ -1155,8 +1109,12 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                         labels[i],
                         style: TextStyle(
                           fontSize: 11,
-                          color: isActive ? AppColors.primary : Colors.grey[600],
-                          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                          color: isActive
+                              ? AppColors.primary
+                              : Colors.grey[600],
+                          fontWeight: isActive
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                       ),
                     ],
@@ -1205,7 +1163,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               ),
               border: Border.all(color: AppColors.border),
               boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 4,
+                ),
               ],
             ),
             child: ListView(
@@ -1213,12 +1174,18 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               physics: const NeverScrollableScrollPhysics(),
               children: _filteredSuggestions(controller.text)
                   .take(4)
-                  .map((addr) => ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.location_on, size: 16, color: AppColors.primary),
-                        title: Text(addr, style: const TextStyle(fontSize: 13)),
-                        onTap: () => setState(() => controller.text = addr),
-                      ))
+                  .map(
+                    (addr) => ListTile(
+                      dense: true,
+                      leading: const Icon(
+                        Icons.location_on,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                      title: Text(addr, style: const TextStyle(fontSize: 13)),
+                      onTap: () => setState(() => controller.text = addr),
+                    ),
+                  )
                   .toList(),
             ),
           ),
@@ -1280,10 +1247,16 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(_enterpriseError!, textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red)),
+              Text(
+                _enterpriseError!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
               const SizedBox(height: 16),
-              AppButton.primary(label: 'Кайра жүктөө', onPressed: _fetchEnterprises),
+              AppButton.primary(
+                label: 'Кайра жүктөө',
+                onPressed: _fetchEnterprises,
+              ),
             ],
           ),
         ),
@@ -1298,23 +1271,49 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Category badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(widget.selectedCategory.icon, size: 16, color: AppColors.primary),
-                const SizedBox(width: 6),
-                Text(widget.selectedCategory.name,
-                    style: const TextStyle(color: AppColors.primary, fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-              ],
-            ),
+          Row(
+            children: [
+              Container(
+                width: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  image: DecorationImage(
+                    image: AssetImage(widget.selectedCategory.icon),
+                    fit: BoxFit.cover, // 👈 Мына ушул өзгөрдү
+                  ),
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [const SizedBox(width: 6), SizedBox(height: 32)],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: AppColors.primary),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.selectedCategory.name,
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
 
@@ -1324,7 +1323,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 padding: const EdgeInsets.symmetric(vertical: 32),
                 child: Column(
                   children: [
-                    Icon(Icons.store_outlined, size: 56, color: Colors.grey[300]),
+                    Icon(
+                      Icons.store_outlined,
+                      size: 56,
+                      color: Colors.grey[300],
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'Бул категорияда ишканалар жок',
@@ -1337,8 +1340,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           else ...[
             Text(
               'Ишкана тандаңыз',
-              style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             GridView.builder(
@@ -1372,7 +1376,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                             color: AppColors.primary.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.store, color: AppColors.primary, size: 22),
+                          child: const Icon(
+                            Icons.store,
+                            color: AppColors.primary,
+                            size: 22,
+                          ),
                         ),
                         const Spacer(),
                         Text(
@@ -1390,7 +1398,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                             ent.address!,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                            ),
                           ),
                         ],
                       ],
@@ -1404,7 +1415,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
           // Manual / other enterprise button
           AppButton.secondary(
-            label: enterprises.isEmpty ? 'Адрести кол менен киргизүү' : 'Башка ишкана',
+            label: enterprises.isEmpty
+                ? 'Адрести кол менен киргизүү'
+                : 'Башка ишкана',
             onPressed: _onManualEnterprise,
           ),
           const SizedBox(height: 32),
@@ -1425,12 +1438,16 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(_menuError!, textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red)),
+              Text(
+                _menuError!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
               const SizedBox(height: 16),
               AppButton.primary(
                 label: 'Кайра жүктөө',
-                onPressed: () => _fetchEnterpriseMenu(_cubit.state.enterpriseId!),
+                onPressed: () =>
+                    _fetchEnterpriseMenu(_cubit.state.enterpriseId!),
               ),
             ],
           ),
@@ -1485,11 +1502,18 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(ent.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(
+                      ent.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
                     if (ent.address != null)
-                      Text(ent.address!,
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      Text(
+                        ent.address!,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
                   ],
                 ),
               ),
@@ -1517,7 +1541,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                       Expanded(child: _buildProductCard(products[i], state)),
                       const SizedBox(width: 10),
                       if (i + 1 < products.length)
-                        Expanded(child: _buildProductCard(products[i + 1], state))
+                        Expanded(
+                          child: _buildProductCard(products[i + 1], state),
+                        )
                       else
                         const Expanded(child: SizedBox()),
                     ],
@@ -1565,34 +1591,53 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 GestureDetector(
                   onTap: () => _showSelectedItemsSheet(state),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primarySoft,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.receipt_long, size: 18, color: AppColors.primary),
+                        const Icon(
+                          Icons.receipt_long,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
                         const SizedBox(width: 6),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('${state.totalItemCount} товар',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+                            Text(
+                              '${state.totalItemCount} товар',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 11,
+                              ),
+                            ),
                             Text(
                               '${itemsTotal.toStringAsFixed(0)} сом',
                               style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: AppColors.primary),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: AppColors.primary,
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.keyboard_arrow_up, size: 18, color: AppColors.primary),
+                        const Icon(
+                          Icons.keyboard_arrow_up,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
                       ],
                     ),
                   ),
@@ -1649,13 +1694,25 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                             decoration: BoxDecoration(
                               color: AppColors.primarySoft,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                              border: Border.all(
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                              ),
                             ),
-                            child: const Icon(Icons.remove, size: 16, color: AppColors.primary),
+                            child: const Icon(
+                              Icons.remove,
+                              size: 16,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text(
+                          '$qty',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
                         const SizedBox(width: 8),
                         // Plus
                         GestureDetector(
@@ -1671,20 +1728,27 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                               color: AppColors.primary,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.add, size: 16, color: Colors.white),
+                            child: const Icon(
+                              Icons.add,
+                              size: 16,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Text(product.name,
-                              style: const TextStyle(fontSize: 14)),
+                          child: Text(
+                            product.name,
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ),
                         Text(
                           '${(product.price * qty).toStringAsFixed(0)} сом',
                           style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                              fontSize: 14),
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),
@@ -1727,11 +1791,16 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                     const SizedBox(width: 8),
                     Text(
                       'Тандалган товарлар',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                      ),
                     ),
                     const Spacer(),
-                    Text('$count даана',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                    Text(
+                      '$count даана',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -1740,8 +1809,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Center(
-                      child: Text('Эч нерсе тандалган жок',
-                          style: TextStyle(color: Colors.grey[500])),
+                      child: Text(
+                        'Эч нерсе тандалган жок',
+                        style: TextStyle(color: Colors.grey[500]),
+                      ),
                     ),
                   )
                 else
@@ -1755,15 +1826,21 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Text('Жалпы:',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Text(
+                      'Жалпы:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                     const Spacer(),
                     Text(
                       '${_buildItemsTotal().toStringAsFixed(0)} сом',
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                          color: AppColors.primary),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ],
                 ),
@@ -1794,8 +1871,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         children: [
           Text(
             'Жөнөтүүнүн адресси',
-            style: Theme.of(context).textTheme.titleLarge
-                ?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text(
@@ -1817,7 +1895,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
             onChanged: (loc, addr) {
               setState(() {
                 _selectedFromLocation = loc;
-                if (addr != null) { _fromAddressController.text = addr; }
+                if (addr != null) {
+                  _fromAddressController.text = addr;
+                }
               });
             },
             locationColor: Colors.green,
@@ -1836,8 +1916,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         children: [
           Text(
             'Жеткирүүнүн адресси',
-            style: Theme.of(context).textTheme.titleLarge
-                ?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text(
@@ -1859,7 +1940,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
             onChanged: (loc, addr) {
               setState(() {
                 _selectedToLocation = loc;
-                if (addr != null) { _toAddressController.text = addr; }
+                if (addr != null) {
+                  _toAddressController.text = addr;
+                }
               });
             },
             locationColor: Colors.blue,
@@ -1879,7 +1962,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: AppColors.primary),
           padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
         icon: isLoading
             ? const SizedBox(
@@ -1890,7 +1975,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
             : const Icon(Icons.my_location, size: 18, color: AppColors.primary),
         label: Text(
           isLoading ? 'Аныкталуудa...' : 'Менин учурдагы ордум',
-          style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );
@@ -1898,8 +1986,13 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
   Widget _buildDescriptionBody(OrderCreateState state) {
     final distKm = state.calculatedDistance;
+    final isTaxi = widget.selectedCategory.id == 'taxi';
     final price = distKm != null
-        ? (_appSettings.deliveryBasePrice + distKm * _appSettings.deliveryPricePerKm)
+        ? (isTaxi
+              ? (_appSettings.taxiBasePrice +
+                    distKm * _appSettings.taxiPricePerKm)
+              : (_appSettings.deliveryBasePrice +
+                    distKm * _appSettings.deliveryPricePerKm))
         : null;
 
     return SingleChildScrollView(
@@ -1953,11 +2046,19 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Аралык', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      const Text(
+                        'Аралык',
+                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
                       Text(
-                        distKm != null ? '${distKm.toStringAsFixed(1)} км' : 'Эсептелүүдө...',
+                        distKm != null
+                            ? '${distKm.toStringAsFixed(1)} км'
+                            : 'Эсептелүүдө...',
                         style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ],
                   ),
@@ -1966,12 +2067,17 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text('Болжолдуу баа',
-                          style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      const Text(
+                        'Болжолдуу баа',
+                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
                       Text(
                         '${price.toStringAsFixed(0)} сом',
                         style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ],
                   ),
@@ -1990,7 +2096,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, size: 16, color: Colors.amber.shade700),
+                Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Colors.amber.shade700,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -2005,11 +2115,12 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
           // Enterprise path: selected items list
           if (state.isEnterprisePath && _enterpriseMenu != null) ...[
-            Text('Тандалган товарлар',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleSmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'Тандалган товарлар',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(12),
@@ -2036,8 +2147,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                               Text(
                                 '${(product.price * (state.selectedItems[product.id] ?? 0)).toStringAsFixed(0)} сом',
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.primary),
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
                               ),
                             ],
                           ),
@@ -2045,12 +2157,17 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                   const Divider(),
                   Row(
                     children: [
-                      const Text('Жалпы:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Жалпы:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       const Spacer(),
                       Text(
                         '${_buildItemsTotal().toStringAsFixed(0)} сом',
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, color: AppColors.primary),
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ],
                   ),
@@ -2058,8 +2175,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('Кошумча маалымат (милдеттүү эмес)',
-                style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Кошумча маалымат (милдеттүү эмес)',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             const SizedBox(height: 8),
             AppTextField(
               controller: _notesController,
@@ -2067,13 +2186,13 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               hintText: 'Жеткирүүчүгө эскертүү, унутпачу...',
             ),
           ]
-
           // Manual path: description required
           else ...[
             Text(
               'Сыпаттама (милдеттүү)',
-              style: Theme.of(context).textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             AppTextField(
@@ -2103,10 +2222,17 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-              Text(value,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              Text(
+                label,
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
             ],
           ),
         ),
@@ -2209,7 +2335,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               ),
             ),
             body: switch (state.currentStep) {
-              OrderCreateStep.enterpriseSelection => _buildEnterpriseSelectionBody(),
+              OrderCreateStep.enterpriseSelection =>
+                _buildEnterpriseSelectionBody(),
               OrderCreateStep.enterpriseMenu => _buildEnterpriseMenuBody(state),
               OrderCreateStep.pickupLocation => _buildPickupLocationBody(),
               OrderCreateStep.deliveryLocation => _buildDeliveryLocationBody(),
@@ -2222,7 +2349,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     );
   }
 
-  Widget _buildProductCard(EnterpriseMenuProduct product, OrderCreateState state) {
+  Widget _buildProductCard(
+    EnterpriseMenuProduct product,
+    OrderCreateState state,
+  ) {
     final qty = state.selectedItems[product.id] ?? 0;
     final hasImage = product.imageUrl != null && product.imageUrl!.isNotEmpty;
 
@@ -2254,11 +2384,15 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               children: [
                 Text(
                   product.name,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (product.description != null && product.description!.isNotEmpty) ...[
+                if (product.description != null &&
+                    product.description!.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
                     product.description!,
@@ -2316,7 +2450,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                         child: Text(
                           '$qty',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                       GestureDetector(
@@ -2328,7 +2465,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                             color: AppColors.primary,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.add, size: 17, color: Colors.white),
+                          child: const Icon(
+                            Icons.add,
+                            size: 17,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ],
@@ -2377,5 +2518,4 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       ),
     );
   }
-
 }

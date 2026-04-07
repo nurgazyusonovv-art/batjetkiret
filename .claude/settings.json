@@ -18,7 +18,10 @@
       "Bash(find /Users/nurgazyuson/python_projects/batjetkiret-backend/enterprise-panel/src -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
       "Bash(ls /Users/nurgazyuson/python_projects/batjetkiret-backend/admin-panel/.env*)",
       "Bash(ls /Users/nurgazyuson/python_projects/batjetkiret-backend/admin-panel/vite.config*)",
-      "Bash(find /Users/nurgazyuson/python_projects/batjetkiret-backend/app -name limiter.py -o -name rate*)"
+      "Bash(find /Users/nurgazyuson/python_projects/batjetkiret-backend/app -name limiter.py -o -name rate*)",
+      "Bash(python3 -c \"import sys,json; pkgs=json.load\\(sys.stdin\\)['packages']; print\\([p['name'] for p in pkgs if 'web' in p['name'].lower\\(\\)][:10]\\)\")",
+      "Bash(vercel --prod --yes)",
+      "Bash(git -C /Users/nurgazyuson/python_projects/batjetkiret-backend remote -v)"
     ]
   }
 }

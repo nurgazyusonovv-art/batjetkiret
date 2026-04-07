@@ -1,6 +1,5 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2 } from 'lucide-react';
 import { authService } from '../services/auth';
 import './LoginPage.css';
 
@@ -30,10 +29,10 @@ export default function LoginPage() {
     <div className="ep-login-page">
       <div className="ep-login-card">
         <div className="ep-login-logo">
-          <Building2 size={36} color="#4f46e5" />
+          <img src="/logo.png" alt="Баткен Экспресс" className="ep-login-logo-img" />
         </div>
-        <h1>Ишкана панели</h1>
-        <p className="ep-login-subtitle">Batken Express — ишканаңызды башкаруу</p>
+        <h1>Баткен Экспресс</h1>
+        <p className="ep-login-subtitle">Ишкана башкаруу панели</p>
 
         {error && <div className="ep-login-error">{error}</div>}
 

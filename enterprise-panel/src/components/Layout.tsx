@@ -1,9 +1,9 @@
 import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Package, LogOut, Building2, ShoppingCart,
+  LayoutDashboard, Package, LogOut, ShoppingCart,
   UtensilsCrossed, History, BarChart2, CreditCard, Settings,
-  ChevronLeft, ChevronRight, Menu, X,
+  ChevronLeft, ChevronRight, Menu, X, Info,
 } from 'lucide-react';
 import { authService } from '../services/auth';
 import './Layout.css';
@@ -17,6 +17,7 @@ const navItems = [
   { path: '/history', icon: History, label: 'Тарых' },
   { path: '/reports', icon: BarChart2, label: 'Отчет' },
   { path: '/settings', icon: Settings, label: 'Жөндөөлөр' },
+  { path: '/about', icon: Info, label: 'Программа жөнүндө' },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -31,7 +32,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const SidebarContent = ({ mini }: { mini?: boolean }) => (
     <>
       <div className={`ep-sidebar-header ${mini ? 'mini' : ''}`}>
-        <Building2 size={22} color="#4f46e5" className="ep-logo-icon" />
+        <img src="/logo.png" alt="Баткен Экспресс" className={`ep-logo-img ${mini ? 'mini' : ''}`} />
         {!mini && (
           <div className="ep-sidebar-info">
             <h2>{info?.enterprise_name ?? 'Ишкана'}</h2>
@@ -101,7 +102,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <Menu size={22} />
         </button>
         <div className="ep-mobile-title">
-          <Building2 size={18} color="#4f46e5" />
+          <img src="/logo.png" alt="Баткен Экспресс" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'contain' }} />
           <span>{info?.enterprise_name ?? 'Ишкана'}</span>
         </div>
       </header>

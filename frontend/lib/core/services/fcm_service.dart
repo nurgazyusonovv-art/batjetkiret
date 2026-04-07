@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
@@ -24,6 +25,7 @@ class FcmService {
   static bool _initialized = false;
 
   static Future<void> initialize(String authToken) async {
+    if (kIsWeb) return;
     if (_initialized) {
       await _syncTokenToBackend(authToken);
       return;

@@ -28,8 +28,9 @@ export default function LoginPage() {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <h1>BATKEN EXPRESS</h1>
-          <p>Admin Panel</p>
+          <img src="/logo.png" alt="Баткен Экспресс" className="login-logo" />
+          <h1>Баткен Экспресс</h1>
+          <p>Админ панель</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">

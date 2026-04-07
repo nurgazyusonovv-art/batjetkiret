@@ -1,0 +1,17 @@
+android/
+ios/
+linux/
+macos/
+windows/
+test/
+.dart_tool/
+.pub-cache/
+.pub/
+build/app/
+build/ios/
+build/linux/
+build/macos/
+build/windows/
+build/flutter_assets/
+.flutter-plugins
+.flutter-plugins-dependencies
