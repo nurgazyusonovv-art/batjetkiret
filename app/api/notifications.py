@@ -25,6 +25,34 @@ def my_notifications(
             "title": n.title,
             "message": n.message,
             "chat_id": n.related_chat_id,
+            "order_id": n.order_id,
+            "is_read": n.is_read,
+            "created_at": n.created_at,
+        }
+        for n in notifs
+    ]
+
+
+@router.get("/for-order/{order_id}")
+def notifications_for_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    notifs = (
+        db.query(Notification)
+        .filter(
+            Notification.user_id == current_user.id,
+            Notification.order_id == order_id,
+        )
+        .order_by(Notification.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": n.id,
+            "title": n.title,
+            "message": n.message,
             "is_read": n.is_read,
             "created_at": n.created_at,
         }

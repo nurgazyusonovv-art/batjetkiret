@@ -13,6 +13,7 @@ class Notification(Base):
     message = Column(String, nullable=False)
 
     related_chat_id = Column(Integer, nullable=True)
+    order_id = Column(Integer, nullable=True)
 
     is_read = Column(Boolean, default=False)
 

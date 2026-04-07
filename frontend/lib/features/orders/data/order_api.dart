@@ -1037,4 +1037,35 @@ class OrderApi {
       throw Exception('Статистиканы жүктөөдө ката кетти');
     }
   }
+
+  /// Заказга байланыштырылган админ билдирүүлөрүн жүктөө
+  Future<List<Map<String, dynamic>>> getOrderNotifications(String token, int orderId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConfig.baseUrl}/notifications/for-order/$orderId'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List<dynamic>;
+        return list.cast<Map<String, dynamic>>();
+      }
+      if (response.statusCode == 401) {
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Билдирүүнү жок кылуу (X баскычы)
+  Future<void> dismissNotification(String token, int notifId) async {
+    try {
+      await http.delete(
+        Uri.parse('${AppConfig.baseUrl}/notifications/$notifId'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+    } catch (_) {}
+  }
 }

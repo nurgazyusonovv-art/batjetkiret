@@ -70,6 +70,7 @@ class AdminUserUpdateRequest(BaseModel):
 class NotificationCreate(BaseModel):
     title: str
     message: str
+    order_id: int | None = None
 
 def _generate_unique_user_id(db: Session) -> str:
     """Generate a unique reference id in BJ000123 format."""
@@ -1091,6 +1092,37 @@ def send_notification_to_user(
     db.commit()
 
     fcm_service.send_push_to_user(user, title=payload.title, body=payload.message)
+
+    return {"ok": True}
+
+
+@router.post("/orders/{order_id}/notify")
+def send_notification_to_order(
+    order_id: int,
+    payload: NotificationCreate,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Send an admin message linked to a specific order (visible in order detail screen)."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ табылган жок")
+
+    user = db.query(User).filter(User.id == order.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Колдонуучу табылган жок")
+
+    notif = Notification(
+        user_id=order.user_id,
+        title=payload.title or f"Заказ №{order_id} жөнүндө",
+        message=payload.message,
+        order_id=order_id,
+        is_read=False,
+    )
+    db.add(notif)
+    db.commit()
+
+    fcm_service.send_push_to_user(user, title=notif.title, body=payload.message)
 
     return {"ok": True}
 

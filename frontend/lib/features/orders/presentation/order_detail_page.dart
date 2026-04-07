@@ -45,6 +45,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   bool _isStatusAuditLoading = false;
   List<OrderStatusAuditEntry> _statusAudit = const [];
   String? _statusAuditError;
+  List<Map<String, dynamic>> _adminMessages = [];
   Position? _userPosition;
   Timer? _locationTimer;
   Timer? _orderRefreshTimer;
@@ -123,6 +124,26 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     await _loadRatingStatus();
     await _loadUnreadChatCount();
     await _loadStatusAudit();
+    await _loadAdminMessages();
+  }
+
+  Future<void> _loadAdminMessages() async {
+    final token = widget.token;
+    if (token == null || token.trim().isEmpty) return;
+    final orderId = _detailCubit.state.currentOrder.id;
+    try {
+      final msgs = await _orderApi.getOrderNotifications(token, orderId);
+      if (mounted) setState(() => _adminMessages = msgs);
+    } catch (_) {}
+  }
+
+  Future<void> _dismissAdminMessage(int notifId) async {
+    final token = widget.token;
+    if (token == null) return;
+    await _orderApi.dismissNotification(token, notifId);
+    if (mounted) {
+      setState(() => _adminMessages.removeWhere((m) => m['id'] == notifId));
+    }
   }
 
   Future<void> _loadStatusAudit({int? orderId}) async {
@@ -250,6 +271,56 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildAdminMessageCard(Map<String, dynamic> msg) {
+    final notifId = msg['id'] as int;
+    final title = msg['title'] as String? ?? 'Админдин билдирүүсү';
+    final message = msg['message'] as String? ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFFCC02), width: 1.2),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.admin_panel_settings, color: Color(0xFFE65100), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFE65100),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF5D4037)),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => _dismissAdminMessage(notifId),
+            child: const Padding(
+              padding: EdgeInsets.only(left: 8),
+              child: Icon(Icons.close, size: 18, color: Color(0xFF9E9E9E)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -845,6 +916,19 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   const SizedBox(height: 24),
 
                   // Order status audit timeline
+                  // ── Админдин билдирүүлөрү ──────────────────────────────
+                  if (_adminMessages.isNotEmpty) ...[
+                    Text(
+                      'Админдин билдирүүлөрү',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ..._adminMessages.map((msg) => _buildAdminMessageCard(msg)),
+                    const SizedBox(height: 24),
+                  ],
+
                   Text(
                     'Статус тарыхы',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(

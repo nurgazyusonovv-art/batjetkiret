@@ -163,7 +163,8 @@ export default function OrdersPage() {
     setNotifySending(true);
     try {
       const { default: api } = await import('@/services/api');
-      await api.post(`/admin/users/${selectedOrder.user_id}/notify`, {
+      // Use order-linked endpoint so the message appears in order detail screen
+      await api.post(`/admin/orders/${selectedOrder.id}/notify`, {
         title: notifyTitle || `Заказ №${selectedOrder.id} жөнүндө`,
         message: notifyMessage,
       });
