@@ -42,6 +42,23 @@ class AuthApi {
     throw Exception(_extractError(data, fallback: 'Login failed'));
   }
 
+  Future<void> resetPassword({
+    required String phone,
+    required String code,
+    required String newPassword,
+  }) async {
+    final response = await http.post(
+      Uri.parse(
+        '${AppConfig.baseUrl}/auth/reset-password?phone=${Uri.encodeComponent(phone)}&code=$code&new_password=${Uri.encodeComponent(newPassword)}',
+      ),
+    );
+
+    if (response.statusCode != 200) {
+      final data = _decode(response.body);
+      throw Exception(_extractError(data, fallback: 'Reset password failed'));
+    }
+  }
+
   Future<String> forgotPassword({required String phone}) async {
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/auth/forgot-password?phone=$phone'),

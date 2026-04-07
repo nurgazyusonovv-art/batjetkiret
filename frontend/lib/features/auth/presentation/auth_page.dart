@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'admin_reset_password_page.dart';
+import 'forgot_password_page.dart';
 import 'cubit/auth_cubit.dart';
 import 'cubit/auth_state.dart';
 
@@ -385,7 +385,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                       : () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const AdminResetPasswordPage(),
+                              builder: (_) => const ForgotPasswordPage(),
                             ),
                           ),
                   style: TextButton.styleFrom(
