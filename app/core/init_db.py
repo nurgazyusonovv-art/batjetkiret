@@ -27,6 +27,9 @@ def _migrate(engine):
         "ALTER TABLE banners ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0",
         "ALTER TABLE banners ADD COLUMN IF NOT EXISTS show_days INTEGER DEFAULT 0",
         "ALTER TABLE banners ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
+        "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS logo_data TEXT",
+        "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS open_time VARCHAR",
+        "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS close_time VARCHAR",
     ]
     for sql in migrations:
         try:

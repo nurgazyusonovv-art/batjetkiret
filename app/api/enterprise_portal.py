@@ -80,6 +80,9 @@ def get_my_enterprise(db: Session = Depends(get_db), auth: Tuple = Depends(requi
         "lon": float(e.lon) if e.lon is not None else None,
         "is_active": e.is_active,
         "payment_qr_url": e.payment_qr_url,
+        "logo_data": e.logo_data,
+        "open_time": e.open_time,
+        "close_time": e.close_time,
     }
 
 

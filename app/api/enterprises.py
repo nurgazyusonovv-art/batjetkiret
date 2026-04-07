@@ -1,13 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
+import base64
 
 from app.api.deps import get_db, get_current_user, require_admin
 from app.models.enterprise import Enterprise, VALID_CATEGORIES
 from app.models.user import User
 from app.core.security import hash_password
+
+_ALLOWED_IMG = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+_MAX_LOGO_BYTES = 2 * 1024 * 1024  # 2 MB
 
 router = APIRouter(prefix="/enterprises", tags=["Enterprises"])
 
@@ -34,6 +38,32 @@ class EnterpriseUpdate(BaseModel):
     lon: Optional[float] = None
 
 
+def _is_open_now(open_time: Optional[str], close_time: Optional[str]) -> Optional[bool]:
+    """Return True/False if enterprise is currently open, None if hours not set."""
+    if not open_time or not close_time:
+        return None
+    try:
+        now = datetime.now(timezone.utc)
+        # Use local time (UTC+6 for Kyrgyzstan — adjust if needed via env)
+        import os
+        tz_offset = int(os.getenv("TZ_OFFSET_HOURS", "6"))
+        from datetime import timedelta
+        local_hour = (now + timedelta(hours=tz_offset)).hour
+        local_minute = (now + timedelta(hours=tz_offset)).minute
+        current_minutes = local_hour * 60 + local_minute
+
+        oh, om = map(int, open_time.split(":"))
+        ch, cm = map(int, close_time.split(":"))
+        open_minutes = oh * 60 + om
+        close_minutes = ch * 60 + cm
+
+        if close_minutes <= open_minutes:  # overnight e.g. 22:00 - 02:00
+            return current_minutes >= open_minutes or current_minutes < close_minutes
+        return open_minutes <= current_minutes < close_minutes
+    except Exception:
+        return None
+
+
 def _enterprise_dict(e: Enterprise, owner: Optional[User] = None) -> dict:
     return {
         "id": e.id,
@@ -45,6 +75,10 @@ def _enterprise_dict(e: Enterprise, owner: Optional[User] = None) -> dict:
         "lat": e.lat,
         "lon": e.lon,
         "is_active": e.is_active,
+        "logo_data": e.logo_data,
+        "open_time": e.open_time,
+        "close_time": e.close_time,
+        "is_open": _is_open_now(e.open_time, e.close_time),
         "owner_user_id": e.owner_user_id,
         "owner_phone": owner.phone if owner else None,
         "owner_name": owner.name if owner else None,
@@ -89,6 +123,63 @@ def register_enterprise(
     return {
         **_enterprise_dict(enterprise, current_user),
         "message": "Ишканаңыз каттоого жиберилди. Администратор тастыктоосун күтүңүз.",
+    }
+
+
+@router.post("/{enterprise_id}/logo")
+async def upload_enterprise_logo(
+    enterprise_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload enterprise logo. Owner or admin only."""
+    e = db.query(Enterprise).filter(Enterprise.id == enterprise_id).first()
+    if not e:
+        raise HTTPException(status_code=404, detail="Ишкана табылган жок")
+    if e.owner_user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Уруксат жок")
+
+    content_type = file.content_type or ""
+    if content_type not in _ALLOWED_IMG:
+        raise HTTPException(status_code=400, detail="Сүрөт форматы туура эмес (JPEG/PNG/WEBP/GIF)")
+
+    data = await file.read()
+    if len(data) > _MAX_LOGO_BYTES:
+        raise HTTPException(status_code=400, detail="Сүрөт өлчөмү 2 МБ дан ашпашы керек")
+
+    encoded = base64.b64encode(data).decode()
+    e.logo_data = f"data:{content_type};base64,{encoded}"
+    db.commit()
+    return {"logo_data": e.logo_data}
+
+
+class WorkingHoursUpdate(BaseModel):
+    open_time: Optional[str] = None   # "09:00" or None to clear
+    close_time: Optional[str] = None
+
+
+@router.put("/{enterprise_id}/working-hours")
+def update_working_hours(
+    enterprise_id: int,
+    data: WorkingHoursUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Set enterprise working hours. Owner or admin only."""
+    e = db.query(Enterprise).filter(Enterprise.id == enterprise_id).first()
+    if not e:
+        raise HTTPException(status_code=404, detail="Ишкана табылган жок")
+    if e.owner_user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Уруксат жок")
+
+    e.open_time = data.open_time
+    e.close_time = data.close_time
+    db.commit()
+    return {
+        "open_time": e.open_time,
+        "close_time": e.close_time,
+        "is_open": _is_open_now(e.open_time, e.close_time),
     }
 
 
@@ -204,6 +295,10 @@ def get_enterprise_menu(
             "description": enterprise.description,
             "lat": enterprise.lat,
             "lon": enterprise.lon,
+            "logo_data": enterprise.logo_data,
+            "open_time": enterprise.open_time,
+            "close_time": enterprise.close_time,
+            "is_open": _is_open_now(enterprise.open_time, enterprise.close_time),
         },
         "menu": menu,
     }

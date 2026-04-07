@@ -31,6 +31,9 @@ class Enterprise(Base):
 
     is_active = Column(Boolean, default=False)  # Activated by admin after review
     payment_qr_url = Column(String, nullable=True)  # QR code for payment (base64 data URL)
+    logo_data = Column(String, nullable=True)       # base64 data URL logo
+    open_time = Column(String, nullable=True)       # "09:00"
+    close_time = Column(String, nullable=True)      # "22:00"
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
