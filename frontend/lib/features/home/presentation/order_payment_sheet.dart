@@ -1,7 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -29,7 +30,11 @@ class OrderPaymentSheet extends StatefulWidget {
 
 class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
   String? _paymentQrUrl;
-  File? _screenshot;
+
+  // Use bytes + filename instead of dart:io File (web-compatible)
+  Uint8List? _screenshotBytes;
+  String _screenshotName = 'screenshot.jpg';
+
   bool _loadingQr = true;
   bool _submitting = false;
   String? _error;
@@ -65,15 +70,21 @@ class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
       imageQuality: 85,
       requestFullMetadata: false,
     );
-    if (picked != null) {
-      setState(() {
-        _screenshot = File(picked.path);
-        _error = null;
-      });
-    }
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    setState(() {
+      _screenshotBytes = bytes;
+      _screenshotName = picked.name.isNotEmpty ? picked.name : 'screenshot.jpg';
+      _error = null;
+    });
   }
 
   void _showImageSourceSheet() {
+    // On web only gallery is supported
+    if (kIsWeb) {
+      _pickScreenshot(ImageSource.gallery);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -116,11 +127,15 @@ class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
     );
   }
 
-  Future<String?> _uploadScreenshot(File file) async {
+  Future<String?> _uploadScreenshot(Uint8List bytes, String filename) async {
     final uri = Uri.parse('${AppConfig.baseUrl}/topup/upload-screenshot');
     final request = http.MultipartRequest('POST', uri)
       ..headers['Authorization'] = 'Bearer ${widget.token}'
-      ..files.add(await http.MultipartFile.fromPath('file', file.path));
+      ..files.add(http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: filename,
+      ));
 
     final streamed = await request.send();
     final body = await streamed.stream.bytesToString();
@@ -133,7 +148,7 @@ class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
   }
 
   Future<void> _submit() async {
-    if (_screenshot == null) {
+    if (_screenshotBytes == null) {
       setState(() => _error = 'Төлөмдүн скриншотун тандаңыз');
       return;
     }
@@ -142,7 +157,7 @@ class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
       _error = null;
     });
     try {
-      final screenshotUrl = await _uploadScreenshot(_screenshot!);
+      final screenshotUrl = await _uploadScreenshot(_screenshotBytes!, _screenshotName);
       if (screenshotUrl == null) throw Exception('URL алынган жок');
 
       final response = await http.post(
@@ -283,9 +298,7 @@ class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: _submitting
-                  ? null
-                  : () => Navigator.of(context).pop(),
+              onPressed: _submitting ? null : () => Navigator.of(context).pop(),
               child: const Text(
                 'Кийинчерек жөнөтөмүн',
                 style: TextStyle(color: Colors.grey),
@@ -317,13 +330,13 @@ class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
   }
 
   Widget _buildScreenshotPicker() {
-    if (_screenshot != null) {
+    if (_screenshotBytes != null) {
       return GestureDetector(
         onTap: _showImageSourceSheet,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Image.file(
-            _screenshot!,
+          child: Image.memory(
+            _screenshotBytes!,
             height: 160,
             width: double.infinity,
             fit: BoxFit.cover,
@@ -340,14 +353,14 @@ class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFE0E0E0)),
         ),
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.upload_outlined, size: 32, color: Colors.grey),
-            SizedBox(height: 6),
+            const Icon(Icons.upload_outlined, size: 32, color: Colors.grey),
+            const SizedBox(height: 6),
             Text(
-              'Скриншот тандаңыз',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
+              kIsWeb ? 'Файл тандаңыз' : 'Скриншот тандаңыз',
+              style: const TextStyle(color: Colors.grey, fontSize: 13),
             ),
           ],
         ),

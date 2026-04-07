@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -19,7 +20,8 @@ class TopupPage extends StatefulWidget {
 
 class _TopupPageState extends State<TopupPage> {
   final _amountController = TextEditingController();
-  File? _selectedImage;
+  Uint8List? _selectedImageBytes;
+  String _selectedImageName = 'screenshot.jpg';
   bool _isLoading = false;
   String? _error;
 
@@ -38,14 +40,20 @@ class _TopupPageState extends State<TopupPage> {
       requestFullMetadata: false,
     );
     if (picked != null) {
+      final bytes = await picked.readAsBytes();
       setState(() {
-        _selectedImage = File(picked.path);
+        _selectedImageBytes = bytes;
+        _selectedImageName = picked.name.isNotEmpty ? picked.name : 'screenshot.jpg';
         _error = null;
       });
     }
   }
 
   void _showImageSourceSheet() {
+    if (kIsWeb) {
+      _pickImage(ImageSource.gallery);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -88,11 +96,11 @@ class _TopupPageState extends State<TopupPage> {
     );
   }
 
-  Future<String?> _uploadScreenshot(File file) async {
+  Future<String?> _uploadScreenshot(Uint8List bytes, String filename) async {
     final uri = Uri.parse('${AppConfig.baseUrl}/topup/upload-screenshot');
     final request = http.MultipartRequest('POST', uri)
       ..headers['Authorization'] = 'Bearer ${widget.token}'
-      ..files.add(await http.MultipartFile.fromPath('file', file.path));
+      ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
 
     final streamed = await request.send();
     final body = await streamed.stream.bytesToString();
@@ -115,7 +123,7 @@ class _TopupPageState extends State<TopupPage> {
       setState(() => _error = 'Туура сумма киргизиңиз');
       return;
     }
-    if (_selectedImage == null) {
+    if (_selectedImageBytes == null) {
       setState(() => _error = 'Төлөмдүн скриншотун тандаңыз');
       return;
     }
@@ -126,7 +134,7 @@ class _TopupPageState extends State<TopupPage> {
     });
 
     try {
-      final screenshotUrl = await _uploadScreenshot(_selectedImage!);
+      final screenshotUrl = await _uploadScreenshot(_selectedImageBytes!, _selectedImageName);
       if (screenshotUrl == null) throw Exception('URL алынган жок');
 
       final uri = Uri.parse('${AppConfig.baseUrl}/topup/request');
@@ -338,15 +346,15 @@ class _TopupPageState extends State<TopupPage> {
               ),
             ),
           ),
-          if (_selectedImage != null)
+          if (_selectedImageBytes != null)
             ClipRRect(
               borderRadius: const BorderRadius.vertical(
                 bottom: Radius.circular(16),
               ),
               child: Stack(
                 children: [
-                  Image.file(
-                    _selectedImage!,
+                  Image.memory(
+                    _selectedImageBytes!,
                     width: double.infinity,
                     height: 220,
                     fit: BoxFit.cover,
@@ -355,7 +363,7 @@ class _TopupPageState extends State<TopupPage> {
                     top: 8,
                     right: 8,
                     child: GestureDetector(
-                      onTap: () => setState(() => _selectedImage = null),
+                      onTap: () => setState(() => _selectedImageBytes = null),
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
