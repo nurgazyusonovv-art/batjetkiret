@@ -2,6 +2,7 @@
   "buildCommand": "flutter build web --release",
   "outputDirectory": "build/web",
   "installCommand": "flutter pub get",
+  "alias": ["batken-express-web.vercel.app"],
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
