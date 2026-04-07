@@ -1233,6 +1233,151 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     );
   }
 
+  Widget _buildEnterpriseInfoCard(Enterprise ent) {
+    final isClosed = ent.isOpen == false;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top row: logo + name + closed badge
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Logo
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: _buildEnterpriseCardBackground(ent),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ent.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      if (ent.address != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          ent.address!,
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (isClosed)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade600,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'Жабык',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // Divider
+          Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
+
+          // Info chips row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                // Working hours
+                if (ent.openTime != null && ent.closeTime != null)
+                  _infoChip(
+                    icon: Icons.access_time_rounded,
+                    label: '${ent.openTime} – ${ent.closeTime}',
+                    color: isClosed ? Colors.red.shade600 : Colors.green.shade600,
+                    bgColor: isClosed ? Colors.red.shade50 : Colors.green.shade50,
+                  ),
+
+                // Prep time
+                if (ent.prepTimeMinutes != null)
+                  _infoChip(
+                    icon: Icons.timer_outlined,
+                    label: '~${ent.prepTimeMinutes} мүн',
+                    color: AppColors.primary,
+                    bgColor: AppColors.primarySoft,
+                  ),
+
+                // Phone
+                if (ent.phone != null)
+                  _infoChip(
+                    icon: Icons.phone_outlined,
+                    label: ent.phone!,
+                    color: Colors.blueGrey.shade700,
+                    bgColor: Colors.blueGrey.shade50,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color bgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEnterpriseCardBackground(Enterprise ent) {
     if (ent.logoData != null && ent.logoData!.isNotEmpty) {
       try {
@@ -1541,69 +1686,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
     return Column(
       children: [
-        // Enterprise info bar
-        Container(
-          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.primarySoft,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.store, color: AppColors.primary, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ent.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    if (ent.address != null)
-                      Text(
-                        ent.address!,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                  ],
-                ),
-              ),
-              if (ent.prepTimeMinutes != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.timer_outlined, size: 13, color: AppColors.primary),
-                      const SizedBox(width: 4),
-                      Text(
-                        '~${ent.prepTimeMinutes} мүн',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              if (ent.phone != null)
-                Icon(Icons.phone, color: Colors.grey[400], size: 18),
-            ],
-          ),
-        ),
+        // Enterprise info card
+        _buildEnterpriseInfoCard(ent),
 
         // Product grid — 2 columns
         Expanded(
