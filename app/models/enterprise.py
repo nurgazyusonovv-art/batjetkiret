@@ -34,6 +34,7 @@ class Enterprise(Base):
     logo_data = Column(String, nullable=True)       # base64 data URL logo
     open_time = Column(String, nullable=True)       # "09:00"
     close_time = Column(String, nullable=True)      # "22:00"
+    prep_time_minutes = Column(Integer, nullable=True)  # estimated prep time in minutes
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

@@ -83,6 +83,7 @@ def get_my_enterprise(db: Session = Depends(get_db), auth: Tuple = Depends(requi
         "logo_data": e.logo_data,
         "open_time": e.open_time,
         "close_time": e.close_time,
+        "prep_time_minutes": e.prep_time_minutes,
     }
 
 

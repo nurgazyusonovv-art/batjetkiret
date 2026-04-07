@@ -79,6 +79,7 @@ def _enterprise_dict(e: Enterprise, owner: Optional[User] = None) -> dict:
         "open_time": e.open_time,
         "close_time": e.close_time,
         "is_open": _is_open_now(e.open_time, e.close_time),
+        "prep_time_minutes": e.prep_time_minutes,
         "owner_user_id": e.owner_user_id,
         "owner_phone": owner.phone if owner else None,
         "owner_name": owner.name if owner else None,
@@ -183,6 +184,33 @@ def update_working_hours(
         "close_time": e.close_time,
         "is_open": _is_open_now(e.open_time, e.close_time),
     }
+
+
+class PrepTimeUpdate(BaseModel):
+    prep_time_minutes: Optional[int] = None  # None to clear
+
+
+@router.put("/{enterprise_id}/prep-time")
+def update_prep_time(
+    enterprise_id: int,
+    data: PrepTimeUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Set estimated preparation time. Owner, enterprise portal user, or admin only."""
+    e = db.query(Enterprise).filter(Enterprise.id == enterprise_id).first()
+    if not e:
+        raise HTTPException(status_code=404, detail="Ишкана табылган жок")
+    is_portal_user = current_user.is_enterprise and current_user.enterprise_id == enterprise_id
+    if e.owner_user_id != current_user.id and not current_user.is_admin and not is_portal_user:
+        raise HTTPException(status_code=403, detail="Уруксат жок")
+
+    if data.prep_time_minutes is not None and data.prep_time_minutes < 0:
+        raise HTTPException(status_code=400, detail="Убакыт 0 дан кем болбошу керек")
+
+    e.prep_time_minutes = data.prep_time_minutes
+    db.commit()
+    return {"prep_time_minutes": e.prep_time_minutes}
 
 
 @router.get("/my")
@@ -301,6 +329,7 @@ def get_enterprise_menu(
             "open_time": enterprise.open_time,
             "close_time": enterprise.close_time,
             "is_open": _is_open_now(enterprise.open_time, enterprise.close_time),
+            "prep_time_minutes": enterprise.prep_time_minutes,
         },
         "menu": menu,
     }
