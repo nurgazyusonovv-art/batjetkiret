@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Settings, QrCode, Trash2, Upload, MapPin, Check, Clock, Image } from 'lucide-react';
+import { Settings, QrCode, Trash2, Upload, MapPin, Check, Clock, Image, Timer } from 'lucide-react';
 import { ordersService } from '../services/orders';
 import './SettingsPage.css';
 
@@ -127,6 +127,11 @@ export default function SettingsPage() {
   const [hoursSaving, setHoursSaving] = useState(false);
   const [hoursMsg, setHoursMsg] = useState<string | null>(null);
 
+  // Prep time state
+  const [prepTime, setPrepTime] = useState<string>('');
+  const [prepSaving, setPrepSaving] = useState(false);
+  const [prepMsg, setPrepMsg] = useState<string | null>(null);
+
   useEffect(() => {
     ordersService.getMe()
       .then((data) => {
@@ -137,6 +142,7 @@ export default function SettingsPage() {
         setLogoData(data.logo_data);
         setOpenTime(data.open_time ?? '');
         setCloseTime(data.close_time ?? '');
+        setPrepTime(data.prep_time_minutes != null ? String(data.prep_time_minutes) : '');
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -207,6 +213,25 @@ export default function SettingsPage() {
       setHoursMsg('Сактоодо ката кетти');
     } finally {
       setHoursSaving(false);
+    }
+  };
+
+  const handlePrepSave = async () => {
+    if (!enterpriseId) return;
+    const minutes = prepTime === '' ? null : parseInt(prepTime, 10);
+    if (minutes !== null && (isNaN(minutes) || minutes < 0)) {
+      setPrepMsg('Туура убакыт киргизиңиз');
+      return;
+    }
+    setPrepSaving(true);
+    setPrepMsg(null);
+    try {
+      await ordersService.updatePrepTime(enterpriseId, minutes);
+      setPrepMsg('✓ Даярдоо убактысы сакталды!');
+    } catch {
+      setPrepMsg('Сактоодо ката кетти');
+    } finally {
+      setPrepSaving(false);
     }
   };
 
@@ -378,6 +403,49 @@ export default function SettingsPage() {
         {hoursMsg && (
           <p className={hoursMsg.startsWith('✓') ? 'ep-settings-success' : 'ep-settings-error'}>
             {hoursMsg}
+          </p>
+        )}
+      </div>
+
+      {/* ── Prep time section ── */}
+      <div className="ep-settings-card">
+        <div className="ep-settings-section-title">
+          <Timer size={18} />
+          <span>Болжолдуу даярдоо убактысы</span>
+        </div>
+        <p className="ep-settings-desc">
+          Кардарга заказды даярдоого кетүүчү болжолдуу убакытты көрсөтүңүз.
+        </p>
+
+        {loading ? (
+          <div className="ep-settings-loading">Жүктөлүүдө...</div>
+        ) : (
+          <div className="ep-prep-area">
+            <div className="ep-prep-input-wrap">
+              <input
+                type="number"
+                min="0"
+                max="300"
+                className="ep-prep-input"
+                placeholder="мис. 30"
+                value={prepTime}
+                onChange={e => setPrepTime(e.target.value)}
+              />
+              <span className="ep-prep-unit">мүнөт</span>
+            </div>
+            <button
+              className="ep-hours-save-btn"
+              onClick={handlePrepSave}
+              disabled={prepSaving}
+            >
+              <Check size={15} />
+              {prepSaving ? 'Сакталууда...' : 'Сактоо'}
+            </button>
+          </div>
+        )}
+        {prepMsg && (
+          <p className={prepMsg.startsWith('✓') ? 'ep-settings-success' : 'ep-settings-error'}>
+            {prepMsg}
           </p>
         )}
       </div>

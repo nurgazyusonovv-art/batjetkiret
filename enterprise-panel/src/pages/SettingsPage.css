@@ -369,6 +369,43 @@
 .ep-hours-save-btn:hover:not(:disabled) { background: #4338ca; }
 .ep-hours-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ── Prep time ── */
+.ep-prep-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ep-prep-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ep-prep-input {
+  width: 100px;
+  padding: 9px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 16px;
+  color: #1e293b;
+  outline: none;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.ep-prep-input:focus {
+  border-color: #4f46e5;
+  background: #fff;
+}
+
+.ep-prep-unit {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+}
+
 .ep-settings-error {
   margin-top: 14px;
   color: #dc2626;

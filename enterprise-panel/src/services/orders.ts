@@ -112,7 +112,7 @@ export const ordersService = {
     return res.data;
   },
 
-  async getMe(): Promise<{ id: number; name: string; payment_qr_url: string | null; lat: number | null; lon: number | null; logo_data: string | null; open_time: string | null; close_time: string | null }> {
+  async getMe(): Promise<{ id: number; name: string; payment_qr_url: string | null; lat: number | null; lon: number | null; logo_data: string | null; open_time: string | null; close_time: string | null; prep_time_minutes: number | null }> {
     const res = await api.get('/enterprise-portal/me');
     return res.data;
   },
@@ -146,6 +146,10 @@ export const ordersService = {
 
   async updateWorkingHours(enterpriseId: number, openTime: string, closeTime: string): Promise<void> {
     await api.put(`/enterprises/${enterpriseId}/working-hours`, { open_time: openTime, close_time: closeTime });
+  },
+
+  async updatePrepTime(enterpriseId: number, minutes: number | null): Promise<void> {
+    await api.put(`/enterprises/${enterpriseId}/prep-time`, { prep_time_minutes: minutes });
   },
 
   async getReports(days: 1 | 7 | 30): Promise<ReportData> {
