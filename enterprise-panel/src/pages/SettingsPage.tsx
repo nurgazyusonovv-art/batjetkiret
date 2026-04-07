@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Settings, QrCode, Trash2, Upload, MapPin, Check } from 'lucide-react';
+import { Settings, QrCode, Trash2, Upload, MapPin, Check, Clock, Image } from 'lucide-react';
 import { ordersService } from '../services/orders';
 import './SettingsPage.css';
 
@@ -101,6 +101,7 @@ function MapPicker({ initialLat, initialLon, onConfirm, onClose }: MapPickerProp
 
 // ── Main Settings Page ────────────────────────────────────────────────────────
 export default function SettingsPage() {
+  const [enterpriseId, setEnterpriseId] = useState<number | null>(null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [currentLat, setCurrentLat] = useState<number | null>(null);
   const [currentLon, setCurrentLon] = useState<number | null>(null);
@@ -114,12 +115,28 @@ export default function SettingsPage() {
   const [locationMsg, setLocationMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Logo state
+  const [logoData, setLogoData] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoMsg, setLogoMsg] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Working hours state
+  const [openTime, setOpenTime] = useState('');
+  const [closeTime, setCloseTime] = useState('');
+  const [hoursSaving, setHoursSaving] = useState(false);
+  const [hoursMsg, setHoursMsg] = useState<string | null>(null);
+
   useEffect(() => {
     ordersService.getMe()
       .then((data) => {
+        setEnterpriseId(data.id);
         setQrUrl(data.payment_qr_url);
         setCurrentLat(data.lat);
         setCurrentLon(data.lon);
+        setLogoData(data.logo_data);
+        setOpenTime(data.open_time ?? '');
+        setCloseTime(data.close_time ?? '');
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -158,6 +175,38 @@ export default function SettingsPage() {
       setError(err?.response?.data?.detail ?? 'Өчүрүүдө ката кетти');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !enterpriseId) return;
+    setLogoMsg(null);
+    setLogoUploading(true);
+    try {
+      const res = await ordersService.uploadLogo(enterpriseId, file);
+      setLogoData(res.logo_data);
+      setLogoMsg('✓ Логотип ийгиликтүү жүктөлдү!');
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } };
+      setLogoMsg(err?.response?.data?.detail ?? 'Жүктөөдө ката кетти');
+    } finally {
+      setLogoUploading(false);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
+  };
+
+  const handleHoursSave = async () => {
+    if (!enterpriseId || !openTime || !closeTime) return;
+    setHoursSaving(true);
+    setHoursMsg(null);
+    try {
+      await ordersService.updateWorkingHours(enterpriseId, openTime, closeTime);
+      setHoursMsg('✓ Иштөө убактысы сакталды!');
+    } catch {
+      setHoursMsg('Сактоодо ката кетти');
+    } finally {
+      setHoursSaving(false);
     }
   };
 
@@ -221,6 +270,114 @@ export default function SettingsPage() {
         {locationMsg && (
           <p className={locationMsg.startsWith('✓') ? 'ep-settings-success' : 'ep-settings-error'}>
             {locationMsg}
+          </p>
+        )}
+      </div>
+
+      {/* ── Logo section ── */}
+      <div className="ep-settings-card">
+        <div className="ep-settings-section-title">
+          <Image size={18} />
+          <span>Ишкананын логотиби</span>
+        </div>
+        <p className="ep-settings-desc">
+          Логотип кардарларга ишкананы тез таануу үчүн колдонулат.
+        </p>
+
+        {loading ? (
+          <div className="ep-settings-loading">Жүктөлүүдө...</div>
+        ) : (
+          <div className="ep-logo-area">
+            {logoData ? (
+              <div className="ep-logo-preview">
+                <img src={logoData} alt="Logo" className="ep-logo-img" />
+                <button
+                  className="ep-qr-btn ep-qr-btn-replace"
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={logoUploading}
+                >
+                  <Upload size={15} />
+                  {logoUploading ? 'Жүктөлүүдө...' : 'Логотибди өзгөртүү'}
+                </button>
+              </div>
+            ) : (
+              <div className="ep-qr-empty">
+                <Image size={48} opacity={0.2} />
+                <p>Логотип жок</p>
+                <button
+                  className="ep-qr-btn ep-qr-btn-upload"
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={logoUploading}
+                >
+                  <Upload size={15} />
+                  {logoUploading ? 'Жүктөлүүдө...' : 'Логотип жүктөө'}
+                </button>
+              </div>
+            )}
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleLogoChange}
+            />
+          </div>
+        )}
+        {logoMsg && (
+          <p className={logoMsg.startsWith('✓') ? 'ep-settings-success' : 'ep-settings-error'}>
+            {logoMsg}
+          </p>
+        )}
+      </div>
+
+      {/* ── Working Hours section ── */}
+      <div className="ep-settings-card">
+        <div className="ep-settings-section-title">
+          <Clock size={18} />
+          <span>Иштөө убактысы</span>
+        </div>
+        <p className="ep-settings-desc">
+          Иштөө убактысынан тышкары кардарларга ишкана жабык экени көрсөтүлөт.
+        </p>
+
+        {loading ? (
+          <div className="ep-settings-loading">Жүктөлүүдө...</div>
+        ) : (
+          <div className="ep-hours-area">
+            <div className="ep-hours-inputs">
+              <label className="ep-hours-label">
+                Ачылуу
+                <input
+                  type="time"
+                  className="ep-hours-input"
+                  value={openTime}
+                  onChange={e => setOpenTime(e.target.value)}
+                />
+              </label>
+              <span className="ep-hours-sep">—</span>
+              <label className="ep-hours-label">
+                Жабылуу
+                <input
+                  type="time"
+                  className="ep-hours-input"
+                  value={closeTime}
+                  onChange={e => setCloseTime(e.target.value)}
+                />
+              </label>
+            </div>
+            <button
+              className="ep-hours-save-btn"
+              onClick={handleHoursSave}
+              disabled={hoursSaving || !openTime || !closeTime}
+            >
+              <Check size={15} />
+              {hoursSaving ? 'Сакталууда...' : 'Сактоо'}
+            </button>
+          </div>
+        )}
+        {hoursMsg && (
+          <p className={hoursMsg.startsWith('✓') ? 'ep-settings-success' : 'ep-settings-error'}>
+            {hoursMsg}
           </p>
         )}
       </div>

@@ -279,6 +279,96 @@
   background: #fecaca;
 }
 
+/* ── Logo ── */
+.ep-logo-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.ep-logo-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.ep-logo-img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 8px;
+  background: #f8fafc;
+}
+
+/* ── Working Hours ── */
+.ep-hours-area {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ep-hours-inputs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ep-hours-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.ep-hours-input {
+  padding: 9px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #1e293b;
+  outline: none;
+  background: #f8fafc;
+  cursor: pointer;
+  min-width: 130px;
+}
+
+.ep-hours-input:focus {
+  border-color: #4f46e5;
+  background: #fff;
+}
+
+.ep-hours-sep {
+  font-size: 18px;
+  color: #94a3b8;
+  margin-top: 20px;
+}
+
+.ep-hours-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 22px;
+  border-radius: 10px;
+  border: none;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  width: fit-content;
+}
+
+.ep-hours-save-btn:hover:not(:disabled) { background: #4338ca; }
+.ep-hours-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .ep-settings-error {
   margin-top: 14px;
   color: #dc2626;

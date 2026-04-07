@@ -112,7 +112,7 @@ export const ordersService = {
     return res.data;
   },
 
-  async getMe(): Promise<{ id: number; name: string; payment_qr_url: string | null; lat: number | null; lon: number | null }> {
+  async getMe(): Promise<{ id: number; name: string; payment_qr_url: string | null; lat: number | null; lon: number | null; logo_data: string | null; open_time: string | null; close_time: string | null }> {
     const res = await api.get('/enterprise-portal/me');
     return res.data;
   },
@@ -133,6 +133,19 @@ export const ordersService = {
 
   async deletePaymentQr(): Promise<void> {
     await api.delete('/enterprise-portal/payment-qr');
+  },
+
+  async uploadLogo(enterpriseId: number, file: File): Promise<{ logo_data: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await api.post(`/enterprises/${enterpriseId}/logo`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+
+  async updateWorkingHours(enterpriseId: number, openTime: string, closeTime: string): Promise<void> {
+    await api.put(`/enterprises/${enterpriseId}/working-hours`, { open_time: openTime, close_time: closeTime });
   },
 
   async getReports(days: 1 | 7 | 30): Promise<ReportData> {
