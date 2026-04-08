@@ -84,6 +84,7 @@ def get_my_enterprise(db: Session = Depends(get_db), auth: Tuple = Depends(requi
         "open_time": e.open_time,
         "close_time": e.close_time,
         "prep_time_minutes": e.prep_time_minutes,
+        "is_open_override": e.is_open_override,
     }
 
 
@@ -106,6 +107,24 @@ def update_my_location(
         "lat": float(e.lat),
         "lon": float(e.lon),
     }
+
+
+# ── Open/Close toggle ────────────────────────────────────────────────────────
+
+class OpenStatusUpdate(BaseModel):
+    is_open: bool  # True = force open, False = force closed
+
+
+@router.patch("/me/open-status")
+def set_open_status(
+    data: OpenStatusUpdate,
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    _user, e = auth
+    e.is_open_override = data.is_open
+    db.commit()
+    return {"is_open_override": e.is_open_override}
 
 
 # ── Categories ────────────────────────────────────────────────────────────────

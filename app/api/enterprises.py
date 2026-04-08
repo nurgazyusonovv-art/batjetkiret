@@ -78,7 +78,8 @@ def _enterprise_dict(e: Enterprise, owner: Optional[User] = None) -> dict:
         "logo_data": e.logo_data,
         "open_time": e.open_time,
         "close_time": e.close_time,
-        "is_open": _is_open_now(e.open_time, e.close_time),
+        "is_open_override": e.is_open_override,
+        "is_open": e.is_open_override if e.is_open_override is not None else _is_open_now(e.open_time, e.close_time),
         "prep_time_minutes": e.prep_time_minutes,
         "owner_user_id": e.owner_user_id,
         "owner_phone": owner.phone if owner else None,
@@ -261,6 +262,11 @@ def get_enterprise_menu(
     )
     if not enterprise:
         raise HTTPException(status_code=404, detail="Ишкана табылган жок")
+
+    # Check if enterprise is manually closed
+    is_open = enterprise.is_open_override if enterprise.is_open_override is not None else _is_open_now(enterprise.open_time, enterprise.close_time)
+    if is_open is False:
+        raise HTTPException(status_code=423, detail="Ишкана учурда жабык. Кийинчерек кайра аракет кылыңыз.")
 
     categories = (
         db.query(EnterpriseCategory)

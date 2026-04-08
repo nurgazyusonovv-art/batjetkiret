@@ -35,6 +35,7 @@ class Enterprise(Base):
     open_time = Column(String, nullable=True)       # "09:00"
     close_time = Column(String, nullable=True)      # "22:00"
     prep_time_minutes = Column(Integer, nullable=True)  # estimated prep time in minutes
+    is_open_override = Column(Boolean, nullable=True)   # None=auto(time-based), True=force open, False=force closed
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
