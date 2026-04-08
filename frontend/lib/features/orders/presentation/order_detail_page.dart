@@ -100,7 +100,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   void _startOrderRefreshTimer() {
     _orderRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (mounted) _reloadCurrentOrder();
+      if (!mounted) return;
+      _reloadCurrentOrder();
+      _loadAdminMessages();
     });
   }
 

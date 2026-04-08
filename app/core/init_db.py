@@ -31,13 +31,16 @@ def _migrate(engine):
         "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS open_time VARCHAR",
         "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS close_time VARCHAR",
         "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS prep_time_minutes INTEGER",
-        "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS order_id INTEGER",
+        "ALTER TABLE notifications ADD COLUMN order_id INTEGER",
     ]
     for sql in migrations:
         try:
             with engine.connect() as conn:
-                # 3-second lock timeout prevents ALTER TABLE from blocking requests
-                conn.execute(text("SET lock_timeout = '3s'"))
+                # lock_timeout only works on PostgreSQL — ignore errors on SQLite
+                try:
+                    conn.execute(text("SET lock_timeout = '3s'"))
+                except Exception:
+                    pass
                 conn.execute(text(sql))
                 conn.commit()
         except Exception as e:
