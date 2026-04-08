@@ -23,6 +23,7 @@ from app.services.pricing import calculate_price
 from app.api.admin import get_delivery_pricing, get_taxi_pricing, get_user_service_fee
 from app.services.wallet import charge_platform_fee
 from app.services.order_status import apply_status_change
+from app.services import fcm as fcm_service
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
@@ -237,6 +238,24 @@ def create_order(
 
     db.commit()
     db.refresh(order)
+
+    # Notify enterprise portal users about the new online order
+    if order.enterprise_id:
+        try:
+            enterprise_users = db.query(User).filter(
+                User.is_enterprise == True,  # noqa: E712
+                User.enterprise_id == order.enterprise_id,
+                User.is_active == True,  # noqa: E712
+                User.fcm_token != None,  # noqa: E711
+            ).all()
+            for eu in enterprise_users:
+                fcm_service.send_push_to_user(
+                    eu,
+                    title="🛎 Жаңы заказ!",
+                    body=f"Заказ #{order.id} — {order.to_address or ''}",
+                )
+        except Exception:
+            pass  # FCM failure must never break order creation
 
     return {
         "id": order.id,

@@ -1,0 +1,225 @@
+/* ── Global mobile overrides for enterprise panel ──────────────
+   Applies to all pages on screens < 768 px
+   ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+
+  /* ── Common page containers ── */
+  .ep-dashboard,
+  .ep-orders,
+  .ep-products,
+  .ep-history,
+  .ep-reports,
+  .ep-payments,
+  .ep-settings,
+  .ep-create-order,
+  .ep-about {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  /* ── Page headers ── */
+  .ep-dash-header,
+  .ep-orders-header,
+  .ep-products-header,
+  .ep-history-header,
+  .ep-payments-header,
+  .ep-settings-header,
+  .ep-reports-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 10px;
+    margin-bottom: 16px !important;
+  }
+
+  .ep-dash-header h1,
+  .ep-orders-title h1,
+  .ep-products-header h1,
+  .ep-history-header h1,
+  .ep-payments-header h1,
+  .ep-settings-header h1,
+  .ep-reports-header h1 {
+    font-size: 20px !important;
+  }
+
+  /* ── Stats grid → 2 columns ── */
+  .ep-stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  .ep-stat-card {
+    padding: 12px !important;
+    gap: 10px !important;
+  }
+
+  .ep-stat-value { font-size: 20px !important; }
+  .ep-stat-label { font-size: 11px !important; }
+
+  /* ── Source comparison → stack ── */
+  .dash-source-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* ── Active orders grid → 1 column ── */
+  .active-orders-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* ── Order cards ── */
+  .ep-order-card,
+  .active-order-card {
+    padding: 12px !important;
+  }
+
+  /* ── Filter bars → scroll horizontally ── */
+  .ep-orders-filters,
+  .ep-history-filters,
+  .ep-payments-filters,
+  .ep-filter-bar {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px !important;
+    padding-bottom: 4px;
+  }
+
+  .ep-filter-btn,
+  .ep-filter-chip {
+    flex-shrink: 0;
+    font-size: 12px !important;
+    padding: 6px 12px !important;
+  }
+
+  /* ── Search inputs full width ── */
+  .ep-search-row,
+  .ep-orders-search {
+    width: 100% !important;
+  }
+
+  .ep-search-row input,
+  .ep-orders-search input {
+    width: 100% !important;
+    font-size: 14px;
+  }
+
+  /* ── Products grid → 2 col ── */
+  .ep-products-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  .ep-product-card {
+    padding: 10px !important;
+  }
+
+  .ep-product-img {
+    height: 100px !important;
+  }
+
+  /* ── Categories horizontal scroll ── */
+  .ep-categories-list {
+    display: flex;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px !important;
+    padding-bottom: 4px;
+  }
+
+  .ep-category-chip {
+    flex-shrink: 0;
+  }
+
+  /* ── Reports bar chart → smaller ── */
+  .ep-report-chart {
+    height: 180px !important;
+  }
+
+  .ep-report-bar-label {
+    font-size: 9px !important;
+  }
+
+  /* ── Reports period tabs ── */
+  .ep-reports-tabs {
+    gap: 6px !important;
+  }
+
+  .ep-tab-btn {
+    font-size: 13px !important;
+    padding: 8px 16px !important;
+  }
+
+  /* ── Payments list ── */
+  .ep-payment-card {
+    flex-direction: column !important;
+    gap: 10px !important;
+    padding: 14px !important;
+  }
+
+  .ep-payment-screenshot {
+    width: 100% !important;
+    height: 140px !important;
+    object-fit: contain;
+  }
+
+  /* ── Settings sections ── */
+  .ep-settings-section {
+    padding: 16px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .ep-hours-inputs {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  /* ── Create order form ── */
+  .ep-create-form {
+    gap: 14px !important;
+  }
+
+  .ep-cart-items {
+    max-height: 240px !important;
+  }
+
+  /* ── Order popup → full screen on mobile ── */
+  .aop-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .aop-popup {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* ── History date group labels ── */
+  .ep-history-date-group {
+    font-size: 12px !important;
+    padding: 6px 10px !important;
+  }
+
+  /* ── Generic table → horizontal scroll ── */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  /* ── Buttons full width in forms ── */
+  .ep-form-actions {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .ep-form-actions button {
+    width: 100% !important;
+  }
+}

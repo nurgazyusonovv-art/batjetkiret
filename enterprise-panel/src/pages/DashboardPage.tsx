@@ -151,7 +151,11 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleStatusChange = async (orderId: number, newStatus: string) => {
     setUpdating(true);
