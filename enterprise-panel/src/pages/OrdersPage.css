@@ -391,3 +391,104 @@
 .ep-payment-link-btn:hover {
   background: #ede9fe;
 }
+
+/* ── Mobile (< 768px) ───────────────────────────────────────── */
+@media (max-width: 767px) {
+  .ep-orders { max-width: 100%; }
+
+  .ep-orders-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .ep-orders-title h1 { font-size: 20px; }
+
+  /* Search full width */
+  .ep-orders-search { max-width: 100%; }
+
+  /* Filter tabs — horizontal scroll, no wrap */
+  .ep-filter-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    gap: 6px;
+  }
+
+  .ep-filter-tab {
+    flex-shrink: 0;
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  /* Order card header — stack into 2 rows */
+  .ep-order-header {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px 14px;
+  }
+
+  /* Row 1: ID + status badge */
+  .ep-order-id { min-width: auto; }
+
+  /* Addresses take full row */
+  .ep-order-addresses {
+    order: 3;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    font-size: 12px;
+  }
+
+  .ep-order-from,
+  .ep-order-to { max-width: 100%; }
+  .ep-order-arrow { display: none; }
+
+  /* Right side: status + price in a row, date hidden */
+  .ep-order-right {
+    order: 2;
+    flex: 1;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .ep-order-date { display: none; }
+
+  .ep-order-status {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .ep-order-price { font-size: 13px; }
+
+  /* Detail section */
+  .ep-order-detail { padding: 12px 14px; gap: 12px; }
+
+  .ep-detail-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  /* Status action buttons — full width */
+  .ep-status-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .ep-status-btns {
+    width: 100%;
+    gap: 6px;
+  }
+
+  .ep-status-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  .ep-loading, .ep-empty { padding: 40px 20px; }
+}

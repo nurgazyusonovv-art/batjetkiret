@@ -320,3 +320,54 @@
 .ep-btn-primary-sm:hover { opacity: 0.88; }
 .ep-btn-primary-sm:disabled { opacity: 0.5; cursor: not-allowed; }
 
+
+/* ── Mobile (< 768px) ───────────────────────────────────────── */
+@media (max-width: 767px) {
+  .create-order-page { max-width: 100%; }
+
+  .co-header { margin-bottom: 14px; }
+  .co-title h1 { font-size: 20px; }
+
+  /* Stack layout vertically */
+  .co-layout {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* Products section — full width, no horizontal overflow */
+  .co-products-section { flex: none; width: 100%; }
+
+  .co-cat-tabs { padding: 8px 10px; gap: 6px; }
+  .co-cat-tab { font-size: 12px; padding: 5px 12px; }
+
+  .co-products-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .co-product-card { padding: 10px; gap: 8px; }
+  .co-product-name { font-size: 13px; }
+  .co-product-price { font-size: 14px; }
+
+  /* Order panel — full width, not sticky */
+  .co-order-panel {
+    width: 100%;
+    position: static;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  /* Cart max height bigger on mobile (more room) */
+  .co-cart { max-height: 180px; }
+
+  /* Submit button — extra tall for thumb tap */
+  .co-submit-btn {
+    padding: 16px;
+    font-size: 15px;
+  }
+
+  /* Success screen */
+  .create-order-success { min-height: 300px; }
+  .create-order-success h2 { font-size: 22px; }
+}
