@@ -60,3 +60,4 @@ enterprise-panel/dist/
 # Uploads
 uploads/
 firebase-service-account.json
+.vercel

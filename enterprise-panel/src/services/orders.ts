@@ -112,8 +112,13 @@ export const ordersService = {
     return res.data;
   },
 
-  async getMe(): Promise<{ id: number; name: string; payment_qr_url: string | null; lat: number | null; lon: number | null; logo_data: string | null; open_time: string | null; close_time: string | null; prep_time_minutes: number | null }> {
+  async getMe(): Promise<{ id: number; name: string; payment_qr_url: string | null; lat: number | null; lon: number | null; logo_data: string | null; open_time: string | null; close_time: string | null; prep_time_minutes: number | null; is_open_override: boolean | null }> {
     const res = await api.get('/enterprise-portal/me');
+    return res.data;
+  },
+
+  async setOpenStatus(isOpen: boolean): Promise<{ is_open_override: boolean }> {
+    const res = await api.patch('/enterprise-portal/me/open-status', { is_open: isOpen });
     return res.data;
   },
 

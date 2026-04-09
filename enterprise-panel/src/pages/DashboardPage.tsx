@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Package, Clock, CheckCircle, XCircle, TrendingUp, Smartphone, Store, Tag, RefreshCw, X, ChevronRight } from 'lucide-react';
+import { Package, Clock, CheckCircle, XCircle, TrendingUp, Smartphone, Store, Tag, RefreshCw, X, ChevronRight, Power } from 'lucide-react';
 import { ordersService, EnterpriseOrder, EnterpriseStats } from '../services/orders';
 import { authService } from '../services/auth';
 import './DashboardPage.css';
@@ -141,12 +141,20 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<EnterpriseOrder | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [isOpen, setIsOpen] = useState<boolean | null>(null);
+  const [toggling, setToggling] = useState(false);
   const info = authService.getInfo();
 
   const load = () => {
     setLoading(true);
-    ordersService.getStats()
-      .then(setStats)
+    Promise.all([
+      ordersService.getStats(),
+      ordersService.getMe(),
+    ])
+      .then(([s, me]) => {
+        setStats(s);
+        setIsOpen(me.is_open_override ?? true);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
@@ -156,6 +164,19 @@ export default function DashboardPage() {
     const timer = setInterval(load, 30_000);
     return () => clearInterval(timer);
   }, []);
+
+  const handleToggleOpen = async () => {
+    const next = !isOpen;
+    setToggling(true);
+    try {
+      await ordersService.setOpenStatus(next);
+      setIsOpen(next);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setToggling(false);
+    }
+  };
 
   const handleStatusChange = async (orderId: number, newStatus: string) => {
     setUpdating(true);
@@ -178,10 +199,21 @@ export default function DashboardPage() {
           <h1>Кош келдиңиз!</h1>
           <p>{info?.enterprise_name}</p>
         </div>
-        <button className="ep-refresh-btn" onClick={load} disabled={loading}>
-          <RefreshCw size={14} className={loading ? 'spin' : ''} />
-          Жаңыртуу
-        </button>
+        <div className="ep-dash-actions">
+          <button
+            className={`ep-open-toggle-btn ${isOpen ? 'open' : 'closed'}`}
+            onClick={handleToggleOpen}
+            disabled={toggling || loading}
+            title={isOpen ? 'Ишкана ачык — жабуу үчүн басыңыз' : 'Ишкана жабык — ачуу үчүн басыңыз'}
+          >
+            <Power size={15} />
+            {toggling ? 'Жүктөлүүдө...' : isOpen ? 'Ишкана ачык' : 'Ишкана жабык'}
+          </button>
+          <button className="ep-refresh-btn" onClick={load} disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'spin' : ''} />
+            Жаңыртуу
+          </button>
+        </div>
       </div>
 
       {loading && !stats ? (

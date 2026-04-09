@@ -10,6 +10,13 @@
 .ep-dash-header h1 { font-size: 26px; font-weight: 800; color: #111827; margin: 0 0 4px 0; }
 .ep-dash-header p { font-size: 14px; color: #6b7280; margin: 0; }
 
+.ep-dash-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .ep-refresh-btn {
   display: flex; align-items: center; gap: 6px;
   padding: 8px 14px;
@@ -20,6 +27,31 @@
 }
 
 .ep-refresh-btn:hover { background: #f9fafb; }
+
+/* Open/Close toggle */
+.ep-open-toggle-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 16px;
+  border: none; border-radius: 10px;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+}
+
+.ep-open-toggle-btn.open {
+  background: #059669;
+  color: white;
+}
+.ep-open-toggle-btn.open:hover:not(:disabled) { background: #047857; }
+
+.ep-open-toggle-btn.closed {
+  background: #dc2626;
+  color: white;
+}
+.ep-open-toggle-btn.closed:hover:not(:disabled) { background: #b91c1c; }
+
+.ep-open-toggle-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -298,3 +330,18 @@ button.active-order-card:hover { box-shadow: 0 4px 18px rgba(79,70,229,0.13); bo
 .aop-action-btn.primary:hover:not(:disabled) { background: #4338ca; }
 .aop-action-btn.danger { background: #fee2e2; color: #dc2626; }
 .aop-action-btn.danger:hover:not(:disabled) { background: #fecaca; }
+
+/* ── Mobile ──────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .ep-dash-header { flex-direction: column; gap: 12px; margin-bottom: 16px; }
+  .ep-dash-header h1 { font-size: 22px; }
+
+  .ep-dash-actions { width: 100%; }
+
+  .ep-open-toggle-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+}

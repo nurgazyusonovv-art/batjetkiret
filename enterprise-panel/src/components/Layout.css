@@ -247,7 +247,13 @@
   }
 
   /* Main content */
-  .ep-main { margin-left: 0; padding: 68px 12px 74px; }
+  .ep-main {
+    margin-left: 0;
+    padding: 68px 12px 74px;
+    overflow-x: hidden;
+    width: 100%;
+    box-sizing: border-box;
+  }
 
   /* Bottom nav */
   .ep-bottom-nav {
@@ -319,6 +325,6 @@
 }
 
 /* ── Tablet padding ───────────────────────────────────────────── */
-@media (max-width: 1023px) {
+@media (max-width: 1023px) and (min-width: 768px) {
   .ep-main { padding: 20px 16px; }
 }

@@ -1376,6 +1376,35 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     const SizedBox(height: 24),
                   ],
 
+                  // Yandex Maps button for courier
+                  if (widget.isCourier &&
+                      currentOrder.toLatitude != null &&
+                      currentOrder.toLongitude != null) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _openYandexMaps(
+                          currentOrder.toLatitude!,
+                          currentOrder.toLongitude!,
+                        ),
+                        icon: const Icon(Icons.map_outlined, size: 20),
+                        label: const Text(
+                          'Яндекс картасында ачуу',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFC3F1D),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
                   // Action buttons
                   if (widget.isCourier && widget.token != null) ...[
                     _buildStatusActionButtons(currentOrder, isUpdatingStatus),
@@ -1438,6 +1467,16 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         },
       ),
     );
+  }
+
+  Future<void> _openYandexMaps(double lat, double lon) async {
+    final appUrl = Uri.parse('yandexmaps://maps.yandex.ru/?pt=$lon,$lat&z=15&l=map');
+    final webUrl = Uri.parse('https://maps.yandex.ru/?pt=$lon,$lat&z=15&l=map');
+    if (await canLaunchUrl(appUrl)) {
+      await launchUrl(appUrl);
+    } else {
+      await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+    }
   }
 
   Widget _buildStatusActionButtons(Order currentOrder, bool isUpdatingStatus) {

@@ -638,6 +638,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   EnterpriseMenu? _enterpriseMenu;
   bool _isLoadingMenu = false;
   String? _menuError;
+  bool _isEnterpriseClosed = false;
   int _menuFetchVersion = 0; // Version counter to discard stale responses
 
   // Suggestion addresses
@@ -723,6 +724,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     setState(() {
       _isLoadingMenu = true;
       _menuError = null;
+      _isEnterpriseClosed = false;
       _enterpriseMenu = null;
     });
     _cubit.goToEnterpriseMenuStep();
@@ -750,6 +752,12 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         _enterpriseMenu = menu;
         _isLoadingMenu = false;
       });
+    } on EnterpriseClosedException {
+      if (!mounted || version != _menuFetchVersion) return;
+      setState(() {
+        _isEnterpriseClosed = true;
+        _isLoadingMenu = false;
+      });
     } catch (e) {
       if (!mounted || version != _menuFetchVersion) return;
       setState(() {
@@ -764,6 +772,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     setState(() {
       _isLoadingMenu = true;
       _menuError = null;
+      _isEnterpriseClosed = false;
     });
     try {
       final api = EnterpriseApi();
@@ -774,6 +783,12 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       if (!mounted || version != _menuFetchVersion) return;
       setState(() {
         _enterpriseMenu = menu;
+        _isLoadingMenu = false;
+      });
+    } on EnterpriseClosedException {
+      if (!mounted || version != _menuFetchVersion) return;
+      setState(() {
+        _isEnterpriseClosed = true;
         _isLoadingMenu = false;
       });
     } catch (e) {
@@ -1630,6 +1645,48 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   Widget _buildEnterpriseMenuBody(OrderCreateState state) {
     if (_isLoadingMenu) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_isEnterpriseClosed) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.storefront_outlined, size: 56, color: Colors.orange),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Азыр ишкана жабык',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Ишкана учурда иштебейт. Кийинчерээк кайра аракет кылыңыз.',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+              AppButton.secondary(
+                label: 'Башка ишкана',
+                onPressed: _onManualEnterprise,
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     if (_menuError != null) {

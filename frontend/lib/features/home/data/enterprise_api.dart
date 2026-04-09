@@ -3,6 +3,10 @@ import 'package:http/http.dart' as http;
 import '../../../core/config.dart';
 import 'enterprise_model.dart';
 
+class EnterpriseClosedException implements Exception {
+  const EnterpriseClosedException();
+}
+
 class EnterpriseApi {
   Future<List<Enterprise>> fetchEnterprises({
     String? token,
@@ -35,6 +39,8 @@ class EnterpriseApi {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return EnterpriseMenu.fromJson(data);
+    } else if (response.statusCode == 423) {
+      throw EnterpriseClosedException();
     } else if (response.statusCode == 404) {
       throw Exception('Ишкана табылган жок');
     } else {

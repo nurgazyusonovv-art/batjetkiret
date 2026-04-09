@@ -280,3 +280,78 @@
 .ep-dine-badge {
   font-size: 12px;
 }
+
+/* ── Mobile (< 768px) ───────────────────────────────────────── */
+@media (max-width: 767px) {
+  .ep-history {
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  .ep-history-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .ep-history-title h1 { font-size: 20px; }
+
+  .ep-history-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  /* Row: wrap right side below left */
+  .ep-history-row {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+
+  .ep-history-left {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .ep-history-right {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  /* Status text smaller */
+  .ep-history-status {
+    font-size: 11px;
+  }
+
+  /* Price flush right */
+  .ep-history-price {
+    font-size: 13px;
+    min-width: auto;
+    flex: 1;
+    text-align: right;
+  }
+
+  /* Bigger tap target for delete */
+  .ep-history-del {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+  }
+
+  /* Detail section */
+  .ep-history-detail {
+    padding: 10px 12px;
+  }
+
+  /* Group header */
+  .ep-history-group-header {
+    padding: 0;
+  }
+
+  .ep-history-groups {
+    gap: 14px;
+  }
+}

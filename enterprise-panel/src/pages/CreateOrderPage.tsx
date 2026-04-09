@@ -23,6 +23,7 @@ export default function CreateOrderPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [showMobileCart, setShowMobileCart] = useState(false);
 
   useEffect(() => {
     Promise.all([productsService.getCategories(), productsService.getProducts(undefined, true)])
@@ -48,6 +49,7 @@ export default function CreateOrderPage() {
   const removeFromCart = (productId: number) => setCart(prev => prev.filter(i => i.product.id !== productId));
 
   const total = cart.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+  const totalQty = cart.reduce((sum, i) => sum + i.quantity, 0);
   const cartQty = (productId: number) => cart.find(i => i.product.id === productId)?.quantity ?? 0;
 
   const resetForm = () => {
@@ -101,12 +103,89 @@ export default function CreateOrderPage() {
       </div>
 
       <div className="co-layout">
-        {/* Products selector */}
+        {/* ── Desktop order panel ── */}
+        <aside className="co-order-panel">
+          <div className="co-panel-title"><ShoppingCart size={16} />Жеткирүү заказы</div>
+
+          <div className="co-form-group">
+            <label>Кардардын телефону *</label>
+            <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="+996XXXXXXXXX" />
+          </div>
+
+          <div className="co-form-group">
+            <label>Жеткирүү дареги *</label>
+            <div className="co-address-row">
+              <input value={toAddress} onChange={e => setToAddress(e.target.value)} placeholder="Кардардын дареги" className="co-address-input" />
+              <button type="button" className="co-map-btn" onClick={() => setShowMap(true)}><MapPin size={16} /></button>
+            </div>
+            {toCoords ? (
+              <div className="co-coords-badge">
+                <MapPin size={11} />{toCoords.lat.toFixed(5)}, {toCoords.lng.toFixed(5)}
+                <button type="button" className="co-coords-clear" onClick={() => setToCoords(null)}><X size={11} /></button>
+              </div>
+            ) : toAddress.trim() ? (
+              <div className="co-coords-hint"><MapPin size={11} />Так жер үчүн картадан тандаңыз</div>
+            ) : null}
+          </div>
+
+          <div className="co-cart">
+            {cart.length === 0 ? (
+              <div className="co-cart-empty">Товар тандаңыз</div>
+            ) : cart.map(item => (
+              <div key={item.product.id} className="co-cart-item">
+                <div className="co-cart-item-info">
+                  <span className="co-cart-name">{item.product.name}</span>
+                  <span className="co-cart-subtotal">{(item.product.price * item.quantity).toFixed(0)} сом</span>
+                </div>
+                <div className="co-cart-ctrl">
+                  <button onClick={() => updateQty(item.product.id, -1)}><Minus size={12} /></button>
+                  <span>{item.quantity}</span>
+                  <button onClick={() => updateQty(item.product.id, 1)}><Plus size={12} /></button>
+                  <button className="co-cart-remove" onClick={() => removeFromCart(item.product.id)}><X size={12} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {cart.length > 0 && (
+            <div className="co-totals">
+              <div className="co-total-row"><span>Товарлар:</span><span>{total.toFixed(0)} сом</span></div>
+              <div className="co-total-row co-delivery-row">
+                <span>Жеткирүү:</span>
+                <span>{toCoords ? 'Аралыктан' : '~80+ сом'}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="co-form-group">
+            <label>Эскертүү (милдеттүү эмес)</label>
+            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Кошумча маалымат..." rows={2} />
+          </div>
+
+          {error && <div className="co-error">{error}</div>}
+
+          <button className="co-submit-btn" onClick={handleSubmit} disabled={submitting || cart.length === 0}>
+            {submitting ? 'Жөнөтүлүүдө...' : `Жеткирүү заказы — ${total.toFixed(0)} сом`}
+          </button>
+        </aside>
+
+        {/* ── Products section ── */}
         <div className="co-products-section">
+          {/* Mobile compact form (shown only on mobile) */}
+          <div className="co-mobile-form">
+            <div className="co-mobile-field">
+              <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="📞 Телефон: +996XXXXXXXXX" />
+            </div>
+            <div className="co-mobile-field co-mobile-addr">
+              <input value={toAddress} onChange={e => setToAddress(e.target.value)} placeholder="📍 Жеткирүү дареги" />
+              <button type="button" className="co-map-btn" onClick={() => setShowMap(true)}><MapPin size={16} /></button>
+            </div>
+          </div>
+
           <div className="co-cat-tabs">
-            <button className={"co-cat-tab" + (selectedCat === null ? ' active' : '')} onClick={() => setSelectedCat(null)}>Баардыгы</button>
+            <button className={'co-cat-tab' + (selectedCat === null ? ' active' : '')} onClick={() => setSelectedCat(null)}>Баардыгы</button>
             {categories.filter(c => c.is_active).map(c => (
-              <button key={c.id} className={"co-cat-tab" + (selectedCat === c.id ? ' active' : '')} onClick={() => setSelectedCat(c.id)}>{c.name}</button>
+              <button key={c.id} className={'co-cat-tab' + (selectedCat === c.id ? ' active' : '')} onClick={() => setSelectedCat(c.id)}>{c.name}</button>
             ))}
           </div>
 
@@ -115,10 +194,9 @@ export default function CreateOrderPage() {
               {filteredProducts.map(p => {
                 const qty = cartQty(p.id);
                 return (
-                  <div key={p.id} className={"co-product-card" + (qty > 0 ? ' in-cart' : '')}>
+                  <div key={p.id} className={'co-product-card' + (qty > 0 ? ' in-cart' : '')}>
                     <div className="co-product-info">
                       <span className="co-product-name">{p.name}</span>
-                      {p.description && <span className="co-product-desc">{p.description}</span>}
                       <span className="co-product-price">{p.price.toFixed(0)} сом</span>
                     </div>
                     <div className="co-product-ctrl">
@@ -141,51 +219,31 @@ export default function CreateOrderPage() {
             </div>
           )}
         </div>
+      </div>
 
-        {/* Order form / Cart */}
-        <aside className="co-order-panel">
-          <div className="co-panel-title"><ShoppingCart size={16} />Жеткирүү заказы</div>
+      {/* ── Mobile sticky cart bar ── */}
+      <div className={`co-mobile-cartbar${cart.length > 0 ? ' visible' : ''}`}>
+        <button className="co-cartbar-info" onClick={() => setShowMobileCart(true)}>
+          <span className="co-cartbar-badge">{totalQty}</span>
+          <span>Заказ: {total.toFixed(0)} сом</span>
+        </button>
+        <button className="co-cartbar-submit" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? '...' : 'Ырастоо'}
+        </button>
+      </div>
 
-          <div className="co-form-group">
-            <label>Кардардын телефону *</label>
-            <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="+996XXXXXXXXX" />
-          </div>
-
-          <div className="co-form-group">
-            <label>Жеткирүү дареги *</label>
-            <div className="co-address-row">
-              <input
-                value={toAddress}
-                onChange={e => setToAddress(e.target.value)}
-                placeholder="Кардардын дареги"
-                className="co-address-input"
-              />
-              <button type="button" className="co-map-btn" onClick={() => setShowMap(true)} title="Картадан тандоо">
-                <MapPin size={16} />
-              </button>
+      {/* ── Mobile cart drawer ── */}
+      {showMobileCart && (
+        <div className="co-mobile-drawer-overlay" onClick={() => setShowMobileCart(false)}>
+          <div className="co-mobile-drawer" onClick={e => e.stopPropagation()}>
+            <div className="co-drawer-handle" />
+            <div className="co-drawer-title">
+              <ShoppingCart size={16} />Заказ тизмеси
+              <button className="co-drawer-close" onClick={() => setShowMobileCart(false)}><X size={18} /></button>
             </div>
-            {toCoords ? (
-              <div className="co-coords-badge">
-                <MapPin size={11} />
-                {toCoords.lat.toFixed(5)}, {toCoords.lng.toFixed(5)}
-                <button type="button" className="co-coords-clear" onClick={() => setToCoords(null)} title="Координаттарды тазалоо">
-                  <X size={11} />
-                </button>
-              </div>
-            ) : toAddress.trim() ? (
-              <div className="co-coords-hint">
-                <MapPin size={11} />
-                Так жер үчүн картадан тандаңыз
-              </div>
-            ) : null}
-          </div>
 
-          {/* Cart items */}
-          <div className="co-cart">
-            {cart.length === 0 ? (
-              <div className="co-cart-empty">Товар тандаңыз</div>
-            ) : (
-              cart.map(item => (
+            <div className="co-drawer-body">
+              {cart.map(item => (
                 <div key={item.product.id} className="co-cart-item">
                   <div className="co-cart-item-info">
                     <span className="co-cart-name">{item.product.name}</span>
@@ -198,35 +256,26 @@ export default function CreateOrderPage() {
                     <button className="co-cart-remove" onClick={() => removeFromCart(item.product.id)}><X size={12} /></button>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
 
-          {cart.length > 0 && (
-            <div className="co-totals">
-              <div className="co-total-row">
-                <span>Товарлар:</span>
-                <span>{total.toFixed(0)} сом</span>
+              <div className="co-drawer-note">
+                <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Эскертүү (милдеттүү эмес)..." rows={2} />
               </div>
-              <div className="co-total-row co-delivery-row">
-                <span>Жеткирүү акысы:</span>
-                <span>{toCoords ? 'Аралыктан эсептелет' : '~80+ сом'}</span>
+
+              {error && <div className="co-error">{error}</div>}
+
+              <div className="co-totals">
+                <div className="co-total-row"><span>Товарлар:</span><span>{total.toFixed(0)} сом</span></div>
+                <div className="co-total-row co-delivery-row"><span>Жеткирүү:</span><span>~80+ сом</span></div>
               </div>
+
+              <button className="co-submit-btn" onClick={() => { setShowMobileCart(false); handleSubmit(); }} disabled={submitting}>
+                {submitting ? 'Жөнөтүлүүдө...' : `Жеткирүүгө берүү — ${total.toFixed(0)} сом`}
+              </button>
             </div>
-          )}
-
-          <div className="co-form-group">
-            <label>Эскертүү (милдеттүү эмес)</label>
-            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Кошумча маалымат..." rows={2} />
           </div>
-
-          {error && <div className="co-error">{error}</div>}
-
-          <button className="co-submit-btn" onClick={handleSubmit} disabled={submitting || cart.length === 0}>
-            {submitting ? 'Жөнөтүлүүдө...' : `Жеткирүү заказы — ${total.toFixed(0)} сом`}
-          </button>
-        </aside>
-      </div>
+        </div>
+      )}
 
       {showMap && (
         <MapPicker

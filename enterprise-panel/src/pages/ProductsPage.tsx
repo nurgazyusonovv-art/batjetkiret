@@ -243,6 +243,36 @@ export default function ProductsPage() {
         </main>
       </div>
 
+      {/* ── Mobile-only: Categories management section ── */}
+      <div className="mobile-cats-section">
+        <div className="mobile-cats-header">
+          <span className="mobile-cats-title"><Tag size={15} />Категориялар</span>
+          <button className="ep-btn-primary-sm" onClick={openCatCreate}>
+            <Plus size={14} />Кошуу
+          </button>
+        </div>
+        {loading ? <div className="panel-loading">Жүктөлүүдө...</div> : (
+          <ul className="mobile-cats-list">
+            {categories.length === 0 && (
+              <li className="mobile-cats-empty">Категория жок</li>
+            )}
+            {categories.map(c => (
+              <li key={c.id} className={`mobile-cat-row${!c.is_active ? ' inactive' : ''}`}>
+                <span className="mobile-cat-name">{c.name}</span>
+                <span className="cat-count">{products.filter(p => p.category_id === c.id).length}</span>
+                <div className="mobile-cat-actions">
+                  <button onClick={() => toggleCat(c)} title={c.is_active ? 'Жашыруу' : 'Көрсөтүү'}>
+                    {c.is_active ? <ToggleRight size={18} color="#4f46e5" /> : <ToggleLeft size={18} color="#9ca3af" />}
+                  </button>
+                  <button onClick={() => openCatEdit(c)} title="Өзгөртүү"><Pencil size={15} /></button>
+                  <button className="mobile-cat-del" onClick={() => deleteCat(c.id, c.name)} title="Өчүрүү"><Trash2 size={15} /></button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {/* Category Modal */}
       {showCatModal && (
         <div className="ep-modal-overlay" onClick={() => setShowCatModal(false)}>
@@ -273,7 +303,7 @@ export default function ProductsPage() {
       {/* Product Modal */}
       {showProdModal && (
         <div className="ep-modal-overlay" onClick={() => setShowProdModal(false)}>
-          <div className="ep-modal-sm" style={{ width: 480 }} onClick={e => e.stopPropagation()}>
+          <div className="ep-modal-sm ep-modal-wide" onClick={e => e.stopPropagation()}>
             <div className="ep-modal-header">
               <h3>{editingProd ? 'Товарды өзгөртүү' : 'Жаңы товар'}</h3>
               <button onClick={() => setShowProdModal(false)}><X size={18} /></button>

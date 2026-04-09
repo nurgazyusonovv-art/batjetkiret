@@ -13,9 +13,14 @@
   .ep-payments,
   .ep-settings,
   .ep-create-order,
-  .ep-about {
+  .ep-about,
+  .products-page,
+  .create-order-page {
     max-width: 100% !important;
     padding: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   /* ── Page headers ── */
@@ -221,5 +226,43 @@
 
   .ep-form-actions button {
     width: 100% !important;
+  }
+
+  /* ── CreateOrder & Products layout fix ── */
+  .co-layout {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .co-order-panel {
+    display: none !important;
+  }
+
+  .co-products-section {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: none !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .products-layout {
+    display: block !important;
+    width: 100% !important;
+    min-height: 0 !important;
+  }
+
+  .categories-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex-shrink: 0 !important;
+  }
+
+  .products-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: none !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
   }
 }
