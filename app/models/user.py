@@ -26,5 +26,6 @@ class User(Base):
     current_longitude = Column(Float, nullable=True)
 
     fcm_token = Column(String, nullable=True)
+    panel_password = Column(String, nullable=True)  # plain-text for enterprise portal (admin view)
 
     created_at = Column(DateTime, server_default=func.now())

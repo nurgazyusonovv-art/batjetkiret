@@ -668,14 +668,35 @@ export default function EnterprisesPage() {
             </div>
 
             <div className="ent-modal-body">
-              {/* Status banner */}
+
+              {/* Current credentials display */}
               {existingCreds?.has_credentials ? (
-                <div className="ent-creds-info ent-creds-has">
-                  <CheckCircle size={15} />
-                  <div>
-                    <strong>Кирүү маалыматтары бар:</strong> {existingCreds.phone}
-                    <div style={{ fontSize: 12, marginTop: 2, color: '#065f46' }}>
-                      Ишкана панелине кире алат
+                <div className="ent-creds-current">
+                  <div className="ent-creds-current-title">
+                    <CheckCircle size={15} color="#059669" />
+                    Учурдагы кирүү маалыматтары
+                  </div>
+                  <div className="ent-creds-row">
+                    <span className="ent-creds-label">Логин (телефон):</span>
+                    <span className="ent-creds-value">{existingCreds.phone ?? '—'}</span>
+                  </div>
+                  <div className="ent-creds-row">
+                    <span className="ent-creds-label">Сырсөз:</span>
+                    <div className="ent-creds-pwd-wrap">
+                      <span className="ent-creds-value">
+                        {credShowPwd
+                          ? (existingCreds.panel_password ?? <em style={{ color: '#9ca3af' }}>Сакталган жок</em>)
+                          : (existingCreds.panel_password ? '••••••••' : <em style={{ color: '#9ca3af' }}>Сакталган жок</em>)
+                        }
+                      </span>
+                      <button
+                        type="button"
+                        className="ent-creds-eye"
+                        onClick={() => setCredShowPwd(!credShowPwd)}
+                        title={credShowPwd ? 'Жашыруу' : 'Көрсөтүү'}
+                      >
+                        {credShowPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -699,6 +720,10 @@ export default function EnterprisesPage() {
                 </div>
               )}
 
+              <div className="ent-creds-edit-title">
+                {existingCreds?.has_credentials ? 'Кирүү маалыматтарын өзгөртүү' : 'Кирүү маалыматтарын кошуу'}
+              </div>
+
               <div className="ent-form-group">
                 <label>Колдонуучунун аты</label>
                 <input
@@ -710,7 +735,7 @@ export default function EnterprisesPage() {
               </div>
 
               <div className="ent-form-group">
-                <label>Телефон номери (логин) *</label>
+                <label>Логин (телефон номери) *</label>
                 <input
                   type="text"
                   value={credPhone}
@@ -723,30 +748,17 @@ export default function EnterprisesPage() {
                 <label>
                   {existingCreds?.has_credentials ? 'Жаңы сырсөз (бош калтырсаңыз өзгөрбөйт)' : 'Сырсөз *'}
                 </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={credShowPwd ? 'text' : 'password'}
-                    value={credPassword}
-                    onChange={(e) => setCredPassword(e.target.value)}
-                    placeholder={existingCreds?.has_credentials ? '••••••••  (бош калтырса өзгөрбөйт)' : 'Сырсөз киргизиңиз'}
-                    style={{ paddingRight: 40 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setCredShowPwd(!credShowPwd)}
-                    style={{
-                      position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                      background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af',
-                    }}
-                  >
-                    {credShowPwd ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  value={credPassword}
+                  onChange={(e) => setCredPassword(e.target.value)}
+                  placeholder={existingCreds?.has_credentials ? 'Бош калтырсаңыз өзгөрбөйт' : 'Сырсөз киргизиңиз'}
+                />
               </div>
 
               <div className="ent-creds-hint">
-                Ишкана жооптуу адамына бул телефон жана сырсөздү бериңиз. Алар
-                <strong> ишкана панелине</strong> кирип, заказдарды башкара алат.
+                Ишкана жооптуу адамына бул логин жана сырсөздү бериңиз.
+                Алар <strong>ишкана панелине</strong> кирип, заказдарды башкара алат.
               </div>
             </div>
 
@@ -755,7 +767,7 @@ export default function EnterprisesPage() {
                 Жабуу
               </button>
               <button className="ent-btn-primary" onClick={handleSaveCreds} disabled={credSaving}>
-                {credSaving ? 'Сакталууда...' : 'Сактоо'}
+                {credSaving ? 'Сакталууда...' : existingCreds?.has_credentials ? 'Өзгөртүү' : 'Сактоо'}
               </button>
             </div>
           </div>

@@ -33,6 +33,7 @@ def _migrate(engine):
         "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS prep_time_minutes INTEGER",
         "ALTER TABLE notifications ADD COLUMN order_id INTEGER",
         "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS is_open_override BOOLEAN",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS panel_password VARCHAR",
     ]
     for sql in migrations:
         try:

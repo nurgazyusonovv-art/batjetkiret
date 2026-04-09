@@ -521,14 +521,19 @@ def admin_set_enterprise_credentials(
             detail="Бул телефон номери башка колдонуучу тарабынан колдонулуп жатат",
         )
 
+    UNCHANGED = "___unchanged___"
+
     if existing and existing.is_enterprise and existing.enterprise_id == enterprise_id:
-        # Update existing enterprise user's password
-        existing.hashed_password = hash_password(data.password)
+        # Update existing enterprise user
+        if data.password and data.password != UNCHANGED:
+            existing.hashed_password = hash_password(data.password)
+            existing.panel_password = data.password
         if data.name:
             existing.name = data.name
+        existing.phone = data.phone
         db.commit()
         return {
-            "message": "Сырсөз жаңыланды",
+            "message": "Кирүү маалыматтары жаңыланды",
             "user_id": existing.id,
             "phone": existing.phone,
         }
@@ -538,6 +543,7 @@ def admin_set_enterprise_credentials(
         phone=data.phone,
         name=data.name or e.name,
         hashed_password=hash_password(data.password),
+        panel_password=data.password if data.password != UNCHANGED else None,
         is_active=True,
         is_courier=False,
         is_admin=False,
@@ -575,4 +581,5 @@ def admin_get_enterprise_credentials(
         "phone": ent_user.phone,
         "name": ent_user.name,
         "is_active": ent_user.is_active,
+        "panel_password": ent_user.panel_password,
     }

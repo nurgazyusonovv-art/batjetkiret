@@ -740,3 +740,72 @@
   padding: 10px 14px;
   line-height: 1.6;
 }
+
+/* Current credentials display box */
+.ent-creds-current {
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.ent-creds-current-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #065f46;
+  margin-bottom: 12px;
+}
+
+.ent-creds-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ent-creds-label {
+  font-size: 12px;
+  color: #6b7280;
+  min-width: 130px;
+  flex-shrink: 0;
+}
+
+.ent-creds-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.03em;
+}
+
+.ent-creds-pwd-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ent-creds-eye {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.ent-creds-eye:hover { color: #374151; }
+
+.ent-creds-edit-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
