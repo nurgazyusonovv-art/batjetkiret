@@ -55,14 +55,9 @@
       if (el) el.style.display = 'none';
     });
 
-    // Register Web Push service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/push-sw.js', { scope: '/' })
-        .catch(function(e) { console.warn('push-sw registration failed:', e); });
-    }
-
     // Called from Dart: window.batkenSubscribePush(vapidKey, onSuccess, onError)
-    // onSuccess(subscriptionJson: string) | onError(reason: string)
+    // The push SW is registered lazily here with scope '/push/' so it does NOT
+    // interfere with Flutter's own flutter_service_worker.js at scope '/'.
     window.batkenSubscribePush = function(vapidKey, onSuccess, onError) {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         onError('unsupported'); return;
@@ -80,30 +75,39 @@
         return arr;
       }
 
-      navigator.serviceWorker.ready.then(function(reg) {
-        // Re-use existing subscription when possible (avoids extra permission dialogs)
-        return reg.pushManager.getSubscription().then(function(existing) {
-          if (existing) {
-            // Return existing — Dart will re-send it to backend (idempotent upsert)
-            return existing;
-          }
-          // Ask permission if needed, then subscribe
-          var permPromise = Notification.permission === 'granted'
-            ? Promise.resolve('granted')
-            : Notification.requestPermission();
-          return permPromise.then(function(perm) {
-            if (perm !== 'granted') return Promise.reject('permission_denied');
-            return reg.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlB64ToUint8Array(vapidKey)
-            });
+      function waitForActive(reg) {
+        if (reg.active) return Promise.resolve(reg);
+        var sw = reg.installing || reg.waiting;
+        if (!sw) return Promise.reject('no sw');
+        return new Promise(function(resolve, reject) {
+          sw.addEventListener('statechange', function() {
+            if (sw.state === 'activated') resolve(reg);
+            if (sw.state === 'redundant') reject('sw redundant');
           });
         });
-      }).then(function(sub) {
-        onSuccess(JSON.stringify(sub));
-      }).catch(function(e) {
-        onError(String(e));
-      });
+      }
+
+      // Register push SW under scope '/push/' — separate from Flutter's SW at '/'
+      navigator.serviceWorker
+        .register('/push-sw.js', { scope: '/push/' })
+        .then(waitForActive)
+        .then(function(reg) {
+          return reg.pushManager.getSubscription().then(function(existing) {
+            if (existing) return existing; // re-use, Dart will upsert to backend
+            var permPromise = Notification.permission === 'granted'
+              ? Promise.resolve('granted')
+              : Notification.requestPermission();
+            return permPromise.then(function(perm) {
+              if (perm !== 'granted') return Promise.reject('permission_denied');
+              return reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlB64ToUint8Array(vapidKey)
+              });
+            });
+          });
+        })
+        .then(function(sub) { onSuccess(JSON.stringify(sub)); })
+        .catch(function(e) { onError(String(e)); });
     };
   </script>
   <script src="flutter_bootstrap.js" async></script>

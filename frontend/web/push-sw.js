@@ -1,8 +1,10 @@
-// Баткен Экспресс — Customer Web Push Service Worker v2
+// Баткен Экспресс — Customer Web Push Service Worker v3
+// Registered at scope '/push/' — does NOT control the main app, only receives push events.
 // Payload shape from backend: { title, body, data: { order_id?, status, type } }
 
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+// No clients.claim() — Flutter's service_worker.js stays in control of the page.
+self.addEventListener('activate', (e) => e.waitUntil(Promise.resolve()));
 
 self.addEventListener('push', (event) => {
   let title = '🛎 Баткен Экспресс';
@@ -21,7 +23,7 @@ self.addEventListener('push', (event) => {
   }
 
   // Unique tag per order → each order shows its own notification,
-  // same order status updates replace each other (no spam stacking).
+  // same order status updates replace each other (no stacking).
   const tag = data.order_id ? `order-${data.order_id}` : 'order-update';
 
   event.waitUntil(
@@ -43,11 +45,9 @@ self.addEventListener('notificationclick', (event) => {
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((list) => {
-        // Focus any existing tab
         for (const client of list) {
           if ('focus' in client) return client.focus();
         }
-        // No tab open — open the app at root
         return self.clients.openWindow('/');
       })
   );
