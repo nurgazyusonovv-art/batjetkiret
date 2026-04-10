@@ -111,3 +111,59 @@ def update_fcm_token(
     user.fcm_token = request.token
     db.commit()
     return {"ok": True}
+
+
+# ── Web Push subscriptions (Flutter web) ──────────────────────────────────────
+
+class UserPushSubscribeRequest(BaseModel):
+    subscription: dict
+
+
+@router.get("/vapid-key")
+def get_vapid_key_user():
+    """Return the VAPID public key (public endpoint for Flutter web)."""
+    from app.core.config import settings
+    return {"public_key": settings.VAPID_PUBLIC_KEY}
+
+
+@router.post("/me/push-subscribe")
+def user_push_subscribe(
+    body: UserPushSubscribeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Save a Web Push subscription for the current user (Flutter web)."""
+    import json
+    from app.models.user_push_subscription import UserPushSubscription
+
+    sub_json = json.dumps(body.subscription)
+    endpoint = body.subscription.get("endpoint", "")
+
+    existing = db.query(UserPushSubscription).filter(
+        UserPushSubscription.user_id == current_user.id,
+        UserPushSubscription.subscription_json.contains(endpoint[:80]),
+    ).first()
+    if existing:
+        existing.subscription_json = sub_json
+    else:
+        db.add(UserPushSubscription(user_id=current_user.id, subscription_json=sub_json))
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/me/push-subscribe")
+def user_push_unsubscribe(
+    body: UserPushSubscribeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    import json
+    from app.models.user_push_subscription import UserPushSubscription
+
+    endpoint = body.subscription.get("endpoint", "")
+    db.query(UserPushSubscription).filter(
+        UserPushSubscription.user_id == current_user.id,
+        UserPushSubscription.subscription_json.contains(endpoint[:80]),
+    ).delete(synchronize_session=False)
+    db.commit()
+    return {"ok": True}

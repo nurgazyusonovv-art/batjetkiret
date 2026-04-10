@@ -87,7 +87,7 @@ function MapPicker({ initialLat, initialLon, onConfirm, onClose }: MapPickerProp
     let cancelled = false;
     loadYmaps(YANDEX_API_KEY).then(() => {
       if (cancelled || !mapRef.current) return;
-      const center = picked ? [picked.lat, picked.lon] : [37.85, 70.03]; // Batken default
+      const center = picked ? [picked.lat, picked.lon] : [40.0605, 70.8196]; // Batken city center
       const ymap = new window.ymaps.Map(mapRef.current, {
         center,
         zoom: 13,

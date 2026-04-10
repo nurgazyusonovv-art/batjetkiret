@@ -34,6 +34,8 @@ def _migrate(engine):
         "ALTER TABLE notifications ADD COLUMN order_id INTEGER",
         "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS is_open_override BOOLEAN",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS panel_password VARCHAR",
+        "CREATE TABLE IF NOT EXISTS push_subscriptions (id SERIAL PRIMARY KEY, enterprise_id INTEGER NOT NULL, subscription_json TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())",
+        "CREATE TABLE IF NOT EXISTS user_push_subscriptions (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, subscription_json TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())",
     ]
     for sql in migrations:
         try:

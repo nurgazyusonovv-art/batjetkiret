@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     USER_COMMISSION_PERCENT: float = 10.0  # % commission from user
     COURIER_COMMISSION_PERCENT: float = 5.0  # % commission from courier
 
+    # VAPID keys for Web Push notifications (enterprise panel)
+    VAPID_PRIVATE_KEY: str = "0rL1AsM8UbpZEQiIb_Y6y0oLrkNP75SnLU5Bk7XjKjI"
+    VAPID_PUBLIC_KEY: str = "BLMMsgjUzcajcSRpUj0VSLk5HKOhP44ZRl2_TDq7yAdk_Er1kRgC6CTGMnIvxwXsMJpSxR2H_R3Zqt0-wPoJDBI"
+    VAPID_EMAIL: str = "mailto:admin@batkenexpress.kg"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @field_validator("ALLOWED_ORIGINS", mode="before")

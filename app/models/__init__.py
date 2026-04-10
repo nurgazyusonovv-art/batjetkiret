@@ -17,6 +17,8 @@ from app.models.order_payment import OrderPayment
 from app.models.setting import Setting
 from app.models.banner import Banner
 from app.models.ad_popup import AdPopup
+from app.models.push_subscription import PushSubscription
+from app.models.user_push_subscription import UserPushSubscription
 
 __all__ = [
     "User",
@@ -38,4 +40,6 @@ __all__ = [
     "Setting",
     "Banner",
     "AdPopup",
+    "PushSubscription",
+    "UserPushSubscription",
 ]

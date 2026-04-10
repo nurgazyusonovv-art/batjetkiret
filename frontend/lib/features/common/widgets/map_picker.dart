@@ -119,26 +119,40 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
     }
   }
 
-  // ── Web: tap handler (Leaflet → Nominatim geocoding) ────────────────────
+  // ── Web: tap handler (Leaflet → geocoding) ──────────────────────────────
 
   Future<void> _handleWebMapTap(double lat, double lon) async {
     if (_isReverseGeocoding) return;
-    setState(() => _isReverseGeocoding = true);
+    final newLocation = LatLng(latitude: lat, longitude: lon);
+    setState(() {
+      _selectedLocation = newLocation;
+      _selectedAddress =
+          '${lat.toStringAsFixed(5)}, ${lon.toStringAsFixed(5)}';
+      _isReverseGeocoding = true;
+    });
     try {
-      final location = LatLng(latitude: lat, longitude: lon);
       final address = await RealGeocoder.getAddressFromCoordinates(
         latitude: lat,
         longitude: lon,
       );
+      if (!mounted) return;
       setState(() {
-        _selectedLocation = location;
         _selectedAddress = address;
         _isReverseGeocoding = false;
       });
-      widget.onLocationSelected(location, address);
     } catch (_) {
-      setState(() => _isReverseGeocoding = false);
+      if (mounted) setState(() => _isReverseGeocoding = false);
     }
+  }
+
+  void _onWebMapBack(BuildContext context) {
+    if (_selectedLocation != null &&
+        _selectedAddress != null &&
+        _selectedAddress != 'Тандаңыз' &&
+        !_isReverseGeocoding) {
+      widget.onLocationSelected(_selectedLocation!, _selectedAddress!);
+    }
+    Navigator.of(context).pop();
   }
 
   void _moveToLocation(LatLng location) {
@@ -226,7 +240,9 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
   Widget _buildWebLayout(BuildContext context) {
     final initialLat = _selectedLocation?.latitude ?? 40.060518;
     final initialLon = _selectedLocation?.longitude ?? 70.819638;
-    final hasLocation = _selectedLocation != null && _selectedAddress != 'Тандаңыз';
+    final hasTappedLocation = _selectedLocation != null &&
+        _selectedAddress != null &&
+        _selectedAddress != 'Тандаңыз';
 
     return Scaffold(
       appBar: AppBar(
@@ -234,6 +250,10 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => _onWebMapBack(context),
+        ),
       ),
       body: Stack(
         children: [
@@ -251,13 +271,13 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
               child: const Center(child: CircularProgressIndicator()),
             ),
 
-          // Bottom card: address + confirm
+          // Bottom info card
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -269,75 +289,74 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
                 ],
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Картага басып жайгашкан жерди тандаңыз',
-                    style: TextStyle(fontSize: 13, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 8),
-                  if (hasLocation) ...[
-                    Row(
+              child: _isReverseGeocoding
+                  ? const Row(
                       children: [
-                        const Icon(Icons.location_on, color: Colors.blue, size: 22),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _selectedAddress ?? '',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              Text(
-                                '${_selectedLocation!.latitude.toStringAsFixed(5)}, '
-                                '${_selectedLocation!.longitude.toStringAsFixed(5)}',
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
-                              ),
-                            ],
-                          ),
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Адрес аныкталып жатат...',
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: hasLocation
-                          ? () {
-                              // Pass data via callback (reliable on Flutter web),
-                              // then simply close the screen without return value.
-                              widget.onLocationSelected(
-                                _selectedLocation!,
-                                _selectedAddress!,
-                              );
-                              Navigator.of(context).pop();
-                            }
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    )
+                  : hasTappedLocation
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.location_on, color: Colors.blue, size: 22),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _selectedAddress ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            const Row(
+                              children: [
+                                Icon(Icons.local_shipping, color: Colors.green, size: 18),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Ушул тандалган адреске Курьер жеткирет',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Артка кайтуу үчүн ← кнопкасын басыңыз',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        )
+                      : const Row(
+                          children: [
+                            Icon(Icons.touch_app, color: Colors.grey, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Картага басып жайгашкан жерди тандаңыз',
+                              style: TextStyle(fontSize: 13, color: Colors.grey),
+                            ),
+                          ],
                         ),
-                        disabledBackgroundColor: Colors.grey.shade300,
-                      ),
-                      icon: const Icon(Icons.check),
-                      label: const Text(
-                        'Бул адрести тандоо',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],

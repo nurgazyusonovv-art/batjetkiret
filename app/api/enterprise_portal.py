@@ -602,6 +602,20 @@ def create_local_order(
     db.add(order)
     db.commit()
     db.refresh(order)
+
+    # Notify other enterprise panel sessions (different browser tabs / devices)
+    try:
+        from app.services.web_push import notify_enterprise
+        notify_enterprise(
+            db,
+            enterprise_id=e.id,
+            title="🛎 Жаңы жергиликтүү заказ!",
+            body=f"Заказ #{order.id} — {order.to_address or ''}",
+            data={"order_id": order.id, "type": "new_order"},
+        )
+    except Exception:
+        pass
+
     return _order_dict(order)
 
 
@@ -929,3 +943,87 @@ def reject_payment(
     payment.note = body.note
     db.commit()
     return _payment_dict(payment)
+
+
+# ── Web Push notifications ────────────────────────────────────────────────────
+
+class PushSubscribeRequest(BaseModel):
+    subscription: dict  # Full PushSubscription JSON from browser
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/change-password")
+def change_password(
+    body: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    """Enterprise user changes their own login password."""
+    user, _e = auth
+    if not verify_password(body.current_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Учурдагы сырсөз туура эмес")
+    if len(body.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Жаңы сырсөз кеминде 6 символ болуш керек")
+    user.hashed_password = hash_password(body.new_password)
+    user.panel_password = body.new_password  # keep admin-visible plain copy in sync
+    db.commit()
+    return {"message": "Сырсөз ийгиликтүү өзгөртүлдү"}
+
+
+@router.get("/vapid-key")
+def get_vapid_key():
+    """Return the VAPID public key for subscribing to push notifications."""
+    from app.core.config import settings
+    return {"public_key": settings.VAPID_PUBLIC_KEY}
+
+
+@router.post("/push-subscribe")
+def push_subscribe(
+    body: PushSubscribeRequest,
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    """Save a Web Push subscription for the current enterprise user."""
+    import json
+    from app.models.push_subscription import PushSubscription
+
+    _user, e = auth
+    sub_json = json.dumps(body.subscription)
+
+    # Avoid duplicates — replace if endpoint already registered
+    endpoint = body.subscription.get("endpoint", "")
+    existing = db.query(PushSubscription).filter(
+        PushSubscription.enterprise_id == e.id,
+        PushSubscription.subscription_json.contains(endpoint[:80]),
+    ).first()
+    if existing:
+        existing.subscription_json = sub_json
+    else:
+        db.add(PushSubscription(enterprise_id=e.id, subscription_json=sub_json))
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/push-subscribe")
+def push_unsubscribe(
+    body: PushSubscribeRequest,
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    """Remove a Web Push subscription."""
+    import json
+    from app.models.push_subscription import PushSubscription
+
+    _user, e = auth
+    endpoint = body.subscription.get("endpoint", "")
+    db.query(PushSubscription).filter(
+        PushSubscription.enterprise_id == e.id,
+        PushSubscription.subscription_json.contains(endpoint[:80]),
+    ).delete(synchronize_session=False)
+    db.commit()
+    return {"ok": True}
+

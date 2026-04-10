@@ -15,10 +15,10 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return pwd_context.verify(password, hashed)
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, days: int = 365) -> str:
     payload = {
         "sub": str(user_id),
-        "exp": datetime.utcnow() + timedelta(days=30),
+        "exp": datetime.utcnow() + timedelta(days=days),
     }
     return jwt.encode(
         payload,

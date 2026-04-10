@@ -12,3 +12,4 @@ pydantic-settings==2.5.2
 slowapi==0.1.9
 python-multipart
 firebase-admin==6.5.0
+pywebpush==2.0.0

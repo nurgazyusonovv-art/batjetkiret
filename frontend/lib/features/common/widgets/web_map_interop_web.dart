@@ -51,7 +51,7 @@ class _WebLeafletMapState extends State<_WebLeafletMap> {
 
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) {
       return html.IFrameElement()
-        ..srcdoc = _leafletHtml(widget.initialLat, widget.initialLon)
+        ..srcdoc = _leafletHtml(widget.initialLat, widget.initialLon, _viewType)
         ..style.width = '100%'
         ..style.height = '100%'
         ..style.border = 'none'
@@ -79,6 +79,9 @@ class _WebLeafletMapState extends State<_WebLeafletMap> {
       try {
         final type = rawData['type'];
         if (type == 'mapClick') {
+          // Only handle if this message is from our own iframe.
+          final msgViewType = rawData['viewType'];
+          if (msgViewType != null && msgViewType != _viewType) return;
           final lat = (rawData['lat'] as num).toDouble();
           final lon = (rawData['lon'] as num).toDouble();
           widget.onTap(lat, lon);
@@ -88,6 +91,9 @@ class _WebLeafletMapState extends State<_WebLeafletMap> {
     }
 
     if (data['type'] == 'mapClick') {
+      // Only handle if this message is from our own iframe.
+      final msgViewType = data['viewType'];
+      if (msgViewType != null && msgViewType != _viewType) return;
       final lat = (data['lat'] as num).toDouble();
       final lon = (data['lon'] as num).toDouble();
       widget.onTap(lat, lon);
@@ -108,7 +114,7 @@ class _WebLeafletMapState extends State<_WebLeafletMap> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-String _leafletHtml(double lat, double lon) => '''
+String _leafletHtml(double lat, double lon, String viewType) => '''
 <!DOCTYPE html>
 <html>
 <head>
@@ -145,7 +151,7 @@ String _leafletHtml(double lat, double lon) => '''
     marker.setLatLng([lat, lon]);
     document.getElementById('hint').style.display = 'none';
     // Send as JSON string — reliably parsed by Dart on all Flutter web builds
-    window.parent.postMessage(JSON.stringify({ type: 'mapClick', lat: lat, lon: lon }), '*');
+    window.parent.postMessage(JSON.stringify({ type: 'mapClick', lat: lat, lon: lon, viewType: '$viewType' }), '*');
   });
 </script>
 </body>

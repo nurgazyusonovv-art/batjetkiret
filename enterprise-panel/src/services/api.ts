@@ -18,11 +18,20 @@ let redirecting = false;
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 && !redirecting) {
-      redirecting = true;
-      localStorage.removeItem('enterprise_token');
-      localStorage.removeItem('enterprise_info');
-      window.location.href = '/login';
+    const status = err.response?.status;
+    const url: string = err.config?.url ?? '';
+
+    // Only clear session on 401 from authenticated endpoints (not from /login itself).
+    // This prevents transient network errors or wrong-endpoint calls from logging the user out.
+    if (status === 401 && !url.includes('/login') && !redirecting) {
+      // Double-check: only logout if we actually have a token stored.
+      // If there's no token, this is just an anonymous request that failed.
+      if (localStorage.getItem('enterprise_token')) {
+        redirecting = true;
+        localStorage.removeItem('enterprise_token');
+        localStorage.removeItem('enterprise_info');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   }

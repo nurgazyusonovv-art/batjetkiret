@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Settings, QrCode, Trash2, Upload, MapPin, Check, Clock, Image, Timer } from 'lucide-react';
+import { Settings, QrCode, Trash2, Upload, MapPin, Check, Clock, Image, Timer, Lock, Eye, EyeOff } from 'lucide-react';
 import { ordersService } from '../services/orders';
 import './SettingsPage.css';
 
@@ -132,6 +132,15 @@ export default function SettingsPage() {
   const [prepSaving, setPrepSaving] = useState(false);
   const [prepMsg, setPrepMsg] = useState<string | null>(null);
 
+  // Change password state
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [pwdSaving, setPwdSaving] = useState(false);
+  const [pwdMsg, setPwdMsg] = useState<string | null>(null);
+
   useEffect(() => {
     ordersService.getMe()
       .then((data) => {
@@ -232,6 +241,24 @@ export default function SettingsPage() {
       setPrepMsg('Сактоодо ката кетти');
     } finally {
       setPrepSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPwd) { setPwdMsg('Учурдагы сырсөздү киргизиңиз'); return; }
+    if (newPwd.length < 6) { setPwdMsg('Жаңы сырсөз кеминде 6 символ болуш керек'); return; }
+    if (newPwd !== confirmPwd) { setPwdMsg('Жаңы сырсөздөр дал келбейт'); return; }
+    setPwdSaving(true);
+    setPwdMsg(null);
+    try {
+      await ordersService.changePassword(currentPwd, newPwd);
+      setPwdMsg('✓ Сырсөз ийгиликтүү өзгөртүлдү!');
+      setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } };
+      setPwdMsg(err?.response?.data?.detail ?? 'Сактоодо ката кетти');
+    } finally {
+      setPwdSaving(false);
     }
   };
 
@@ -513,6 +540,74 @@ export default function SettingsPage() {
 
         {error && <p className="ep-settings-error">{error}</p>}
         {success && <p className="ep-settings-success">{success}</p>}
+      </div>
+
+      {/* ── Change Password section ── */}
+      <div className="ep-settings-card">
+        <div className="ep-settings-section-title">
+          <Lock size={18} />
+          <span>Сырсөздү өзгөртүү</span>
+        </div>
+        <p className="ep-settings-desc">
+          Кирүү сырсөзүңүздү өзгөртүңүз. Учурдагы сырсөздү туура киргизишиңиз керек.
+        </p>
+
+        <div className="ep-pwd-form">
+          <div className="ep-pwd-field">
+            <label>Учурдагы сырсөз</label>
+            <div className="ep-pwd-input-wrap">
+              <input
+                type={showCurrentPwd ? 'text' : 'password'}
+                value={currentPwd}
+                onChange={e => setCurrentPwd(e.target.value)}
+                placeholder="Учурдагы сырсөз"
+              />
+              <button type="button" className="ep-pwd-eye" onClick={() => setShowCurrentPwd(v => !v)}>
+                {showCurrentPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="ep-pwd-field">
+            <label>Жаңы сырсөз</label>
+            <div className="ep-pwd-input-wrap">
+              <input
+                type={showNewPwd ? 'text' : 'password'}
+                value={newPwd}
+                onChange={e => setNewPwd(e.target.value)}
+                placeholder="Кеминде 6 символ"
+              />
+              <button type="button" className="ep-pwd-eye" onClick={() => setShowNewPwd(v => !v)}>
+                {showNewPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="ep-pwd-field">
+            <label>Жаңы сырсөздү ырастаңыз</label>
+            <input
+              type="password"
+              value={confirmPwd}
+              onChange={e => setConfirmPwd(e.target.value)}
+              placeholder="Сырсөздү кайталаңыз"
+            />
+          </div>
+
+          <button
+            className="ep-hours-save-btn"
+            onClick={handleChangePassword}
+            disabled={pwdSaving}
+          >
+            <Check size={15} />
+            {pwdSaving ? 'Сакталууда...' : 'Сырсөздү өзгөртүү'}
+          </button>
+        </div>
+
+        {pwdMsg && (
+          <p className={pwdMsg.startsWith('✓') ? 'ep-settings-success' : 'ep-settings-error'}>
+            {pwdMsg}
+          </p>
+        )}
       </div>
 
       {/* ── Map Picker Modal ── */}

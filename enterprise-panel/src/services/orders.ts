@@ -161,6 +161,13 @@ export const ordersService = {
     const res = await api.get('/enterprise-portal/reports', { params: { days } });
     return res.data;
   },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await api.post('/enterprise-portal/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  },
 };
 
 export interface DailyEntry {

@@ -257,6 +257,19 @@ def create_order(
         except Exception:
             pass  # FCM failure must never break order creation
 
+        # Web Push to enterprise panel browser subscribers
+        try:
+            from app.services.web_push import notify_enterprise
+            notify_enterprise(
+                db,
+                enterprise_id=order.enterprise_id,
+                title="🛎 Жаңы заказ!",
+                body=f"Заказ #{order.id} — {order.to_address or ''}",
+                data={"order_id": order.id, "type": "new_order"},
+            )
+        except Exception:
+            pass
+
     return {
         "id": order.id,
         "price": float(order.price),

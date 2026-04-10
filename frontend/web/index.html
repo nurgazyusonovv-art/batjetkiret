@@ -54,6 +54,43 @@
       var el = document.getElementById('loading');
       if (el) el.style.display = 'none';
     });
+
+    // Register Web Push service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/push-sw.js', { scope: '/' })
+        .catch(function(e) { console.warn('push-sw registration failed:', e); });
+    }
+
+    // Called from Dart via js.context.callMethod('batkenSubscribePush', [vapidKey, onSuccess, onError])
+    window.batkenSubscribePush = function(vapidKey, onSuccess, onError) {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        onError('unsupported');
+        return;
+      }
+      navigator.serviceWorker.ready.then(function(reg) {
+        return reg.pushManager.permissionState({ userVisibleOnly: true, applicationServerKey: vapidKey });
+      }).then(function(state) {
+        if (state === 'denied') { onError('denied'); return Promise.reject('denied'); }
+        return navigator.serviceWorker.ready;
+      }).then(function(reg) {
+        function urlB64ToUint8Array(base64String) {
+          var padding = '='.repeat((4 - base64String.length % 4) % 4);
+          var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+          var raw = window.atob(base64);
+          var arr = new Uint8Array(raw.length);
+          for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+          return arr;
+        }
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlB64ToUint8Array(vapidKey)
+        });
+      }).then(function(sub) {
+        onSuccess(JSON.stringify(sub));
+      }).catch(function(e) {
+        onError(String(e));
+      });
+    };
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>

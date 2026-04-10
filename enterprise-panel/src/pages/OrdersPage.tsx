@@ -1,9 +1,29 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, Search, X, RefreshCw, CheckCircle, XCircle, Truck, CreditCard } from 'lucide-react';
 import { ordersService, EnterpriseOrder } from '../services/orders';
 import { fmtDate } from '../utils/date';
 import './OrdersPage.css';
+
+/** Play a short alert beep via Web Audio API (no audio file needed). */
+function playOrderSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const times = [0, 0.35, 0.7];
+    times.forEach((t) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.6, ctx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.28);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.3);
+    });
+  } catch (_) {}
+}
 
 const STATUS_LABELS: Record<string, string> = {
   WAITING_COURIER: 'Жаңы',
@@ -78,6 +98,8 @@ const DINE_IN_STATUSES = [
   { value: 'CANCELLED', label: 'Жокко чыгаруу' },
 ];
 
+const POLL_INTERVAL_MS = 20_000; // poll every 20 seconds when tab is open
+
 export default function OrdersPage() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<EnterpriseOrder[]>([]);
@@ -86,20 +108,47 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('');
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [newOrderAlert, setNewOrderAlert] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // Track known order IDs to detect truly new orders during polling
+  const knownIdsRef = useRef<Set<number> | null>(null);
+
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
+      // Always fetch all active orders (no status filter) for polling comparison
       const data = await ordersService.getOrders(filterStatus ? { status: filterStatus } : {});
       setOrders(data);
+
+      // Detect new orders on silent (background) polls
+      if (silent && knownIdsRef.current !== null) {
+        const incoming = new Set(data.map((o) => o.id));
+        const hasNew = data.some((o) => !knownIdsRef.current!.has(o.id));
+        if (hasNew) {
+          playOrderSound();
+          setNewOrderAlert(true);
+          setTimeout(() => setNewOrderAlert(false), 5000);
+        }
+        knownIdsRef.current = incoming;
+      } else {
+        // First load — initialise knownIds without alerting
+        knownIdsRef.current = new Set(data.map((o) => o.id));
+      }
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [filterStatus]);
 
-  useEffect(() => { load(); }, [load]);
+  // Initial load
+  useEffect(() => { load(false); }, [load]);
+
+  // Background polling — detects new orders even when user is on another page
+  useEffect(() => {
+    const id = setInterval(() => load(true), POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [load]);
 
   const filtered = orders.filter((o) => {
     if (!search) return true;
@@ -127,13 +176,20 @@ export default function OrdersPage() {
 
   return (
     <div className="ep-orders">
+      {/* New order alert banner */}
+      {newOrderAlert && (
+        <div className="ep-new-order-alert">
+          🛎 Жаңы заказ келди! Тизмени жаңыртыңыз.
+        </div>
+      )}
+
       <div className="ep-orders-header">
         <div className="ep-orders-title">
           <Package size={22} />
           <h1>Заказдар</h1>
           <span className="ep-orders-count">{filtered.length}</span>
         </div>
-        <button className="ep-refresh-btn" onClick={load} disabled={loading}>
+        <button className="ep-refresh-btn" onClick={() => load(false)} disabled={loading}>
           <RefreshCw size={15} className={loading ? 'spin' : ''} />
           Жаңыртуу
         </button>

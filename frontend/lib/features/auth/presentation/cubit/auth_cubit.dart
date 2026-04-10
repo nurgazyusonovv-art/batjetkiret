@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/services/web_push_service.dart';
 import '../../../../core/token_storage.dart';
 import '../../data/auth_api.dart';
 import 'auth_state.dart';
@@ -51,6 +52,7 @@ class AuthCubit extends Cubit<AuthState> {
             );
 
       await TokenStorage.saveToken(token);
+      WebPushService.subscribeIfNeeded(token);
 
       emit(
         state.copyWith(

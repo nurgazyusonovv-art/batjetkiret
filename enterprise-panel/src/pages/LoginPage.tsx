@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth';
+import { subscribeToPush } from '../utils/pushNotifications';
 import './LoginPage.css';
 
 export default function LoginPage() {
@@ -16,6 +17,8 @@ export default function LoginPage() {
     setError('');
     try {
       await authService.login(phone.trim(), password);
+      // Subscribe to Web Push after successful login (non-blocking)
+      subscribeToPush().catch(() => {});
       navigate('/');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };

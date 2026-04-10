@@ -46,6 +46,15 @@ def ensure_transition(current_status: str, new_status: str) -> None:
         )
 
 
+_USER_PUSH_MESSAGES = {
+    "ACCEPTED":   ("✅ Заказыңыз кабыл алынды", "Курьер жолго чыгууга даярданып жатат"),
+    "ON_THE_WAY": ("🚴 Курьер жолдо!", "Заказыңыз жеткирүүдө"),
+    "DELIVERED":  ("📦 Жеткирилди!", "Заказыңыз жеткирилди. Рахмат!"),
+    "COMPLETED":  ("✅ Аяктады", "Заказыңыз ийгиликтүү аяктады"),
+    "CANCELLED":  ("❌ Жокко чыгарылды", "Заказыңыз жокко чыгарылды"),
+}
+
+
 def apply_status_change(
     db: Session,
     order: Order,
@@ -72,3 +81,18 @@ def apply_status_change(
         )
     )
     order.status = new_status
+
+    # Web Push to customer (Flutter web) on key status changes
+    if new_status in _USER_PUSH_MESSAGES and order.user_id:
+        try:
+            from app.services.web_push import notify_user
+            title, body = _USER_PUSH_MESSAGES[new_status]
+            notify_user(
+                db,
+                user_id=order.user_id,
+                title=title,
+                body=f"Заказ #{order.id} — {body}",
+                data={"order_id": order.id, "status": new_status, "type": "order_status"},
+            )
+        except Exception:
+            pass
