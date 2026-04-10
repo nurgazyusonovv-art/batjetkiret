@@ -11,12 +11,26 @@
   padding: 12px 16px;
   border-radius: 10px;
   margin-bottom: 12px;
+  cursor: pointer;
   animation: ep-alert-pulse 0.6s ease-in-out infinite alternate;
 }
 
 @keyframes ep-alert-pulse {
   from { opacity: 1; transform: scale(1); }
   to   { opacity: 0.85; transform: scale(1.01); }
+}
+
+/* Highlighted order — scrolled to from push notification click */
+.ep-order-highlight {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3) !important;
+  animation: ep-order-glow 0.5s ease-in-out 3;
+}
+
+@keyframes ep-order-glow {
+  0%   { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3); }
+  50%  { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.5); }
+  100% { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3); }
 }
 
 .ep-orders-header {

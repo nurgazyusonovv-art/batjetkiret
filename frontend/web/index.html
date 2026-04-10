@@ -61,29 +61,43 @@
         .catch(function(e) { console.warn('push-sw registration failed:', e); });
     }
 
-    // Called from Dart via js.context.callMethod('batkenSubscribePush', [vapidKey, onSuccess, onError])
+    // Called from Dart: window.batkenSubscribePush(vapidKey, onSuccess, onError)
+    // onSuccess(subscriptionJson: string) | onError(reason: string)
     window.batkenSubscribePush = function(vapidKey, onSuccess, onError) {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        onError('unsupported');
-        return;
+        onError('unsupported'); return;
       }
+      if (Notification.permission === 'denied') {
+        onError('denied'); return;
+      }
+
+      function urlB64ToUint8Array(b64) {
+        var padding = '='.repeat((4 - b64.length % 4) % 4);
+        var base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+        var raw = window.atob(base64);
+        var arr = new Uint8Array(raw.length);
+        for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        return arr;
+      }
+
       navigator.serviceWorker.ready.then(function(reg) {
-        return reg.pushManager.permissionState({ userVisibleOnly: true, applicationServerKey: vapidKey });
-      }).then(function(state) {
-        if (state === 'denied') { onError('denied'); return Promise.reject('denied'); }
-        return navigator.serviceWorker.ready;
-      }).then(function(reg) {
-        function urlB64ToUint8Array(base64String) {
-          var padding = '='.repeat((4 - base64String.length % 4) % 4);
-          var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-          var raw = window.atob(base64);
-          var arr = new Uint8Array(raw.length);
-          for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-          return arr;
-        }
-        return reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlB64ToUint8Array(vapidKey)
+        // Re-use existing subscription when possible (avoids extra permission dialogs)
+        return reg.pushManager.getSubscription().then(function(existing) {
+          if (existing) {
+            // Return existing — Dart will re-send it to backend (idempotent upsert)
+            return existing;
+          }
+          // Ask permission if needed, then subscribe
+          var permPromise = Notification.permission === 'granted'
+            ? Promise.resolve('granted')
+            : Notification.requestPermission();
+          return permPromise.then(function(perm) {
+            if (perm !== 'granted') return Promise.reject('permission_denied');
+            return reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlB64ToUint8Array(vapidKey)
+            });
+          });
         });
       }).then(function(sub) {
         onSuccess(JSON.stringify(sub));

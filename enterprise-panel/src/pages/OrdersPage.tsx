@@ -98,7 +98,7 @@ const DINE_IN_STATUSES = [
   { value: 'CANCELLED', label: 'Жокко чыгаруу' },
 ];
 
-const POLL_INTERVAL_MS = 20_000; // poll every 20 seconds when tab is open
+const POLL_INTERVAL_MS = 20_000; // poll every 20 seconds
 
 export default function OrdersPage() {
   const navigate = useNavigate();
@@ -109,46 +109,106 @@ export default function OrdersPage() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
+  const [highlightId, setHighlightId] = useState<number | null>(null);
 
-  // Track known order IDs to detect truly new orders during polling
+  // Tracks ALL known order IDs — always uses unfiltered list so detection works
+  // regardless of which status filter the user has active.
   const knownIdsRef = useRef<Set<number> | null>(null);
+  const alertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+  // ── Fetch displayed orders (respects active filter) ────────────────────────
+  const loadDisplay = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     try {
-      // Always fetch all active orders (no status filter) for polling comparison
       const data = await ordersService.getOrders(filterStatus ? { status: filterStatus } : {});
       setOrders(data);
-
-      // Detect new orders on silent (background) polls
-      if (silent && knownIdsRef.current !== null) {
-        const incoming = new Set(data.map((o) => o.id));
-        const hasNew = data.some((o) => !knownIdsRef.current!.has(o.id));
-        if (hasNew) {
-          playOrderSound();
-          setNewOrderAlert(true);
-          setTimeout(() => setNewOrderAlert(false), 5000);
-        }
-        knownIdsRef.current = incoming;
-      } else {
-        // First load — initialise knownIds without alerting
-        knownIdsRef.current = new Set(data.map((o) => o.id));
-      }
     } catch (e) {
       console.error(e);
     } finally {
-      if (!silent) setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   }, [filterStatus]);
 
-  // Initial load
-  useEffect(() => { load(false); }, [load]);
+  // ── Background poll — always fetches ALL orders for new-order detection ────
+  const pollForNewOrders = useCallback(async () => {
+    try {
+      const all = await ordersService.getOrders({});
+      const incoming = new Set(all.map((o) => o.id));
 
-  // Background polling — detects new orders even when user is on another page
+      if (knownIdsRef.current !== null) {
+        const hasNew = all.some((o) => !knownIdsRef.current!.has(o.id));
+        if (hasNew) {
+          playOrderSound();
+          setNewOrderAlert(true);
+          if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+          alertTimerRef.current = setTimeout(() => setNewOrderAlert(false), 6000);
+          // Also refresh the display list so the new order appears
+          await loadDisplay(false);
+        }
+      }
+      knownIdsRef.current = incoming;
+    } catch (_) {}
+  }, [loadDisplay]);
+
+  // ── Initial load ───────────────────────────────────────────────────────────
   useEffect(() => {
-    const id = setInterval(() => load(true), POLL_INTERVAL_MS);
+    const init = async () => {
+      setLoading(true);
+      try {
+        const all = await ordersService.getOrders({});
+        knownIdsRef.current = new Set(all.map((o) => o.id));
+        // Apply active filter for display
+        const display = filterStatus ? all.filter((o) => o.status === filterStatus) : all;
+        setOrders(display);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
+  }, [filterStatus]);
+
+  // ── Background polling ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const id = setInterval(pollForNewOrders, POLL_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [load]);
+  }, [pollForNewOrders]);
+
+  // ── SW message: notification click → highlight that order ─────────────────
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === 'OPEN_ORDER' && e.data.order_id) {
+        const oid = Number(e.data.order_id);
+        setHighlightId(oid);
+        setExpandedId(oid);
+        setFilterStatus(''); // show all so the order is visible
+        setTimeout(() => {
+          document.getElementById(`order-${oid}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+        setTimeout(() => setHighlightId(null), 3000);
+      }
+    };
+    navigator.serviceWorker?.addEventListener('message', handler);
+    return () => navigator.serviceWorker?.removeEventListener('message', handler);
+  }, []);
+
+  // ── Also handle ?order_id= query param (notification opens new tab) ────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oid = params.get('order_id');
+    if (oid) {
+      const id = Number(oid);
+      setHighlightId(id);
+      setExpandedId(id);
+      setTimeout(() => {
+        document.getElementById(`order-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 800);
+      setTimeout(() => setHighlightId(null), 3000);
+      // Clean up URL without re-render
+      window.history.replaceState({}, '', '/orders');
+    }
+  }, []);
 
   const filtered = orders.filter((o) => {
     if (!search) return true;
@@ -165,7 +225,10 @@ export default function OrdersPage() {
     setUpdatingId(orderId);
     try {
       await ordersService.updateStatus(orderId, newStatus);
-      await load();
+      await loadDisplay(false);
+      // Sync knownIds after status update (no new orders, just refresh)
+      const all = await ordersService.getOrders({});
+      knownIdsRef.current = new Set(all.map((o) => o.id));
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } };
       alert(err?.response?.data?.detail ?? 'Ката кетти');
@@ -189,7 +252,7 @@ export default function OrdersPage() {
           <h1>Заказдар</h1>
           <span className="ep-orders-count">{filtered.length}</span>
         </div>
-        <button className="ep-refresh-btn" onClick={() => load(false)} disabled={loading}>
+        <button className="ep-refresh-btn" onClick={() => loadDisplay(true)} disabled={loading}>
           <RefreshCw size={15} className={loading ? 'spin' : ''} />
           Жаңыртуу
         </button>
@@ -238,7 +301,11 @@ export default function OrdersPage() {
             const bg = STATUS_BG[order.status] ?? '#f9fafb';
             const statusLabel = STATUS_LABELS[order.status] ?? order.status;
             return (
-              <div key={order.id} className="ep-order-card">
+              <div
+                key={order.id}
+                id={`order-${order.id}`}
+                className={`ep-order-card${highlightId === order.id ? ' ep-order-highlight' : ''}`}
+              >
                 <div
                   className="ep-order-header"
                   onClick={() => setExpandedId(isExpanded ? null : order.id)}

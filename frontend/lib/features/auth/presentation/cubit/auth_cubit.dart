@@ -14,14 +14,19 @@ class AuthCubit extends Cubit<AuthState> {
 
   Future<void> bootstrap() async {
     final token = await TokenStorage.getToken();
+    final validToken = (token != null && token.isNotEmpty) ? token : null;
     emit(
       state.copyWith(
         isInitialized: true,
-        token: (token != null && token.isNotEmpty) ? token : null,
+        token: validToken,
         clearError: true,
         clearSuccess: true,
       ),
     );
+    // Re-register push subscription on every cold start (idempotent).
+    if (validToken != null) {
+      WebPushService.subscribeIfNeeded(validToken);
+    }
   }
 
   void toggleMode(bool isLogin) {

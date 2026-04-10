@@ -1,6 +1,6 @@
 import api from '../services/api';
 
-/** Convert a base64url string to a Uint8Array (needed for applicationServerKey). */
+/** Convert a base64url string to an ArrayBuffer (required by applicationServerKey). */
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -27,16 +27,18 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 }
 
-/** Request notification permission + subscribe to Web Push, then save to backend. */
+/** Request notification permission + subscribe to Web Push, then save to backend.
+ *  Safe to call multiple times — idempotent when already subscribed. */
 export async function subscribeToPush(): Promise<void> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
-  // Ask permission if not already granted
-  let permission = Notification.permission;
-  if (permission === 'denied') return; // user explicitly blocked — nothing to do
-  if (permission !== 'granted') {
-    permission = await Notification.requestPermission();
-    if (permission !== 'granted') return;
+  // User explicitly blocked notifications — nothing we can do
+  if (Notification.permission === 'denied') return;
+
+  // Request permission if not yet granted
+  if (Notification.permission !== 'granted') {
+    const result = await Notification.requestPermission();
+    if (result !== 'granted') return;
   }
 
   try {
@@ -46,31 +48,29 @@ export async function subscribeToPush(): Promise<void> {
     const { data } = await api.get<{ public_key: string }>('/enterprise-portal/vapid-key');
     const applicationServerKey = urlBase64ToUint8Array(data.public_key);
 
-    // Unsubscribe existing subscription first to ensure fresh one with current VAPID key
+    // Check if a subscription already exists in the browser
     const existing = await reg.pushManager.getSubscription();
     if (existing) {
-      // Check if already subscribed to the same VAPID key — if so, just re-send to backend
+      // Always re-send to backend (handles new device / backend DB wipe / re-login)
       try {
-        await api.post('/enterprise-portal/push-subscribe', {
-          subscription: existing.toJSON(),
-        });
-        return; // already subscribed and backend updated
-      } catch {
-        // Backend rejected — unsubscribe and re-subscribe
+        await api.post('/enterprise-portal/push-subscribe', { subscription: existing.toJSON() });
+        return; // already subscribed, backend is up to date
+      } catch (err: unknown) {
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        // Only unsubscribe + retry if the backend explicitly rejects the subscription (4xx).
+        // Ignore transient network/5xx errors.
+        if (!status || status >= 500) return;
         await existing.unsubscribe();
       }
     }
 
-    // Create new subscription
+    // Create a fresh subscription
     const subscription = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey,
     });
 
-    // Save to backend
-    await api.post('/enterprise-portal/push-subscribe', {
-      subscription: subscription.toJSON(),
-    });
+    await api.post('/enterprise-portal/push-subscribe', { subscription: subscription.toJSON() });
   } catch (e) {
     console.warn('Push subscription failed:', e);
   }
