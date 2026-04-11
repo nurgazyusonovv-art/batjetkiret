@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend/core/theme/app_colors.dart';
 import 'package:frontend/core/utils/distance_calculator.dart';
@@ -1362,7 +1363,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                     bgColor: AppColors.primarySoft,
                   ),
 
-                // Phone
+                // Phone text chip
                 if (ent.phone != null)
                   _infoChip(
                     icon: Icons.phone_outlined,
@@ -1373,7 +1374,87 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               ],
             ),
           ),
+
+          // Call + WhatsApp action buttons (only when phone is available)
+          if (ent.phone != null) ...[
+            Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  // ── Call button ──────────────────────────────────────────
+                  Expanded(
+                    child: _contactButton(
+                      icon: Icons.phone_rounded,
+                      label: 'Чалуу',
+                      color: Colors.green.shade600,
+                      bgColor: Colors.green.shade50,
+                      onTap: () async {
+                        final uri = Uri(scheme: 'tel', path: ent.phone);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  // ── WhatsApp button ──────────────────────────────────────
+                  Expanded(
+                    child: _contactButton(
+                      icon: Icons.chat_rounded,
+                      label: 'WhatsApp',
+                      color: const Color(0xFF25D366),
+                      bgColor: const Color(0xFFE9FBF0),
+                      onTap: () async {
+                        // Strip non-digits, build WhatsApp deep-link
+                        final digits = ent.phone!.replaceAll(RegExp(r'\D'), '');
+                        final uri = Uri.parse('https://wa.me/$digits');
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _contactButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color bgColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
