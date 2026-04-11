@@ -64,11 +64,31 @@ const emptyForm: FormState = {
   lat: '', lon: '',
 };
 
+// ── Reverse geocode via Yandex REST API ────────────────────────────────────
+async function reverseGeocode(lat: number, lon: number): Promise<string> {
+  if (!YANDEX_API_KEY) return '';
+  try {
+    const url =
+      `https://geocode-maps.yandex.ru/1.x/?apikey=${YANDEX_API_KEY}` +
+      `&format=json&geocode=${lon},${lat}&results=1&lang=ru_RU`;
+    const res = await fetch(url);
+    if (!res.ok) return '';
+    const data = await res.json();
+    const members =
+      data?.response?.GeoObjectCollection?.featureMember as any[] | undefined;
+    return (
+      members?.[0]?.GeoObject?.metaDataProperty?.GeocoderMetaData?.text ?? ''
+    );
+  } catch {
+    return '';
+  }
+}
+
 // ── Map Picker ─────────────────────────────────────────────────────────────
 interface MapPickerProps {
   initialLat?: number | null;
   initialLon?: number | null;
-  onConfirm: (lat: number, lon: number) => void;
+  onConfirm: (lat: number, lon: number, address: string) => void;
   onClose: () => void;
 }
 
@@ -81,13 +101,15 @@ function MapPicker({ initialLat, initialLon, onConfirm, onClose }: MapPickerProp
       ? { lat: initialLat, lon: initialLon }
       : null
   );
+  const [geocodedAddress, setGeocodedAddress] = useState('');
+  const [geocoding, setGeocoding] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     loadYmaps(YANDEX_API_KEY).then(() => {
       if (cancelled || !mapRef.current) return;
-      const center = picked ? [picked.lat, picked.lon] : [40.0605, 70.8196]; // Batken city center
+      const center = picked ? [picked.lat, picked.lon] : [40.0605, 70.8196];
       const ymap = new window.ymaps.Map(mapRef.current, {
         center,
         zoom: 13,
@@ -103,7 +125,7 @@ function MapPicker({ initialLat, initialLon, onConfirm, onClose }: MapPickerProp
         markerRef.current = pm;
       }
 
-      ymap.events.add('click', (e: any) => {
+      ymap.events.add('click', async (e: any) => {
         const coords: [number, number] = e.get('coords');
         const lat = parseFloat(coords[0].toFixed(6));
         const lon = parseFloat(coords[1].toFixed(6));
@@ -114,6 +136,15 @@ function MapPicker({ initialLat, initialLon, onConfirm, onClose }: MapPickerProp
         });
         ymap.geoObjects.add(pm);
         markerRef.current = pm;
+
+        // Reverse geocode to get human-readable address
+        setGeocoding(true);
+        setGeocodedAddress('');
+        const addr = await reverseGeocode(lat, lon);
+        if (!cancelled) {
+          setGeocodedAddress(addr);
+          setGeocoding(false);
+        }
       });
 
       setLoading(false);
@@ -142,15 +173,17 @@ function MapPicker({ initialLat, initialLon, onConfirm, onClose }: MapPickerProp
         <div className="ent-map-footer">
           <div className="ent-map-coords-display">
             {picked
-              ? `${picked.lat}, ${picked.lon}`
+              ? geocoding
+                ? 'Дарек аныкталууда...'
+                : geocodedAddress || `${picked.lat}, ${picked.lon}`
               : 'Белги коюлган жок'}
           </div>
           <div className="ent-map-footer-btns">
             <button className="ent-btn-secondary" onClick={onClose}>Жокко чыгаруу</button>
             <button
               className="ent-btn-confirm"
-              disabled={!picked}
-              onClick={() => picked && onConfirm(picked.lat, picked.lon)}
+              disabled={!picked || geocoding}
+              onClick={() => picked && onConfirm(picked.lat, picked.lon, geocodedAddress)}
             >
               Тастыктоо
             </button>
@@ -303,8 +336,14 @@ export default function EnterprisesPage() {
     catch (e: any) { alert(e?.response?.data?.detail ?? 'Ката кетти'); }
   };
 
-  const handleMapConfirm = (lat: number, lon: number) => {
-    setForm((f) => ({ ...f, lat: String(lat), lon: String(lon) }));
+  const handleMapConfirm = (lat: number, lon: number, address: string) => {
+    setForm((f) => ({
+      ...f,
+      lat: String(lat),
+      lon: String(lon),
+      // Fill address only if geocoding returned a result and form address is empty
+      address: address || f.address,
+    }));
     setShowMap(false);
   };
 
