@@ -331,7 +331,10 @@ def get_enterprise_menu(
             "description": enterprise.description,
             "lat": enterprise.lat,
             "lon": enterprise.lon,
-            "logo_data": enterprise.logo_data,
+            # logo_data intentionally omitted — it can be several MB of base64 data
+            # and causes TimeoutException on Flutter web. The mobile/web client
+            # already has logo_data from the enterprise list response.
+            "logo_data": None,
             "open_time": enterprise.open_time,
             "close_time": enterprise.close_time,
             "is_open": _is_open_now(enterprise.open_time, enterprise.close_time),

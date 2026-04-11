@@ -29,6 +29,22 @@ class Enterprise {
     this.prepTimeMinutes,
   });
 
+  Enterprise withLogoData(String? logoData) => Enterprise(
+        id: id,
+        name: name,
+        category: category,
+        address: address,
+        description: description,
+        phone: phone,
+        lat: lat,
+        lon: lon,
+        logoData: logoData,
+        openTime: openTime,
+        closeTime: closeTime,
+        isOpen: isOpen,
+        prepTimeMinutes: prepTimeMinutes,
+      );
+
   factory Enterprise.fromJson(Map<String, dynamic> json) {
     return Enterprise(
       id: json['id'] as int,

@@ -640,6 +640,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   String? _menuError;
   bool _isEnterpriseClosed = false;
   int _menuFetchVersion = 0; // Version counter to discard stale responses
+  // Cached logo from enterprise list — menu endpoint no longer returns logo_data
+  // to avoid MB-sized base64 payloads causing TimeoutException.
+  String? _cachedLogoData;
 
   // Suggestion addresses
   final List<String> _suggestions = [
@@ -822,6 +825,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   }
 
   void _onEnterpriseSelected(Enterprise ent) {
+    // Cache logo before fetching menu — menu endpoint omits logo_data to keep
+    // response small; we restore it from the list enterprise after the fetch.
+    _cachedLogoData = ent.logoData;
+
     // Set enterprise in cubit
     _cubit.selectEnterprise(
       id: ent.id,
@@ -1738,7 +1745,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     }
 
     final menu = _enterpriseMenu!;
-    final ent = menu.enterprise;
+    // Restore cached logo: menu endpoint omits logo_data to keep response small.
+    final ent = (menu.enterprise.logoData == null && _cachedLogoData != null)
+        ? menu.enterprise.withLogoData(_cachedLogoData)
+        : menu.enterprise;
     final itemsTotal = _buildItemsTotal();
 
     return Column(
