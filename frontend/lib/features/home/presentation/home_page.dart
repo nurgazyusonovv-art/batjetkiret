@@ -644,6 +644,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   // to avoid MB-sized base64 payloads causing TimeoutException.
   String? _cachedLogoData;
 
+  // Enterprise search
+  final _enterpriseSearchController = TextEditingController();
+  String _enterpriseSearch = '';
+
   // Suggestion addresses
   final List<String> _suggestions = [
     'Бишкек, ул. Жибек Жолу, 123',
@@ -664,6 +668,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     // Rebuild when address text changes (for suggestions dropdown)
     _fromAddressController.addListener(() => setState(() {}));
     _toAddressController.addListener(() => setState(() {}));
+    _enterpriseSearchController.addListener(
+      () => setState(() => _enterpriseSearch = _enterpriseSearchController.text),
+    );
     _fetchEnterprises().then((_) {
       if (widget.initialEnterpriseId != null && mounted) {
         _autoSelectEnterprise(widget.initialEnterpriseId!);
@@ -678,6 +685,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     _fromAddressController.dispose();
     _toAddressController.dispose();
     _notesController.dispose();
+    _enterpriseSearchController.dispose();
     super.dispose();
   }
 
@@ -1448,6 +1456,12 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     }
 
     final enterprises = _enterprises ?? [];
+    final q = _enterpriseSearch.trim().toLowerCase();
+    final filtered = q.isEmpty
+        ? enterprises
+        : enterprises
+            .where((e) => e.name.toLowerCase().contains(q))
+            .toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1499,6 +1513,41 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+
+          // ── Search field ──────────────────────────────────────────────────
+          if (enterprises.isNotEmpty)
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _enterpriseSearchController,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Ишкана аталышы боюнча издөө...',
+                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                  prefixIcon: Icon(Icons.search, color: Colors.grey.shade400, size: 20),
+                  suffixIcon: _enterpriseSearch.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(Icons.close, size: 18, color: Colors.grey.shade500),
+                          onPressed: () => _enterpriseSearchController.clear(),
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
           const SizedBox(height: 16),
 
           if (enterprises.isEmpty)
@@ -1507,11 +1556,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 padding: const EdgeInsets.symmetric(vertical: 32),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.store_outlined,
-                      size: 56,
-                      color: Colors.grey[300],
-                    ),
+                    Icon(Icons.store_outlined, size: 56, color: Colors.grey[300]),
                     const SizedBox(height: 12),
                     Text(
                       'Бул категорияда ишканалар жок',
@@ -1521,12 +1566,27 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 ),
               ),
             )
+          else if (filtered.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Column(
+                  children: [
+                    Icon(Icons.search_off, size: 56, color: Colors.grey[300]),
+                    const SizedBox(height: 12),
+                    Text(
+                      '"$_enterpriseSearch" боюнча ишкана табылган жок',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 15),
+                    ),
+                  ],
+                ),
+              ),
+            )
           else ...[
             Text(
               'Ишкана тандаңыз',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             GridView.builder(
@@ -1538,9 +1598,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 mainAxisSpacing: 12,
                 childAspectRatio: 0.85,
               ),
-              itemCount: enterprises.length,
+              itemCount: filtered.length,
               itemBuilder: (_, i) {
-                final ent = enterprises[i];
+                final ent = filtered[i];
                 final isClosed = ent.isOpen == false;
                 return GestureDetector(
                   onTap: () => _onEnterpriseSelected(ent),
