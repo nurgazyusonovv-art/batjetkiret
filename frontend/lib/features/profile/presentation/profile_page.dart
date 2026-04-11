@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:frontend/core/theme/app_colors.dart';
@@ -716,7 +717,16 @@ class _ProfilePageState extends State<ProfilePage> {
       _MenuItem(
         icon: Icons.share_outlined,
         label: 'Достор менен бөлүшүү',
-        onTap: () {},
+        onTap: () {
+          SharePlus.instance.share(
+            ShareParams(
+              text:
+                  '🚀 Баткен Экспресс — тез жана ыңгайлуу жеткирүү кызматы!\n'
+                  'Буйрутма бер: https://batjetkiret.vercel.app',
+              subject: 'Баткен Экспресс',
+            ),
+          );
+        },
       ),
       _MenuItem(
         icon: Icons.info_outline,
