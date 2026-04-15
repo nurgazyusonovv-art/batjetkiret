@@ -127,8 +127,8 @@ def available_orders(
             or_(
                 # Regular (non-enterprise) orders: visible as soon as placed
                 (Order.status == "WAITING_COURIER") & (Order.enterprise_id.is_(None)),
-                # Enterprise orders: visible to couriers only when marked READY by the enterprise
-                (Order.status == "READY") & (Order.enterprise_id.isnot(None)),
+                # Enterprise orders: visible when ACCEPTED (Ишкана кабыл алды) or READY, no courier assigned yet
+                (Order.status.in_(["ACCEPTED", "READY"])) & (Order.enterprise_id.isnot(None)) & (Order.courier_id.is_(None)),
             ),
             Order.category != "intercity",
         )
@@ -178,8 +178,8 @@ def accept_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    is_enterprise_ready = order.status == "READY" and order.enterprise_id is not None
-    if order.status != "WAITING_COURIER" and not is_enterprise_ready:
+    is_enterprise_available = order.status in ("ACCEPTED", "READY") and order.enterprise_id is not None and order.courier_id is None
+    if order.status != "WAITING_COURIER" and not is_enterprise_available:
         raise HTTPException(status_code=409, detail="Order is not available")
 
     if order.courier_id is not None and order.courier_id != current_user.id:
