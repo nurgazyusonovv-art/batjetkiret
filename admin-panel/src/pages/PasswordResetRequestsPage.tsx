@@ -1,62 +1,58 @@
-import { useEffect, useState } from 'react';
-import { KeyRound, RefreshCw, CheckCircle, MessageCircle, Copy } from 'lucide-react';
-import { passwordResetService } from '@/services/passwordReset';
-import { PasswordResetRequest } from '@/types';
-import { fmtDateTime } from '@/utils/date';
+import { useRef, useState } from 'react';
+import { KeyRound, MessageCircle, Copy, CheckCircle, Search, RefreshCw } from 'lucide-react';
+import { passwordResetService, GeneratedCode } from '@/services/passwordReset';
 import './PasswordResetRequestsPage.css';
 
-function minutesLeft(expiresAt: string): number {
-  return Math.floor((new Date(expiresAt).getTime() - Date.now()) / 60000);
+function buildWhatsAppUrl(phone: string, name: string, code: string): string {
+  const digits = phone.replace(/\D/g, '');
+  const normalized = digits.startsWith('996') ? digits : `996${digits.replace(/^0/, '')}`;
+  const msg = encodeURIComponent(
+    `Саламатсызбы, ${name}!\n\nСиздин сырсөздү баштан коюу коду:\n\n*${code}*\n\nКодду колдонмого киргизиңиз. Код 24 саат ичинде жарактуу.`
+  );
+  return `https://wa.me/${normalized}?text=${msg}`;
 }
 
 export default function PasswordResetRequestsPage() {
-  const [requests, setRequests] = useState<PasswordResetRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dismissingId, setDismissingId] = useState<number | null>(null);
-  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [result, setResult] = useState<GeneratedCode | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
-    setError(null);
+  const generate = async () => {
+    const val = query.trim();
+    if (!val) return;
+    setGenerating(true);
+    setGenError(null);
+    setResult(null);
+    setCopied(false);
     try {
-      const data = await passwordResetService.list();
-      setRequests(data);
+      const data = await passwordResetService.generate(val);
+      setResult(data);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || 'Маалымат жүктөлгөн жок');
+      setGenError(e?.response?.data?.detail || e?.message || 'Ката кетти');
     } finally {
-      setLoading(false);
+      setGenerating(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
-
-  const copyCode = (req: PasswordResetRequest) => {
-    navigator.clipboard.writeText(req.code);
-    setCopiedId(req.id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const copyCode = () => {
+    if (!result) return;
+    navigator.clipboard.writeText(result.code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   };
 
-  const openWhatsApp = (req: PasswordResetRequest) => {
-    const phone = req.user?.phone?.replace(/\D/g, '') ?? '';
-    const name = req.user?.name ?? 'колдонуучу';
-    const uniqueId = req.user?.unique_id ?? '';
-    const msg = encodeURIComponent(
-      `Саламатсызбы, ${name}!\n\nСиздин сырсөздү баштан коюу коду:\n\n*${req.code}*\n\nКодду колдонмого киргизиңиз. Код ${minutesLeft(req.expires_at)} мүнөт ичинде жарактуу.\n\n(ID: ${uniqueId})`
-    );
-    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+  const reset = () => {
+    setResult(null);
+    setGenError(null);
+    setQuery('');
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  const dismiss = async (req: PasswordResetRequest) => {
-    setDismissingId(req.id);
-    try {
-      await passwordResetService.dismiss(req.id);
-      setRequests(prev => prev.filter(r => r.id !== req.id));
-    } catch {
-      alert('Ката кетти');
-    } finally {
-      setDismissingId(null);
-    }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') generate();
   };
 
   return (
@@ -64,110 +60,88 @@ export default function PasswordResetRequestsPage() {
       <div className="page-header">
         <div className="prr-title-row">
           <KeyRound size={22} color="#8b5cf6" />
-          <h1>Сырсөз баштан коюу суроолору</h1>
-          {requests.length > 0 && (
-            <span className="prr-count-badge">{requests.length}</span>
-          )}
+          <h1>Сырсөз баштан коюу</h1>
         </div>
         <p className="subtitle">
-          Колдонуучулар сырсөздөрүн унутуп, WhatsApp аркылуу суроо жиберишти — кодду алып жөнөтүңүз
+          Колдонуучу WhatsApp аркылуу сыр сөзүн унутканын билдирсе — телефон же BJ ID киргизип код жасаңыз, анан WhatsApp аркылуу жөнөтүңүз
         </p>
       </div>
 
-      <div className="prr-refresh-row">
-        <button className="prr-refresh-btn" onClick={load} disabled={loading}>
-          <RefreshCw size={14} className={loading ? 'prr-spin' : ''} />
-          Жаңылоо
-        </button>
-      </div>
+      {/* ── Generator form ── */}
+      {!result ? (
+        <div className="prr-generator">
+          <div className="prr-gen-label">Колдонуучунун телефону же BJ ID</div>
+          <div className="prr-gen-row">
+            <div className="prr-gen-input-wrap">
+              <Search size={16} className="prr-gen-icon" />
+              <input
+                ref={inputRef}
+                className="prr-gen-input"
+                placeholder="+996 700 55 22 11  же  BJ000123"
+                value={query}
+                onChange={e => { setQuery(e.target.value); setGenError(null); }}
+                onKeyDown={handleKeyDown}
+                disabled={generating}
+                autoFocus
+              />
+            </div>
+            <button
+              className="prr-gen-btn"
+              onClick={generate}
+              disabled={generating || !query.trim()}
+            >
+              {generating
+                ? <RefreshCw size={15} className="prr-spin" />
+                : <KeyRound size={15} />}
+              {generating ? 'Жасалууда...' : 'Код жасоо'}
+            </button>
+          </div>
 
-      {loading ? (
-        <div className="loading-container">
-          <div className="spinner" />
-          <p>Жүктөлүүдө...</p>
-        </div>
-      ) : error ? (
-        <div className="prr-empty" style={{ color: '#ef4444' }}>
-          <p>Ката: {error}</p>
-          <button className="prr-refresh-btn" onClick={load}>Кайра аракет</button>
-        </div>
-      ) : requests.length === 0 ? (
-        <div className="prr-empty">
-          <CheckCircle size={48} color="#10b981" opacity={0.4} />
-          <p>Күтүүдөгү суроолор жок</p>
+          {genError && (
+            <div className="prr-gen-error">{genError}</div>
+          )}
         </div>
       ) : (
-        <div className="prr-list">
-          {requests.map(req => {
-            const mins = minutesLeft(req.expires_at);
-            const isBusy = dismissingId === req.id;
-            const isCopied = copiedId === req.id;
+        /* ── Result card ── */
+        <div className="prr-result-card">
+          <div className="prr-result-user">
+            <div className="prr-result-name">{result.user.name}</div>
+            <div className="prr-result-phone">{result.user.phone}</div>
+            {result.user.unique_id && (
+              <div className="prr-result-id">{result.user.unique_id}</div>
+            )}
+          </div>
 
-            return (
-              <div key={req.id} className="prr-card">
-                <div className="prr-card-header">
-                  <span className="prr-req-id">Суроо #{req.id}</span>
-                  {req.resend_count > 0 && (
-                    <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>
-                      Кайра жиберүү: {req.resend_count}×
-                    </span>
-                  )}
-                  <span className="prr-date">{fmtDateTime(req.last_sent_at)}</span>
-                </div>
+          <div className="prr-result-code-block">
+            <div className="prr-result-code-label">Жаңы жашыруун код</div>
+            <div className="prr-result-code">{result.code}</div>
+            <div className="prr-result-hint">Код 24 саат жарактуу</div>
+          </div>
 
-                <div className="prr-body">
-                  <div className="prr-info-block">
-                    <div className="prr-info-label">Колдонуучу</div>
-                    <div className="prr-info-value">{req.user?.name ?? '—'}</div>
-                    <div className="prr-info-sub">{req.user?.phone}</div>
-                    {req.user?.unique_id && (
-                      <div className="prr-info-sub" style={{ color: '#8b5cf6', fontWeight: 600 }}>
-                        {req.user.unique_id}
-                      </div>
-                    )}
-                  </div>
+          <div className="prr-result-actions">
+            <a
+              className="prr-btn prr-btn-whatsapp"
+              href={buildWhatsAppUrl(result.user.phone, result.user.name, result.code)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <MessageCircle size={16} />
+              WhatsApp аркылуу жөнөт
+            </a>
 
-                  <div className="prr-info-block">
-                    <div className="prr-code-label">Код</div>
-                    <div className="prr-code-block" style={{ marginTop: 4 }}>
-                      <div>
-                        <div className="prr-code-value">{req.code}</div>
-                        <div className={`prr-expires ${mins <= 5 ? 'urgent' : ''}`}>
-                          {mins > 0 ? `${mins} мүнөт калды` : 'Мөөнөтү өткөн'}
-                        </div>
-                      </div>
-                      <button
-                        className={`prr-copy-btn ${isCopied ? 'copied' : ''}`}
-                        onClick={() => copyCode(req)}
-                      >
-                        {isCopied ? <CheckCircle size={13} /> : <Copy size={13} />}
-                        {isCopied ? 'Көчүрүлдү' : 'Көчүр'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+            <button
+              className={`prr-btn prr-btn-copy ${copied ? 'copied' : ''}`}
+              onClick={copyCode}
+            >
+              {copied ? <CheckCircle size={15} /> : <Copy size={15} />}
+              {copied ? 'Көчүрүлдү!' : 'Кодду көчүр'}
+            </button>
 
-                <div className="prr-actions">
-                  <button
-                    className="prr-btn prr-btn-whatsapp"
-                    onClick={() => openWhatsApp(req)}
-                    disabled={!req.user?.phone}
-                  >
-                    <MessageCircle size={15} />
-                    WhatsApp аркылуу жөнөт
-                  </button>
-                  <button
-                    className="prr-btn prr-btn-dismiss"
-                    onClick={() => dismiss(req)}
-                    disabled={isBusy}
-                  >
-                    <CheckCircle size={15} />
-                    {isBusy ? '...' : 'Жиберилди (жок кыл)'}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+            <button className="prr-btn prr-btn-new" onClick={reset}>
+              <KeyRound size={15} />
+              Башка колдонуучу
+            </button>
+          </div>
         </div>
       )}
     </div>

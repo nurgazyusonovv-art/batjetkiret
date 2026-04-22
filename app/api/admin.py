@@ -2058,6 +2058,59 @@ def approve_cancel_request(
     }
 
 
+@router.post("/password-reset-requests/generate")
+def admin_generate_reset_code(
+    phone: str | None = None,
+    unique_id: str | None = None,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Admin manually generates a reset code for a user (by phone or BJ unique_id)."""
+    if not phone and not unique_id:
+        raise HTTPException(status_code=400, detail="phone же unique_id берилиши керек")
+
+    user = None
+    if unique_id:
+        user = db.query(User).filter(User.unique_id == unique_id).first()
+    if not user and phone:
+        user = db.query(User).filter(User.phone == phone).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Колдонуучу табылган жок")
+
+    code = "".join([str(random.randint(0, 9)) for _ in range(6)])
+    now = datetime.utcnow()
+
+    existing = (
+        db.query(PasswordReset)
+        .filter(PasswordReset.user_id == user.id, PasswordReset.is_used == False)  # noqa: E712
+        .order_by(PasswordReset.created_at.desc())
+        .first()
+    )
+    if existing:
+        existing.code = code
+        existing.expires_at = now + timedelta(hours=24)
+        existing.last_sent_at = now
+        existing.resend_count += 1
+    else:
+        db.add(PasswordReset(
+            user_id=user.id,
+            code=code,
+            expires_at=now + timedelta(hours=24),
+            last_sent_at=now,
+        ))
+
+    db.commit()
+    return {
+        "code": code,
+        "user": {
+            "id": user.id,
+            "unique_id": user.unique_id,
+            "phone": user.phone,
+            "name": user.name,
+        },
+    }
+
+
 @router.get("/password-reset-requests")
 def list_password_reset_requests(
     db: Session = Depends(get_db),
