@@ -16,11 +16,13 @@ import {
   Info,
   Image,
   Megaphone,
+  KeyRound,
 } from 'lucide-react';
 import api from '@/services/api';
 import { authService } from '@/services/auth';
 import { notificationsService } from '@/services/notifications';
 import { cancelRequestsService } from '@/services/cancelRequests';
+import { passwordResetService } from '@/services/passwordReset';
 import './DashboardLayout.css';
 
 interface DashboardLayoutProps {
@@ -34,6 +36,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadSupportCount, setUnreadSupportCount] = useState(0);
   const [cancelRequestCount, setCancelRequestCount] = useState(0);
+  const [passwordResetCount, setPasswordResetCount] = useState(0);
 
   useEffect(() => {
     const checkUnread = async () => {
@@ -75,6 +78,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const checkPasswordResets = async () => {
+      try {
+        const count = await passwordResetService.count();
+        setPasswordResetCount(count);
+      } catch (_) {}
+    };
+    checkPasswordResets();
+    const interval = setInterval(checkPasswordResets, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleLogout = () => {
     authService.logout();
     navigate('/login');
@@ -96,6 +111,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { path: '/support-chats', icon: MessageSquare, label: 'Колдоо чаттары', badge: unreadSupportCount },
     { path: '/intercity', icon: MapPin, label: 'Шаарлар аралык' },
     { path: '/cancel-requests', icon: AlertTriangle, label: 'Отмена суроолору', badge: cancelRequestCount },
+    { path: '/password-resets', icon: KeyRound, label: 'Сырсөз баштан коюу', badge: passwordResetCount },
     { path: '/settings', icon: Settings, label: 'Жөндөөлөр' },
     { path: '/banners', icon: Image, label: 'Реклама баннерлери' },
     { path: '/ad-popup', icon: Megaphone, label: 'Жарнама жиберүү' },

@@ -12,6 +12,7 @@ import IntercityPage from './pages/IntercityPage';
 import UserDetailPage from './pages/UserDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import CancelRequestsPage from './pages/CancelRequestsPage';
+import PasswordResetRequestsPage from './pages/PasswordResetRequestsPage';
 import AboutPage from './pages/AboutPage';
 import BannersPage from './pages/BannersPage';
 import AdPopupPage from './pages/AdPopupPage';
@@ -173,6 +174,17 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <AdPopupPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/password-resets"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <PasswordResetRequestsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

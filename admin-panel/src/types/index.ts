@@ -116,6 +116,22 @@ export interface TopupRequest {
   user?: User;
 }
 
+// Password Reset Request Types
+export interface PasswordResetRequest {
+  id: number;
+  code: string;
+  expires_at: string;
+  created_at: string | null;
+  last_sent_at: string;
+  resend_count: number;
+  user: {
+    id: number;
+    unique_id: string | null;
+    phone: string;
+    name: string;
+  } | null;
+}
+
 // Notification Types
 export interface Notification {
   id: number;

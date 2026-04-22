@@ -2058,6 +2058,68 @@ def approve_cancel_request(
     }
 
 
+@router.get("/password-reset-requests")
+def list_password_reset_requests(
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Return all pending (active) password reset requests for admin."""
+    now = datetime.utcnow()
+    resets = (
+        db.query(PasswordReset)
+        .filter(PasswordReset.is_used == False, PasswordReset.expires_at > now)  # noqa: E712
+        .order_by(PasswordReset.last_sent_at.desc())
+        .all()
+    )
+    result = []
+    for r in resets:
+        user = db.query(User).filter(User.id == r.user_id).first()
+        result.append({
+            "id": r.id,
+            "code": r.code,
+            "expires_at": r.expires_at.isoformat(),
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "last_sent_at": r.last_sent_at.isoformat(),
+            "resend_count": r.resend_count,
+            "user": {
+                "id": user.id,
+                "unique_id": user.unique_id,
+                "phone": user.phone,
+                "name": user.name,
+            } if user else None,
+        })
+    return result
+
+
+@router.get("/password-reset-requests/count")
+def count_password_reset_requests(
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    now = datetime.utcnow()
+    count = (
+        db.query(func.count(PasswordReset.id))
+        .filter(PasswordReset.is_used == False, PasswordReset.expires_at > now)  # noqa: E712
+        .scalar()
+    )
+    return {"count": count or 0}
+
+
+@router.post("/password-reset-requests/{reset_id}/dismiss")
+def dismiss_password_reset_request(
+    reset_id: int,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Mark a reset request as used (admin already sent the code to user)."""
+    reset = db.query(PasswordReset).filter(PasswordReset.id == reset_id).first()
+    if not reset:
+        raise HTTPException(status_code=404, detail="Табылган жок")
+    reset.is_used = True
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/cancel-requests/{order_id}/reject")
 def reject_cancel_request(
     order_id: int,
