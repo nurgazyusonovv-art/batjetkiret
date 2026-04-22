@@ -12,14 +12,18 @@ function minutesLeft(expiresAt: string): number {
 export default function PasswordResetRequestsPage() {
   const [requests, setRequests] = useState<PasswordResetRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dismissingId, setDismissingId] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
   const load = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await passwordResetService.list();
       setRequests(data);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || e?.message || 'Маалымат жүктөлгөн жок');
     } finally {
       setLoading(false);
     }
@@ -81,6 +85,11 @@ export default function PasswordResetRequestsPage() {
         <div className="loading-container">
           <div className="spinner" />
           <p>Жүктөлүүдө...</p>
+        </div>
+      ) : error ? (
+        <div className="prr-empty" style={{ color: '#ef4444' }}>
+          <p>Ката: {error}</p>
+          <button className="prr-refresh-btn" onClick={load}>Кайра аракет</button>
         </div>
       ) : requests.length === 0 ? (
         <div className="prr-empty">

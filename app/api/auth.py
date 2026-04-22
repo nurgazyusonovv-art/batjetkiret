@@ -111,7 +111,7 @@ def forgot_password(request: Request, phone: str, db: Session = Depends(get_db))
         last_reset.code = generate_reset_code()
         last_reset.resend_count += 1
         last_reset.last_sent_at = now
-        last_reset.expires_at = now + timedelta(minutes=10)
+        last_reset.expires_at = now + timedelta(hours=24)
 
         db.commit()
 
@@ -122,7 +122,7 @@ def forgot_password(request: Request, phone: str, db: Session = Depends(get_db))
     reset = PasswordReset(
         user_id=user.id,
         code=generate_reset_code(),
-        expires_at=now + timedelta(minutes=10),
+        expires_at=now + timedelta(hours=24),
         last_sent_at=now,
     )
     db.add(reset)
