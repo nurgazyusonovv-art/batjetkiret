@@ -55,7 +55,7 @@ export default function PasswordResetRequestsPage() {
 
   useEffect(() => {
     loadList();
-    const interval = setInterval(() => loadList(true), 30000);
+    const interval = setInterval(() => loadList(true), 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -139,6 +139,10 @@ export default function PasswordResetRequestsPage() {
           <RefreshCw size={14} className={loadingList ? 'prr-spin' : ''} />
           Жаңылоо
         </button>
+        <span className="prr-auto-badge">
+          <span className="prr-auto-dot" />
+          10 секунд сайын жаңыланат
+        </span>
         <button className="prr-manual-btn" onClick={openGen}>
           <Plus size={14} />
           Кол менен жасоо

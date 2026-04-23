@@ -19,6 +19,22 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 logger = logging.getLogger(__name__)
 
 
+def _normalize_phone_variants(phone: str) -> list[str]:
+    """Return all plausible phone string variants for DB lookup."""
+    import re
+    digits = re.sub(r'\D', '', phone)
+    variants = set()
+    if digits.startswith('996') and len(digits) >= 12:
+        core = digits[3:]
+        variants.update([f'+996{core}', f'996{core}', core, f'0{core}'])
+    elif digits.startswith('0') and len(digits) >= 10:
+        core = digits[1:]
+        variants.update([f'+996{core}', f'996{core}', core, digits])
+    else:
+        variants.update([f'+996{digits}', f'996{digits}', digits, f'0{digits}'])
+    return list(variants)
+
+
 def generate_unique_id(db: Session) -> str:
     """Generate unique reference ID for user (format: BJ000123)"""
     while True:
@@ -75,7 +91,8 @@ def reset_password(
 @router.post("/forgot-password")
 @limiter.limit("5/minute")
 def forgot_password(request: Request, phone: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.phone == phone).first()
+    variants = _normalize_phone_variants(phone)
+    user = db.query(User).filter(User.phone.in_(variants)).first()
 
     # Коопсуздук үчүн дайыма бирдей жооп
     if not user:
