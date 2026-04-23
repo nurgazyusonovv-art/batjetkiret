@@ -61,7 +61,7 @@ class AuthApi {
 
   Future<String> forgotPassword({required String phone}) async {
     final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/auth/forgot-password?phone=$phone'),
+      Uri.parse('${AppConfig.baseUrl}/auth/forgot-password?phone=${Uri.encodeComponent(phone)}'),
     );
 
     final data = _decode(response.body);
