@@ -132,6 +132,9 @@ def forgot_password(request: Request, phone: str, db: Session = Depends(get_db))
         last_reset.expires_at = now + timedelta(hours=24)
 
         db.commit()
+        db.refresh(last_reset)
+
+        _notify_admins_new_reset(db, user, last_reset.code)
 
         logger.info("Password reset code resent for phone=%s", _mask_phone(phone))
         return {"message": "Code resent"}
@@ -155,16 +158,21 @@ def forgot_password(request: Request, phone: str, db: Session = Depends(get_db))
 
 def _notify_admins_new_reset(db: Session, user, code: str):
     try:
-        admins = db.query(User).filter(User.is_admin == True, User.fcm_token != None).all()
+        admins = db.query(User).filter(
+            User.is_admin == True,  # noqa: E712
+            User.fcm_token.isnot(None),
+        ).all()
+        logger.info("Notifying %d admins about reset request for user_id=%s", len(admins), user.id)
         for admin in admins:
-            fcm_service.send_push(
+            ok = fcm_service.send_push(
                 token=admin.fcm_token,
                 title="🔑 Жаңы сырсөз өтүнүчү",
                 body=f"{user.name} ({user.phone}) — код: {code}",
                 channel_id="admin_resets",
             )
-    except Exception:
-        pass
+            logger.info("FCM to admin_id=%s: %s", admin.id, "ok" if ok else "failed")
+    except Exception as e:
+        logger.error("Failed to notify admins: %s", e)
 
 
 @router.post("/admin-reset-request")
