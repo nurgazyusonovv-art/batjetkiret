@@ -69,6 +69,9 @@ def send_push(token: str, title: str, body: str, data: dict | None = None, chann
                 notification=_messaging.AndroidNotification(
                     sound="default",
                     channel_id=channel_id,
+                    notification_priority=_messaging.AndroidNotificationPriority.MAX_PRIORITY,
+                    default_vibrate_timings=True,
+                    default_sound=True,
                 ),
             ),
             apns=_messaging.APNSConfig(
