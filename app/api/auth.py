@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from app.models.password_reset import PasswordReset
 from app.models.notification import Notification
 from app.core.security import generate_reset_code
+from app.services import fcm as fcm_service
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 logger = logging.getLogger(__name__)
@@ -144,9 +145,27 @@ def forgot_password(request: Request, phone: str, db: Session = Depends(get_db))
     )
     db.add(reset)
     db.commit()
+    db.refresh(reset)
+
+    # Admin'дерге FCM notification жөнөт
+    _notify_admins_new_reset(db, user, reset.code)
 
     logger.info("Password reset requested for phone=%s", _mask_phone(phone))
     return {"message": "Reset code sent"}
+
+def _notify_admins_new_reset(db: Session, user, code: str):
+    try:
+        admins = db.query(User).filter(User.is_admin == True, User.fcm_token != None).all()
+        for admin in admins:
+            fcm_service.send_push(
+                token=admin.fcm_token,
+                title="🔑 Жаңы сырсөз өтүнүчү",
+                body=f"{user.name} ({user.phone}) — код: {code}",
+                channel_id="admin_resets",
+            )
+    except Exception:
+        pass
+
 
 @router.post("/admin-reset-request")
 def admin_reset_request(unique_id: str, db: Session = Depends(get_db)):

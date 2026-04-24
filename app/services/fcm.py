@@ -53,7 +53,7 @@ def _init():
         logger.error("Failed to initialize Firebase Admin SDK: %s", exc)
 
 
-def send_push(token: str, title: str, body: str, data: dict | None = None) -> bool:
+def send_push(token: str, title: str, body: str, data: dict | None = None, channel_id: str = "batken_messages") -> bool:
     """Send a push notification to a single FCM token. Returns True on success."""
     _init()
     if _messaging is None or not token:
@@ -68,7 +68,7 @@ def send_push(token: str, title: str, body: str, data: dict | None = None) -> bo
                 priority="high",
                 notification=_messaging.AndroidNotification(
                     sound="default",
-                    channel_id="batken_messages",
+                    channel_id=channel_id,
                 ),
             ),
             apns=_messaging.APNSConfig(

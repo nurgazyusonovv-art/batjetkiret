@@ -2190,3 +2190,18 @@ def reject_cancel_request(
         order.admin_note = body.admin_note
     db.commit()
     return {"message": "Суроо четке кагылды", "order_id": order_id}
+
+
+class FcmTokenBody(BaseModel):
+    fcm_token: str
+
+
+@router.post("/fcm-token")
+def register_admin_fcm_token(
+    body: FcmTokenBody,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    admin.fcm_token = body.fcm_token
+    db.commit()
+    return {"ok": True}
