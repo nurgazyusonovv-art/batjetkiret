@@ -1691,7 +1691,17 @@ def approve_topup_request(
         f"Жаңы баланс: {float(user.balance)} сом"
     )
     _send_telegram_message(topup_req.telegram_user_id, approval_text)
-    
+
+    # FCM push to user
+    if user.fcm_token:
+        fcm_service.send_push(
+            token=user.fcm_token,
+            title="✅ Топап тастыкталды",
+            body=f"{int(float(topup_req.amount))} сом балансыңызга кошулду. Жаңы баланс: {int(float(user.balance))} сом",
+            channel_id="topup_status",
+            include_notification=True,
+        )
+
     return {
         "message": "Top-up request approved",
         "user_id": user.id,
@@ -1723,6 +1733,12 @@ def reject_topup_request(
     topup_req.approved_at = datetime.now()
     topup_req.admin_note = admin_note
     
+    # Find user for FCM
+    if topup_req.user_id:
+        user = db.query(User).filter(User.id == topup_req.user_id).first()
+    else:
+        user = db.query(User).filter(User.unique_id == topup_req.unique_id).first()
+
     db.commit()
 
     rejection_text = (
@@ -1732,7 +1748,17 @@ def reject_topup_request(
         f"Себеби: {admin_note}"
     )
     _send_telegram_message(topup_req.telegram_user_id, rejection_text)
-    
+
+    # FCM push to user
+    if user and user.fcm_token:
+        fcm_service.send_push(
+            token=user.fcm_token,
+            title="❌ Топап четке кагылды",
+            body=f"{int(float(topup_req.amount))} сом. Себеп: {admin_note}",
+            channel_id="topup_status",
+            include_notification=True,
+        )
+
     return {
         "message": "Top-up request rejected",
         "request_id": request_id,

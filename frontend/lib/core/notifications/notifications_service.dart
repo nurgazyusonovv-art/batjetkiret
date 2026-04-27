@@ -37,8 +37,8 @@ class NotificationsService {
       },
     );
 
-    // Create Android notification channel with sound + vibration
-    const channel = AndroidNotificationChannel(
+    // Create Android notification channels
+    const messagesChannel = AndroidNotificationChannel(
       'batken_messages',
       'Билдирүүлөр',
       description: 'Жаңы билдирүүлөр жана чат хабарлары',
@@ -46,10 +46,18 @@ class NotificationsService {
       playSound: true,
       enableVibration: true,
     );
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+    const topupChannel = AndroidNotificationChannel(
+      'topup_status',
+      'Топап статусу',
+      description: 'Топап тастыкталды же четке кагылды',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    );
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.createNotificationChannel(messagesChannel);
+    await androidPlugin?.createNotificationChannel(topupChannel);
 
     // Request iOS permissions
     await _plugin

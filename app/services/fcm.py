@@ -53,23 +53,42 @@ def _init():
         logger.error("Failed to initialize Firebase Admin SDK: %s", exc)
 
 
-def send_push(token: str, title: str, body: str, data: dict | None = None, channel_id: str = "batken_messages") -> bool:
-    """Send a push notification to a single FCM token. Returns True on success."""
+def send_push(
+    token: str,
+    title: str,
+    body: str,
+    data: dict | None = None,
+    channel_id: str = "batken_messages",
+    include_notification: bool = False,
+) -> bool:
+    """Send a push notification to a single FCM token. Returns True on success.
+
+    include_notification=True  — notification payload кошот (user app үчүн).
+    include_notification=False — data-only (admin app, дубль болбосун).
+    """
     _init()
     if _messaging is None or not token:
         return False
 
     try:
-        # Data-only message: Android системасы автоматтык notification көрсөтпөйт,
-        # app өзү flutter_local_notifications аркылуу көрсөтөт (дубль болбосун)
-        all_data = {"title": title, "body": body}
+        all_data = {"title": title, "body": body, "channel_id": channel_id}
         all_data.update({k: str(v) for k, v in (data or {}).items()})
         message = _messaging.Message(
+            notification=_messaging.Notification(title=title, body=body) if include_notification else None,
             data=all_data,
             token=token,
             android=_messaging.AndroidConfig(
                 priority="high",
+                notification=_messaging.AndroidNotification(
+                    sound="default",
+                    channel_id=channel_id,
+                ) if include_notification else None,
             ),
+            apns=_messaging.APNSConfig(
+                payload=_messaging.APNSPayload(
+                    aps=_messaging.Aps(sound="default"),
+                ),
+            ) if include_notification else None,
         )
         _messaging.send(message)
         return True
