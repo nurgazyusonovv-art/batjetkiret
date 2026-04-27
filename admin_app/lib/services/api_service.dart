@@ -111,4 +111,24 @@ class ApiService {
       data: {'admin_note': adminNote},
     );
   }
+
+  // ── Dashboard ──────────────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getStats() async {
+    final dio = await _client();
+    final resp = await dio.get('/admin/stats');
+    return resp.data as Map<String, dynamic>;
+  }
+
+  static Future<List<dynamic>> getRevenueTrend({int days = 7}) async {
+    final dio = await _client();
+    final resp = await dio.get('/admin/revenue-trend', queryParameters: {'days': days});
+    return resp.data as List<dynamic>;
+  }
+
+  static Future<int> getCancelRequestsCount() async {
+    final dio = await _client();
+    final resp = await dio.get('/admin/cancel-requests/count');
+    return (resp.data['count'] as num?)?.toInt() ?? 0;
+  }
 }

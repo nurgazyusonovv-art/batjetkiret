@@ -7,6 +7,7 @@ import 'screens/reset_requests_screen.dart';
 import 'screens/topup_screen.dart';
 import 'screens/support_chats_screen.dart';
 import 'screens/cancel_requests_screen.dart';
+import 'screens/dashboard_screen.dart';
 import 'services/auth_service.dart';
 
 final FlutterLocalNotificationsPlugin localNotifications =
@@ -208,6 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
 
   static const _screens = [
+    DashboardScreen(),
     ResetRequestsScreen(),
     TopUpScreen(),
     SupportChatsScreen(),
@@ -224,6 +226,10 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedItemColor: const Color(0xFFDC2626),
         unselectedItemColor: const Color(0xFF9CA3AF),
         items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard_outlined),
+            label: 'Дашборд',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.lock_reset),
             label: 'Сырсөз',
