@@ -28,6 +28,23 @@ from app.services import fcm as fcm_service
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
 MIN_BALANCE_TO_CREATE_ORDER = Decimal("10")
+
+
+def _notify_admins_cancel(db, order, requester) -> None:
+    """Send FCM push to all admins when a user submits a cancel request."""
+    admins = db.query(User).filter(User.is_admin == True, User.is_active == True).all()  # noqa: E712
+    name = requester.name or requester.phone or "Колдонуучу"
+    reason = getattr(order, "cancel_request_reason", None) or ""
+    body = f"{name} — Заказ #{order.id}" + (f": {reason}" if reason else "")
+    for admin in admins:
+        if admin.fcm_token:
+            fcm_service.send_push(
+                token=admin.fcm_token,
+                title="❌ Жокко чыгаруу суроосу",
+                body=body,
+                data={"order_id": str(order.id), "type": "cancel_request"},
+                channel_id="cancel_requests",
+            )
 USER_ORDER_SERVICE_FEE = Decimal("5")
 COURIER_ORDER_SERVICE_FEE = Decimal("5")
 
@@ -586,6 +603,7 @@ def cancel_order(
             )
         order.cancel_requested = True
         db.commit()
+        _notify_admins_cancel(db, order, current_user)
         return {"message": "cancel_requested", "type": "pending"}
 
     raise HTTPException(
@@ -621,6 +639,7 @@ def submit_cancel_request(
     order.cancel_requested = True
     order.cancel_request_reason = body.reason or None
     db.commit()
+    _notify_admins_cancel(db, order, current_user)
     return {"message": "cancel_requested"}
 
 @router.delete("/{order_id}")

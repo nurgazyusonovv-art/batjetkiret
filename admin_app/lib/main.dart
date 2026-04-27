@@ -6,6 +6,7 @@ import 'screens/login_screen.dart';
 import 'screens/reset_requests_screen.dart';
 import 'screens/topup_screen.dart';
 import 'screens/support_chats_screen.dart';
+import 'screens/cancel_requests_screen.dart';
 import 'services/auth_service.dart';
 
 final FlutterLocalNotificationsPlugin localNotifications =
@@ -210,6 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ResetRequestsScreen(),
     TopUpScreen(),
     SupportChatsScreen(),
+    CancelRequestsScreen(),
   ];
 
   @override
@@ -233,6 +235,10 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.support_agent),
             label: 'Колдоо',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.cancel_outlined),
+            label: 'Жокко чыг.',
           ),
         ],
       ),

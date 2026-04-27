@@ -76,4 +76,39 @@ class ApiService {
     const wsBase = 'wss://batjetkiret-production.up.railway.app';
     return '$wsBase/chat/ws/$chatId?token=$token';
   }
+
+  // ── Cancel Requests ────────────────────────────────────────────────────────
+
+  static Future<List<dynamic>> getCancelRequests() async {
+    final dio = await _client();
+    final resp = await dio.get('/admin/cancel-requests');
+    return resp.data as List<dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> approveCancelRequest(
+    int orderId, {
+    String adminNote = '',
+    double? userDeductAmount,
+    double? courierPayoutAmount,
+  }) async {
+    final dio = await _client();
+    final resp = await dio.post(
+      '/admin/cancel-requests/$orderId/approve',
+      data: {
+        'admin_note': adminNote,
+        'user_deduct_amount': userDeductAmount,
+        'courier_payout_amount': courierPayoutAmount,
+      },
+    );
+    return resp.data as Map<String, dynamic>;
+  }
+
+  static Future<void> rejectCancelRequest(int orderId,
+      {String adminNote = ''}) async {
+    final dio = await _client();
+    await dio.post(
+      '/admin/cancel-requests/$orderId/reject',
+      data: {'admin_note': adminNote},
+    );
+  }
 }
