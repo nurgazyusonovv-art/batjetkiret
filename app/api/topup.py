@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import base64
 import hashlib
+import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -8,6 +9,9 @@ from app.api.deps import get_db, get_current_user
 from app.models.topup import TopUpRequest
 from app.models.user import User
 from app.models.notification import Notification
+from app.services import fcm as fcm_service
+
+logger = logging.getLogger(__name__)
 
 
 class TopupRequestBody(BaseModel):
@@ -84,18 +88,29 @@ def create_topup_request(
     )
     db.add(req)
 
-    admins = db.query(User).filter(User.is_admin == True).all()
+    admins = db.query(User).filter(User.is_admin == True).all()  # noqa: E712
     for admin in admins:
         db.add(
             Notification(
                 user_id=admin.id,
-                title="New Top-up Request",
-                message=f"User {current_user.phone} requested top-up: {amount} KGS",
+                title="💳 Жаңы топап өтүнүчү",
+                message=f"{current_user.name} ({current_user.phone}) — {amount} сом",
             )
         )
 
     db.commit()
     db.refresh(req)
+
+    # FCM push — admins who have token
+    for admin in admins:
+        if admin.fcm_token:
+            ok = fcm_service.send_push(
+                token=admin.fcm_token,
+                title="💳 Жаңы топап өтүнүчү",
+                body=f"{current_user.name} ({current_user.phone}) — {int(amount)} сом",
+                channel_id="topup_requests",
+            )
+            logger.info("FCM topup to admin_id=%s: %s", admin.id, "ok" if ok else "failed")
 
     return {
         "message": "Top-up request submitted",
