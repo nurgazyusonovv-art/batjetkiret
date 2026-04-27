@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1084134664009",
+    "project_id": "batkenexpress",
+    "storage_bucket": "batkenexpress.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1084134664009:android:061106347fc2ccd8f61c98",
+        "android_client_info": {
+          "package_name": "kg.batkenexpress.admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC1-sycXJ3-5j1bjxe_hNkvXh_3ERIoSb0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1084134664009:android:fa4862daba3be5d6f61c98",
+        "android_client_info": {
+          "package_name": "kg.batkenexpress.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC1-sycXJ3-5j1bjxe_hNkvXh_3ERIoSb0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

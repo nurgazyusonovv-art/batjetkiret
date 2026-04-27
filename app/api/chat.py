@@ -122,33 +122,69 @@ def _mark_chat_messages_read(db: Session, chat: ChatRoom, reader_id: int) -> tup
 
 
 def _create_notifications(db: Session, chat: ChatRoom, sender_id: int) -> None:
-    recipients: list[int | None] = []
-
     if chat.type == "ORDER":
-        recipients = [chat.user_id, chat.courier_id]
-    elif chat.type == "SUPPORT":
-        recipients = [chat.user_id]
-        if chat.admin_id:
-            recipients.append(chat.admin_id)
-
-    for uid in recipients:
-        if uid and uid != sender_id:
-            db.add(
-                Notification(
-                    user_id=uid,
-                    title="Жаңы билдирүү",
-                    message="Сизге жаңы чат билдирүүсү бар",
-                    related_chat_id=chat.id,
+        recipients: list[int | None] = [chat.user_id, chat.courier_id]
+        for uid in recipients:
+            if uid and uid != sender_id:
+                db.add(
+                    Notification(
+                        user_id=uid,
+                        title="Жаңы билдирүү",
+                        message="Сизге жаңы чат билдирүүсү бар",
+                        related_chat_id=chat.id,
+                    )
                 )
+                recipient = db.query(User).filter(User.id == uid).first()
+                fcm_service.send_push_to_user(
+                    recipient,
+                    title="Жаңы билдирүү",
+                    body="Сизге жаңы чат билдирүүсү бар",
+                    data={"chat_id": str(chat.id), "type": chat.type},
+                )
+        return
+
+    if chat.type == "SUPPORT":
+        sender = db.query(User).filter(User.id == sender_id).first()
+        sender_is_admin = sender.is_admin if sender else False
+
+        if sender_is_admin:
+            # Admin жооп берди → колдонуучуга FCM
+            if chat.user_id and chat.user_id != sender_id:
+                db.add(
+                    Notification(
+                        user_id=chat.user_id,
+                        title="💬 Колдоо кызматы",
+                        message="Жаңы жооп бар",
+                        related_chat_id=chat.id,
+                    )
+                )
+                user = db.query(User).filter(User.id == chat.user_id).first()
+                fcm_service.send_push(
+                    token=user.fcm_token if user else "",
+                    title="💬 Колдоо кызматы",
+                    body="Жаңы жооп бар",
+                    data={"chat_id": str(chat.id), "type": "SUPPORT"},
+                    channel_id="support_chat",
+                    include_notification=True,
+                ) if user and user.fcm_token else None
+        else:
+            # Колдонуучу жазды → бардык adminдерге FCM
+            admins = (
+                db.query(User)
+                .filter(User.is_admin == True, User.is_active == True)  # noqa: E712
+                .all()
             )
-            # Send FCM push notification
-            recipient = db.query(User).filter(User.id == uid).first()
-            fcm_service.send_push_to_user(
-                recipient,
-                title="Жаңы билдирүү",
-                body="Сизге жаңы чат билдирүүсү бар",
-                data={"chat_id": str(chat.id), "type": chat.type},
-            )
+            sender_user = db.query(User).filter(User.id == sender_id).first()
+            sender_name = sender_user.name if sender_user else "Колдонуучу"
+            for admin in admins:
+                if admin.fcm_token:
+                    fcm_service.send_push(
+                        token=admin.fcm_token,
+                        title="💬 Колдоо чаты",
+                        body=f"{sender_name}: Жаңы билдирүү",
+                        data={"chat_id": str(chat.id), "type": "SUPPORT"},
+                        channel_id="support_chat",
+                    )
 
 
 async def _broadcast_read_update(chat_id: int, reader_id: int, last_read_message_id: int | None) -> None:
