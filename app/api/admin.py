@@ -54,6 +54,26 @@ def _resolve_telegram_file_url(file_id: str | None) -> str | None:
         logger.warning(f"Telegram getFile failed: {e}")
     return None
 
+def _send_telegram_message(chat_id, text: str) -> None:
+    """Send a Telegram message. No-op if chat_id is None or token not set."""
+    if not chat_id:
+        return
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        return
+    import urllib.request, urllib.parse, json as _json
+    try:
+        payload = _json.dumps({"chat_id": chat_id, "text": text}).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=10)
+    except Exception as e:
+        logger.warning("Telegram sendMessage failed: %s", e)
+
+
 USER_ORDER_SERVICE_FEE = 5.0
 COURIER_ORDER_SERVICE_FEE = 5.0
 TOTAL_SERVICE_FEE_PER_COMPLETED_ORDER = USER_ORDER_SERVICE_FEE + COURIER_ORDER_SERVICE_FEE
