@@ -2211,15 +2211,24 @@ def register_admin_fcm_token(
 def fcm_debug(db: Session = Depends(get_db), admin=Depends(require_admin)):
     from app.services import fcm as fcm_service
     admins = db.query(User).filter(User.is_admin == True).all()  # noqa: E712
+    results = []
+    for a in admins:
+        entry = {
+            "id": a.id,
+            "name": a.name,
+            "has_fcm_token": bool(a.fcm_token),
+            "fcm_token_preview": a.fcm_token[:20] + "..." if a.fcm_token else None,
+        }
+        if a.fcm_token:
+            ok = fcm_service.send_push(
+                token=a.fcm_token,
+                title="🔔 FCM тест",
+                body="Backend'ден notification иштеп жатат!",
+                channel_id="admin_resets",
+            )
+            entry["test_push_sent"] = ok
+        results.append(entry)
     return {
         "fcm_initialized": fcm_service.is_initialized(),
-        "admins": [
-            {
-                "id": a.id,
-                "name": a.name,
-                "has_fcm_token": bool(a.fcm_token),
-                "fcm_token_preview": a.fcm_token[:20] + "..." if a.fcm_token else None,
-            }
-            for a in admins
-        ],
+        "admins": results,
     }
