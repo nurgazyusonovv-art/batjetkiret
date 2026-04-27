@@ -60,21 +60,15 @@ def send_push(token: str, title: str, body: str, data: dict | None = None, chann
         return False
 
     try:
+        # Data-only message: Android системасы автоматтык notification көрсөтпөйт,
+        # app өзү flutter_local_notifications аркылуу көрсөтөт (дубль болбосун)
+        all_data = {"title": title, "body": body}
+        all_data.update({k: str(v) for k, v in (data or {}).items()})
         message = _messaging.Message(
-            notification=_messaging.Notification(title=title, body=body),
-            data={k: str(v) for k, v in (data or {}).items()},
+            data=all_data,
             token=token,
             android=_messaging.AndroidConfig(
                 priority="high",
-                notification=_messaging.AndroidNotification(
-                    sound="default",
-                    channel_id=channel_id,
-                ),
-            ),
-            apns=_messaging.APNSConfig(
-                payload=_messaging.APNSPayload(
-                    aps=_messaging.Aps(sound="default"),
-                ),
             ),
         )
         _messaging.send(message)
