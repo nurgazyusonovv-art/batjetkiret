@@ -1643,10 +1643,13 @@ def approve_topup_request(
     if topup_req.status != "PENDING":
         raise HTTPException(status_code=400, detail=f"Request already {topup_req.status}")
     
-    # Find user by unique_id
-    user = db.query(User).filter(User.unique_id == topup_req.unique_id).first()
+    # Find user: prefer user_id (web flow), fallback to unique_id (Telegram bot flow)
+    if topup_req.user_id:
+        user = db.query(User).filter(User.id == topup_req.user_id).first()
+    else:
+        user = db.query(User).filter(User.unique_id == topup_req.unique_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail=f"User with unique_id {topup_req.unique_id} not found")
+        raise HTTPException(status_code=404, detail="Колдонуучу табылган жок")
     
     # Update balance
     topup(db, user, float(topup_req.amount))
