@@ -53,7 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _toggleOpen(bool? current) async {
     setState(() => _togglingOpen = true);
     try {
-      final next = current == true ? false : true;
+      final next = !(current ?? false);
       await ApiService.setOpenStatus(next);
       await _load();
     } catch (_) {

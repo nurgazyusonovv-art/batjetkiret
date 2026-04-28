@@ -699,6 +699,13 @@ def get_stats(db: Session = Depends(get_db), auth: Tuple = Depends(require_enter
         EnterpriseCategory.enterprise_id == e.id).scalar() or 0
 
     return {
+        # Enterprise info
+        "enterprise": {
+            "name": e.name,
+            "is_open": e.is_open_override,
+            "open_time": e.open_time,
+            "close_time": e.close_time,
+        },
         # Today's stats
         "total_orders": total,
         "pending_orders": pending,

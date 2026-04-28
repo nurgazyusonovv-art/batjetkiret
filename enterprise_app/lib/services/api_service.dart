@@ -32,10 +32,11 @@ class ApiService {
     return resp.data as Map<String, dynamic>;
   }
 
-  static Future<void> setOpenStatus(bool? isOpen) async {
+  static Future<bool> setOpenStatus(bool isOpen) async {
     final dio = await _client();
-    await dio.patch('/enterprise-portal/me/open-status',
+    final resp = await dio.patch('/enterprise-portal/me/open-status',
         data: {'is_open': isOpen});
+    return resp.data['is_open_override'] as bool;
   }
 
   // ── Stats & Reports ─────────────────────────────────────────────────────────
@@ -117,9 +118,10 @@ class ApiService {
     return resp.data as List<dynamic>;
   }
 
-  static Future<void> createProduct(Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> createProduct(Map<String, dynamic> data) async {
     final dio = await _client();
-    await dio.post('/enterprise-portal/products', data: data);
+    final resp = await dio.post('/enterprise-portal/products', data: data);
+    return resp.data as Map<String, dynamic>;
   }
 
   static Future<void> updateProduct(int id, Map<String, dynamic> data) async {
