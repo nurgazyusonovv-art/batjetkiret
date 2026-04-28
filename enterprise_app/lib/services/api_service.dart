@@ -32,6 +32,11 @@ class ApiService {
     return resp.data as Map<String, dynamic>;
   }
 
+  static Future<void> saveFcmToken(String token) async {
+    final dio = await _client();
+    await dio.post('/enterprise-portal/fcm-token', data: {'token': token});
+  }
+
   static Future<bool> setOpenStatus(bool isOpen) async {
     final dio = await _client();
     final resp = await dio.patch('/enterprise-portal/me/open-status',

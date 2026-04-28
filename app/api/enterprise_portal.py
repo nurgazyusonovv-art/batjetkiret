@@ -619,14 +619,33 @@ def create_local_order(
     db.commit()
     db.refresh(order)
 
-    # Notify other enterprise panel sessions (different browser tabs / devices)
+    title = "🛎 Жаңы жергиликтүү заказ!"
+    body = f"Заказ #{order.id} — {order.to_address or ''}"
+
+    # FCM push to enterprise mobile app users (other sessions)
+    try:
+        from app.services import fcm as fcm_service
+        from app.models.user import User
+        enterprise_users = db.query(User).filter(
+            User.is_enterprise == True,  # noqa: E712
+            User.enterprise_id == e.id,
+            User.is_active == True,  # noqa: E712
+            User.fcm_token != None,  # noqa: E711
+            User.id != user.id,  # don't notify the creator
+        ).all()
+        for eu in enterprise_users:
+            fcm_service.send_push_to_user(eu, title=title, body=body)
+    except Exception:
+        pass
+
+    # Web Push to enterprise panel browser subscribers
     try:
         from app.services.web_push import notify_enterprise
         notify_enterprise(
             db,
             enterprise_id=e.id,
-            title="🛎 Жаңы жергиликтүү заказ!",
-            body=f"Заказ #{order.id} — {order.to_address or ''}",
+            title=title,
+            body=body,
             data={"order_id": order.id, "type": "new_order"},
         )
     except Exception:
@@ -1027,6 +1046,23 @@ def push_subscribe(
         existing.subscription_json = sub_json
     else:
         db.add(PushSubscription(enterprise_id=e.id, subscription_json=sub_json))
+    db.commit()
+    return {"ok": True}
+
+
+class FcmTokenRequest(BaseModel):
+    token: str
+
+
+@router.post("/fcm-token")
+def save_fcm_token(
+    body: FcmTokenRequest,
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    """Save FCM token for the current enterprise user (mobile push)."""
+    user, _e = auth
+    user.fcm_token = body.token
     db.commit()
     return {"ok": True}
 

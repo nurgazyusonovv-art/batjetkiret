@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/orders_screen.dart';
@@ -6,10 +7,12 @@ import 'screens/create_order_screen.dart';
 import 'screens/menu_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/auth_service.dart';
+import 'services/fcm_service.dart';
 import 'widgets/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   await NotificationService.init();
   runApp(const EnterpriseApp());
 }
@@ -54,6 +57,9 @@ class _AppEntryState extends State<_AppEntry> {
       _loggedIn = token != null;
       _checking = false;
     });
+    if (token != null) {
+      FcmService.init();
+    }
   }
 
   @override
@@ -64,7 +70,10 @@ class _AppEntryState extends State<_AppEntry> {
     if (_loggedIn) {
       return HomeShell(onLogout: () => setState(() => _loggedIn = false));
     }
-    return LoginScreen(onLogin: () => setState(() => _loggedIn = true));
+    return LoginScreen(onLogin: () {
+      setState(() => _loggedIn = true);
+      FcmService.init();
+    });
   }
 }
 
@@ -85,7 +94,7 @@ class _HomeShellState extends State<HomeShell> {
       body: IndexedStack(
         index: _tab,
         children: [
-          const DashboardScreen(),
+          DashboardScreen(onGoToOrders: () => setState(() => _tab = 1)),
           const OrdersScreen(),
           const CreateOrderScreen(),
           const MenuScreen(),
