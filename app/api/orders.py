@@ -266,10 +266,13 @@ def create_order(
                 User.fcm_token != None,  # noqa: E711
             ).all()
             for eu in enterprise_users:
-                fcm_service.send_push_to_user(
-                    eu,
+                fcm_service.send_push(
+                    eu.fcm_token,
                     title="🛎 Жаңы заказ!",
                     body=f"Заказ #{order.id} — {order.to_address or ''}",
+                    data={"order_id": str(order.id), "type": "new_order"},
+                    channel_id="enterprise_orders",
+                    include_notification=True,
                 )
         except Exception:
             pass  # FCM failure must never break order creation

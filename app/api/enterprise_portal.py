@@ -634,7 +634,14 @@ def create_local_order(
             User.id != user.id,  # don't notify the creator
         ).all()
         for eu in enterprise_users:
-            fcm_service.send_push_to_user(eu, title=title, body=body)
+            fcm_service.send_push(
+                eu.fcm_token,
+                title=title,
+                body=body,
+                data={"order_id": str(order.id), "type": "new_order"},
+                channel_id="enterprise_orders",
+                include_notification=True,
+            )
     except Exception:
         pass
 

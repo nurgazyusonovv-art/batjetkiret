@@ -74,6 +74,31 @@ class ApiService {
     return resp.data as Map<String, dynamic>;
   }
 
+  // ── Payments ─────────────────────────────────────────────────────────────────
+
+  static Future<List<dynamic>> getPayments({String? status}) async {
+    final dio = await _client();
+    final resp = await dio.get('/enterprise-portal/payments',
+        queryParameters: status != null ? {'status': status} : null);
+    return resp.data as List<dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> confirmPayment(int paymentId,
+      {String? note}) async {
+    final dio = await _client();
+    final resp = await dio.post('/enterprise-portal/payments/$paymentId/confirm',
+        data: note != null ? {'note': note} : {});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> rejectPayment(int paymentId,
+      {String? note}) async {
+    final dio = await _client();
+    final resp = await dio.post('/enterprise-portal/payments/$paymentId/reject',
+        data: note != null ? {'note': note} : {});
+    return resp.data as Map<String, dynamic>;
+  }
+
   static Future<List<dynamic>> getHistory() async {
     final dio = await _client();
     final resp = await dio.get('/enterprise-portal/history');

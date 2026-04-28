@@ -5,6 +5,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/orders_screen.dart';
 import 'screens/create_order_screen.dart';
 import 'screens/menu_screen.dart';
+import 'screens/payments_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/auth_service.dart';
 import 'services/fcm_service.dart';
@@ -97,6 +98,7 @@ class _HomeShellState extends State<HomeShell> {
           DashboardScreen(onGoToOrders: () => setState(() => _tab = 1)),
           const OrdersScreen(),
           const CreateOrderScreen(),
+          const PaymentsScreen(),
           const MenuScreen(),
           ProfileScreen(onLogout: widget.onLogout),
         ],
@@ -125,6 +127,11 @@ class _HomeShellState extends State<HomeShell> {
             icon: Icon(Icons.add_circle_outline),
             activeIcon: Icon(Icons.add_circle),
             label: 'Түзүү',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.payment_outlined),
+            activeIcon: Icon(Icons.payment),
+            label: 'Төлөмдөр',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.menu_book_outlined),
