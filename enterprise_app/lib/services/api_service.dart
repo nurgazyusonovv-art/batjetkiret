@@ -63,6 +63,12 @@ class ApiService {
     return resp.data as List<dynamic>;
   }
 
+  static Future<Map<String, dynamic>> getOrderDetail(int orderId) async {
+    final dio = await _client();
+    final resp = await dio.get('/enterprise-portal/orders/$orderId');
+    return resp.data as Map<String, dynamic>;
+  }
+
   static Future<List<dynamic>> getHistory() async {
     final dio = await _client();
     final resp = await dio.get('/enterprise-portal/history');

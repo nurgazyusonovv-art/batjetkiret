@@ -429,6 +429,22 @@ def get_orders(
     return [_order_dict(o) for o in orders]
 
 
+@router.get("/orders/{order_id}")
+def get_order_detail(
+    order_id: int,
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    _user, e = auth
+    o = db.query(Order).filter(
+        Order.id == order_id,
+        Order.enterprise_id == e.id,
+    ).first()
+    if not o:
+        raise HTTPException(status_code=404, detail="Заказ табылган жок")
+    return _order_dict(o)
+
+
 @router.get("/history")
 def get_history(
     skip: int = 0,
