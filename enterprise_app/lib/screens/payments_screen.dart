@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 
@@ -362,19 +363,10 @@ class _PaymentCard extends StatelessWidget {
                 onTap: () => _showScreenshot(context, screenshotUrl),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    screenshotUrl,
+                  child: _ScreenshotImage(
+                    url: screenshotUrl,
                     height: 140,
-                    width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      height: 80,
-                      color: const Color(0xFFF3F4F6),
-                      child: const Center(
-                        child: Text('Скриншот жүктөлбөдү',
-                            style: TextStyle(color: Color(0xFF9CA3AF))),
-                      ),
-                    ),
                   ),
                 ),
               ),
@@ -429,9 +421,12 @@ class _PaymentCard extends StatelessWidget {
       context: context,
       builder: (_) => Dialog(
         backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
         child: Stack(children: [
           InteractiveViewer(
-            child: Image.network(url, fit: BoxFit.contain),
+            child: Center(
+              child: _ScreenshotImage(url: url, fit: BoxFit.contain),
+            ),
           ),
           Positioned(
             top: 8, right: 8,
@@ -449,4 +444,56 @@ class _PaymentCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── Screenshot Image (handles both base64 data URLs and regular http URLs) ───
+
+class _ScreenshotImage extends StatelessWidget {
+  final String url;
+  final double? height;
+  final BoxFit fit;
+
+  const _ScreenshotImage({required this.url, this.height, this.fit = BoxFit.cover});
+
+  @override
+  Widget build(BuildContext context) {
+    if (url.startsWith('data:')) {
+      // base64 data URL → extract the base64 part after the comma
+      final commaIdx = url.indexOf(',');
+      if (commaIdx == -1) return _error();
+      try {
+        final bytes = base64Decode(url.substring(commaIdx + 1));
+        return Image.memory(
+          bytes,
+          height: height,
+          width: double.infinity,
+          fit: fit,
+          errorBuilder: (_, _, _) => _error(),
+        );
+      } catch (_) {
+        return _error();
+      }
+    }
+    // Regular http/https URL
+    return Image.network(
+      url,
+      height: height,
+      width: double.infinity,
+      fit: fit,
+      errorBuilder: (_, _, _) => _error(),
+    );
+  }
+
+  Widget _error() => Container(
+        height: height ?? 80,
+        color: const Color(0xFFF3F4F6),
+        child: const Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.broken_image_outlined, color: Color(0xFF9CA3AF), size: 28),
+            SizedBox(height: 4),
+            Text('Скриншот жүктөлбөдү',
+                style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
+          ]),
+        ),
+      );
 }
