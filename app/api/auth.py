@@ -264,7 +264,7 @@ def register(request: Request, data: RegisterRequest, db: Session = Depends(get_
         name=data.name,
         hashed_password=hash_password(data.password),
         is_courier=data.is_courier,
-        balance=200,  # Welcome bonus for new users
+        balance=150,  # Welcome bonus for new users
         unique_id=generate_unique_id(db)  # Generate unique payment reference ID
     )
     db.add(user)
