@@ -649,6 +649,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   final _enterpriseSearchController = TextEditingController();
   String _enterpriseSearch = '';
 
+  // User GPS location for distance-to-enterprise display
+  LatLng? _userLocation;
+
   // Suggestion addresses
   final List<String> _suggestions = [
     'Бишкек, ул. Жибек Жолу, 123',
@@ -678,6 +681,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       }
     });
     _fetchAppSettings();
+    _fetchUserLocation();
   }
 
   @override
@@ -867,6 +871,24 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     _cubit.goToPickupStep();
     _fromAddressController.clear();
     setState(() => _selectedFromLocation = null);
+  }
+
+  Future<void> _fetchUserLocation() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) { return; }
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.low,
+      );
+      if (!mounted) return;
+      setState(() {
+        _userLocation = LatLng(latitude: pos.latitude, longitude: pos.longitude);
+      });
+    } catch (_) {}
   }
 
   Future<void> _getMyLocation({required bool isFrom}) async {
@@ -1371,50 +1393,88 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                     color: Colors.blueGrey.shade700,
                     bgColor: Colors.blueGrey.shade50,
                   ),
+
+                // Distance chip
+                if (_userLocation != null && ent.lat != null && ent.lon != null)
+                  _infoChip(
+                    icon: Icons.near_me_outlined,
+                    label: _formatDistance(DistanceCalculator.calculateDistance(
+                      from: _userLocation!,
+                      to: LatLng(latitude: ent.lat!, longitude: ent.lon!),
+                    )),
+                    color: Colors.indigo.shade600,
+                    bgColor: Colors.indigo.shade50,
+                  ),
               ],
             ),
           ),
 
-          // Call + WhatsApp action buttons (only when phone is available)
-          if (ent.phone != null) ...[
+          // Action buttons: Call + WhatsApp (phone) + Map (lat/lon)
+          if (ent.phone != null || (ent.lat != null && ent.lon != null)) ...[
             Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
-                  // ── Call button ──────────────────────────────────────────
-                  Expanded(
-                    child: _contactButton(
-                      icon: Icons.phone_rounded,
-                      label: 'Чалуу',
-                      color: Colors.green.shade600,
-                      bgColor: Colors.green.shade50,
-                      onTap: () async {
-                        final uri = Uri(scheme: 'tel', path: ent.phone);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri);
-                        }
-                      },
+                  if (ent.phone != null) ...[
+                    // ── Call button ────────────────────────────────────────
+                    Expanded(
+                      child: _contactButton(
+                        icon: Icons.phone_rounded,
+                        label: 'Чалуу',
+                        color: Colors.green.shade600,
+                        bgColor: Colors.green.shade50,
+                        onTap: () async {
+                          final uri = Uri(scheme: 'tel', path: ent.phone);
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri);
+                          }
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  // ── WhatsApp button ──────────────────────────────────────
-                  Expanded(
-                    child: _contactButton(
-                      icon: Icons.chat_rounded,
-                      label: 'WhatsApp',
-                      color: const Color(0xFF25D366),
-                      bgColor: const Color(0xFFE9FBF0),
-                      onTap: () async {
-                        // Strip non-digits, build WhatsApp deep-link
-                        final digits = ent.phone!.replaceAll(RegExp(r'\D'), '');
-                        final uri = Uri.parse('https://wa.me/$digits');
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
-                      },
+                    const SizedBox(width: 8),
+                    // ── WhatsApp button ────────────────────────────────────
+                    Expanded(
+                      child: _contactButton(
+                        icon: Icons.chat_rounded,
+                        label: 'WhatsApp',
+                        color: const Color(0xFF25D366),
+                        bgColor: const Color(0xFFE9FBF0),
+                        onTap: () async {
+                          final digits = ent.phone!.replaceAll(RegExp(r'\D'), '');
+                          final uri = Uri.parse('https://wa.me/$digits');
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                      ),
                     ),
-                  ),
+                    if (ent.lat != null && ent.lon != null)
+                      const SizedBox(width: 8),
+                  ],
+                  // ── Map button ─────────────────────────────────────────
+                  if (ent.lat != null && ent.lon != null)
+                    Expanded(
+                      child: _contactButton(
+                        icon: Icons.map_outlined,
+                        label: 'Карта',
+                        color: Colors.blue.shade700,
+                        bgColor: Colors.blue.shade50,
+                        onTap: () async {
+                          final lat = ent.lat!;
+                          final lon = ent.lon!;
+                          final geoUri = Uri.parse('geo:$lat,$lon?q=$lat,$lon');
+                          if (await canLaunchUrl(geoUri)) {
+                            await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+                          } else {
+                            final webUri = Uri.parse(
+                              'https://maps.google.com/?q=$lat,$lon',
+                            );
+                            await launchUrl(webUri, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1422,6 +1482,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         ],
       ),
     );
+  }
+
+  String _formatDistance(double km) {
+    if (km < 1) return '${(km * 1000).round()} м';
+    return '${km.toStringAsFixed(1)} км';
   }
 
   Widget _contactButton({
