@@ -25,6 +25,10 @@ import 'features/onboarding/presentation/onboarding_page.dart';
 import 'features/orders/presentation/cubit/orders_cubit.dart';
 import 'features/orders/presentation/my_orders_page.dart';
 import 'features/splash/presentation/splash_screen.dart';
+import 'features/role_selection/presentation/role_selection_page.dart';
+import 'features/enterprise/enterprise_shell.dart';
+import 'features/enterprise/screens/login_screen.dart' as ent;
+import 'features/enterprise/services/auth_service.dart' as ent_auth;
 import 'core/auth_event_bus.dart';
 
 final _navigatorKey = GlobalKey<NavigatorState>();
@@ -120,10 +124,13 @@ class _AppStartFlow extends StatefulWidget {
 
 class _AppStartFlowState extends State<_AppStartFlow> {
   static const _onboardingSeenKey = 'onboarding_seen';
+  static const _roleKey = 'selected_role';
   static const _minSplashDuration = Duration(seconds: 2);
 
   bool _isSplashDone = false;
   bool? _isOnboardingSeen;
+  String? _role;           // 'user' | 'courier' | 'enterprise' | null
+  bool _entLoggedIn = false;
 
   @override
   void initState() {
@@ -134,12 +141,20 @@ class _AppStartFlowState extends State<_AppStartFlow> {
   Future<void> _loadStartupState() async {
     final prefs = await SharedPreferences.getInstance();
     final seen = prefs.getBool(_onboardingSeenKey) ?? false;
+    final role = prefs.getString(_roleKey);
 
-    await Future<void>.delayed(_minSplashDuration);
+    // Check enterprise token in parallel with splash delay
+    final results = await Future.wait([
+      Future<void>.delayed(_minSplashDuration),
+      ent_auth.AuthService.getToken(),
+    ]);
+    final entToken = results[1] as String?;
+
     if (!mounted) return;
-
     setState(() {
       _isOnboardingSeen = seen;
+      _role = role;
+      _entLoggedIn = entToken != null && entToken.isNotEmpty;
       _isSplashDone = true;
     });
   }
@@ -148,23 +163,65 @@ class _AppStartFlowState extends State<_AppStartFlow> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_onboardingSeenKey, true);
     if (!mounted) return;
+    setState(() => _isOnboardingSeen = true);
+  }
 
+  Future<void> _selectRole(AppRole role) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = role == AppRole.enterprise
+        ? 'enterprise'
+        : role == AppRole.courier
+            ? 'courier'
+            : 'user';
+    await prefs.setString(_roleKey, key);
+    if (!mounted) return;
+    setState(() => _role = key);
+  }
+
+  void _onEnterpriseLogin() {
+    setState(() => _entLoggedIn = true);
+  }
+
+  void _onEnterpriseLogout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_roleKey);
+    if (!mounted) return;
     setState(() {
-      _isOnboardingSeen = true;
+      _role = null;
+      _entLoggedIn = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_isSplashDone ||
-        _isOnboardingSeen == null ||
-        !widget.authState.isInitialized) {
+    // 1. Splash — wait for prefs + auth init
+    if (!_isSplashDone || _isOnboardingSeen == null) {
       return const SplashScreen();
     }
 
+    // 2. Onboarding
     if (_isOnboardingSeen == false) {
       return OnboardingPage(onFinish: _finishOnboarding);
     }
+
+    // 3. Role selection
+    if (_role == null) {
+      return RoleSelectionPage(onRoleSelected: _selectRole);
+    }
+
+    // 4. Enterprise flow
+    if (_role == 'enterprise') {
+      if (!widget.authState.isInitialized && !_entLoggedIn) {
+        return const SplashScreen();
+      }
+      if (_entLoggedIn) {
+        return EnterpriseShell(onLogout: _onEnterpriseLogout);
+      }
+      return ent.LoginScreen(onLogin: _onEnterpriseLogin);
+    }
+
+    // 5. Regular / Courier flow
+    if (!widget.authState.isInitialized) return const SplashScreen();
 
     if (widget.authState.token != null && widget.authState.token!.isNotEmpty) {
       return MainNavigation(token: widget.authState.token!);
