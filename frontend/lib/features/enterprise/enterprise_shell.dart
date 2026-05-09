@@ -6,6 +6,8 @@ import 'screens/menu_screen.dart';
 import 'screens/payments_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/auth_service.dart';
+import 'services/fcm_service.dart';
+import 'widgets/notification_service.dart';
 
 class EnterpriseShell extends StatefulWidget {
   const EnterpriseShell({super.key, required this.onLogout});
@@ -18,6 +20,13 @@ class EnterpriseShell extends StatefulWidget {
 
 class _EnterpriseShellState extends State<EnterpriseShell> {
   int _tab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationService.init();
+    FcmService.init();
+  }
 
   Future<void> _logout() async {
     await AuthService.deleteToken();

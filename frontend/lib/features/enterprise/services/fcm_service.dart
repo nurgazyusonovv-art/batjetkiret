@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../widgets/notification_service.dart';
 import 'api_service.dart';
 
@@ -14,7 +15,7 @@ class FcmService {
   static bool _initialized = false;
 
   static Future<void> init() async {
-    if (_initialized) return;
+    if (kIsWeb || _initialized) return;
     _initialized = true;
 
     final messaging = FirebaseMessaging.instance;

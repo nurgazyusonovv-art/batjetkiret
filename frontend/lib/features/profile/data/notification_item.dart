@@ -3,6 +3,7 @@ class NotificationItem {
   final String title;
   final String message;
   final int? chatId;
+  final int? orderId;
   final bool isRead;
   final String createdAt;
 
@@ -11,6 +12,7 @@ class NotificationItem {
     required this.title,
     required this.message,
     required this.chatId,
+    required this.orderId,
     required this.isRead,
     required this.createdAt,
   });
@@ -20,6 +22,7 @@ class NotificationItem {
         title: title,
         message: message,
         chatId: chatId,
+        orderId: orderId,
         isRead: true,
         createdAt: createdAt,
       );
@@ -30,6 +33,7 @@ class NotificationItem {
       title: (json['title'] ?? '').toString(),
       message: (json['message'] ?? '').toString(),
       chatId: (json['chat_id'] as num?)?.toInt(),
+      orderId: (json['order_id'] as num?)?.toInt(),
       isRead: json['is_read'] == true,
       createdAt: (json['created_at'] ?? '').toString(),
     );

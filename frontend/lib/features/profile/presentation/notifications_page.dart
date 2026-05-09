@@ -55,6 +55,8 @@ _NotifCategory _categoryOf(NotificationItem n) {
   if (t.contains('🛎') || tl.contains('заказ') || tl.contains('чыгаруу')) {
     return _NotifCategory.orders;
   }
+  // Use backend fields for precise categorisation
+  if (n.orderId != null) return _NotifCategory.orders;
   if (n.chatId != null) return _NotifCategory.chat;
   return _NotifCategory.system;
 }
