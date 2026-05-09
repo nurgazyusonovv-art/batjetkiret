@@ -166,6 +166,26 @@ class _AppStartFlowState extends State<_AppStartFlow> {
     setState(() => _isOnboardingSeen = true);
   }
 
+  @override
+  void didUpdateWidget(covariant _AppStartFlow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // When user/courier logs out, clear role → go back to RoleSelectionPage
+    final wasLoggedIn = oldWidget.authState.token?.isNotEmpty == true;
+    final isNowLoggedOut = widget.authState.token == null ||
+        widget.authState.token!.isEmpty;
+    if (wasLoggedIn && isNowLoggedOut &&
+        (_role == 'user' || _role == 'courier')) {
+      _clearRole();
+    }
+  }
+
+  Future<void> _clearRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_roleKey);
+    if (!mounted) return;
+    setState(() => _role = null);
+  }
+
   Future<void> _selectRole(AppRole role) async {
     final prefs = await SharedPreferences.getInstance();
     final key = role == AppRole.enterprise
