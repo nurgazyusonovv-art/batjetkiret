@@ -3,12 +3,13 @@ Enterprise Portal API
 All endpoints require is_enterprise=True user with active enterprise.
 """
 import os
-import base64
+
+from app.services.r2 import upload_bytes, delete_object, ext_for as r2_ext_for
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func, cast, Date
+from sqlalchemy import func, cast, Date, or_
 from typing import Optional, Tuple, List
 from decimal import Decimal
 from datetime import datetime, timedelta, date
@@ -24,6 +25,7 @@ from app.models.enterprise import Enterprise
 from app.models.enterprise_category import EnterpriseCategory
 from app.models.enterprise_product import EnterpriseProduct
 from app.models.order_payment import OrderPayment
+from app.services.order_status import apply_status_change
 
 router = APIRouter(prefix="/enterprise-portal", tags=["Enterprise Portal"])
 
@@ -361,10 +363,14 @@ async def upload_product_image(
     if len(content) > 3 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Сүрөт өлчөмү 3МБ'дан ашпашы керек")
 
-    data_url = f"data:{mime};base64,{base64.b64encode(content).decode()}"
-    prod.image_url = data_url
+    # Эски сүрөттү R2'дан өчүр (бар болсо)
+    delete_object(prod.image_url or "")
+
+    key = f"products/{prod_id}{r2_ext_for(mime)}"
+    url = upload_bytes(key, content, mime)
+    prod.image_url = url
     db.commit()
-    return {"image_url": data_url}
+    return {"image_url": url}
 
 
 # ── Orders ────────────────────────────────────────────────────────────────────
@@ -385,7 +391,7 @@ class LocalOrderCreate(BaseModel):
 
 
 def _order_dict(o: Order) -> dict:
-    return {
+    data = {
         "id": o.id,
         "user_phone": o.user.phone if o.user else None,
         "user_name": o.user.name if o.user else None,
@@ -403,6 +409,9 @@ def _order_dict(o: Order) -> dict:
         "order_type": getattr(o, 'order_type', 'delivery'),
         "created_at": o.created_at.isoformat() if o.created_at else None,
     }
+    if o.status == "DELIVERED" and o.verification_code:
+        data["verification_code"] = o.verification_code
+    return data
 
 
 @router.get("/orders")
@@ -419,7 +428,7 @@ def get_orders(
         Order.enterprise_id.isnot(None),
         Order.enterprise_id == e.id,
         Order.hidden_for_enterprise == False,  # noqa: E712
-        Order.status.notin_(["COMPLETED", "DELIVERED", "CANCELLED"]),
+        Order.status.notin_(["COMPLETED", "CANCELLED"]),
     )
     if status:
         q = q.filter(Order.status == status)
@@ -454,12 +463,22 @@ def get_history(
 ):
     """Completed and cancelled orders (history)."""
     _user, e = auth
+    confirmed_payment_orders = (
+        db.query(OrderPayment.order_id)
+        .filter(
+            OrderPayment.enterprise_id == e.id,
+            OrderPayment.status == "confirmed",
+        )
+    )
     orders = (db.query(Order)
               .filter(
                   Order.enterprise_id.isnot(None),
                   Order.enterprise_id == e.id,
                   Order.hidden_for_enterprise == False,  # noqa: E712
-                  Order.status.in_(["COMPLETED", "DELIVERED", "CANCELLED"]),
+                  or_(
+                      Order.status.in_(["COMPLETED", "CANCELLED"]),
+                      Order.id.in_(confirmed_payment_orders),
+                  ),
               )
               .order_by(Order.created_at.desc())
               .offset(skip).limit(limit).all())
@@ -582,7 +601,7 @@ def create_local_order(
         delivery_price = Decimal("0")
     else:
         # Calculate distance from coordinates if both endpoints are available
-        base, per_km = get_delivery_pricing(db)
+        base, per_km, extra_after_km, extra_per_km = get_delivery_pricing(db)
         if (enterprise.lat and enterprise.lon
                 and data.to_lat is not None and data.to_lng is not None):
             dist = haversine_km(
@@ -590,11 +609,11 @@ def create_local_order(
                 data.to_lat, data.to_lng,
             )
             distance_km = Decimal(str(round(dist, 2)))
-            delivery_price = Decimal(str(round(calculate_price(dist, base, per_km), 0)))
+            delivery_price = Decimal(str(round(calculate_price(dist, base, per_km, extra_after_km, extra_per_km), 0)))
         else:
             # No coordinates — use base delivery fee
             distance_km = Decimal("0")
-            delivery_price = Decimal(str(calculate_price(0, base, per_km)))
+            delivery_price = Decimal(str(calculate_price(0, base, per_km, extra_after_km, extra_per_km)))
 
     order = Order(
         user_id=customer.id,
@@ -625,13 +644,12 @@ def create_local_order(
     # FCM push to enterprise mobile app users (other sessions)
     try:
         from app.services import fcm as fcm_service
-        from app.models.user import User
         enterprise_users = db.query(User).filter(
             User.is_enterprise == True,  # noqa: E712
-            User.enterprise_id == e.id,
+            User.enterprise_id == enterprise.id,
             User.is_active == True,  # noqa: E712
             User.fcm_token != None,  # noqa: E711
-            User.id != user.id,  # don't notify the creator
+            User.id != _user.id,  # don't notify the creator
         ).all()
         for eu in enterprise_users:
             fcm_service.send_push(
@@ -731,7 +749,7 @@ def get_stats(db: Session = Depends(get_db), auth: Tuple = Depends(require_enter
     # Active orders list (ongoing, not filtered by date)
     active_orders = (db.query(Order)
                      .filter(Order.enterprise_id == e.id,
-                             Order.status.in_(("WAITING_COURIER", "ACCEPTED", "READY")))
+                             Order.status.in_(("PREPARING", "WAITING_COURIER", "ACCEPTED", "READY")))
                      .order_by(Order.created_at.desc()).limit(10).all())
 
     # Products & categories counts (all time)
@@ -856,10 +874,12 @@ async def upload_payment_qr(
         raise HTTPException(status_code=400, detail="Файл өтө чоң (макс 5МБ)")
     if mime not in _ALLOWED_IMG:
         mime = _EXT_MIME.get(ext, "image/jpeg")
-    data_url = f"data:{mime};base64,{base64.b64encode(content).decode()}"
-    e.payment_qr_url = data_url
+    delete_object(e.payment_qr_url or "")
+    key = f"qr/{e.id}{r2_ext_for(mime)}"
+    url = upload_bytes(key, content, mime)
+    e.payment_qr_url = url
     db.commit()
-    return {"payment_qr_url": data_url}
+    return {"payment_qr_url": url}
 
 
 @router.delete("/payment-qr")
@@ -969,7 +989,13 @@ def confirm_payment(
     # Accept the order
     order = db.query(Order).filter(Order.id == payment.order_id).first()
     if order and order.status in ("WAITING_COURIER", "PREPARING"):
-        order.status = "ACCEPTED"
+        apply_status_change(
+            db=db,
+            order=order,
+            new_status="ACCEPTED",
+            actor_user_id=_user.id,
+            enforce_transition=False,
+        )
     db.commit()
     return _payment_dict(payment)
 
@@ -1092,4 +1118,3 @@ def push_unsubscribe(
     ).delete(synchronize_session=False)
     db.commit()
     return {"ok": True}
-

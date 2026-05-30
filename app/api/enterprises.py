@@ -3,15 +3,23 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime, timezone
-import base64
+import os
 
 from app.api.deps import get_db, get_current_user, require_admin
 from app.models.enterprise import Enterprise, VALID_CATEGORIES
 from app.models.user import User
 from app.core.security import hash_password
+from app.services.r2 import upload_bytes, delete_object, ext_for
 
 _ALLOWED_IMG = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 _MAX_LOGO_BYTES = 2 * 1024 * 1024  # 2 MB
+_EXT_MIME = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+}
 
 router = APIRouter(prefix="/enterprises", tags=["Enterprises"])
 
@@ -64,7 +72,12 @@ def _is_open_now(open_time: Optional[str], close_time: Optional[str]) -> Optiona
         return None
 
 
-def _enterprise_dict(e: Enterprise, owner: Optional[User] = None) -> dict:
+def _enterprise_dict(
+    e: Enterprise,
+    owner: Optional[User] = None,
+    *,
+    include_logo: bool = True,
+) -> dict:
     return {
         "id": e.id,
         "name": e.name,
@@ -75,7 +88,7 @@ def _enterprise_dict(e: Enterprise, owner: Optional[User] = None) -> dict:
         "lat": e.lat,
         "lon": e.lon,
         "is_active": e.is_active,
-        "logo_data": e.logo_data,
+        "logo_data": e.logo_data if include_logo else None,
         "open_time": e.open_time,
         "close_time": e.close_time,
         "is_open_override": e.is_open_override,
@@ -143,7 +156,10 @@ async def upload_enterprise_logo(
     if e.owner_user_id != current_user.id and not current_user.is_admin and not is_portal_user:
         raise HTTPException(status_code=403, detail="Уруксат жок")
 
-    content_type = file.content_type or ""
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    content_type = file.content_type or _EXT_MIME.get(ext, "")
+    if content_type == "application/octet-stream":
+        content_type = _EXT_MIME.get(ext, content_type)
     if content_type not in _ALLOWED_IMG:
         raise HTTPException(status_code=400, detail="Сүрөт форматы туура эмес (JPEG/PNG/WEBP/GIF)")
 
@@ -151,10 +167,14 @@ async def upload_enterprise_logo(
     if len(data) > _MAX_LOGO_BYTES:
         raise HTTPException(status_code=400, detail="Сүрөт өлчөмү 2 МБ дан ашпашы керек")
 
-    encoded = base64.b64encode(data).decode()
-    e.logo_data = f"data:{content_type};base64,{encoded}"
+    # Эски логону R2'дан өчүр (бар болсо)
+    delete_object(e.logo_data or "")
+
+    key = f"logos/{enterprise_id}{ext_for(content_type)}"
+    url = upload_bytes(key, data, content_type)
+    e.logo_data = url
     db.commit()
-    return {"logo_data": e.logo_data}
+    return {"logo_data": url}
 
 
 class WorkingHoursUpdate(BaseModel):
@@ -278,48 +298,46 @@ def get_enterprise_menu(
         .all()
     )
 
-    menu = []
-    for cat in categories:
-        products = (
-            db.query(EnterpriseProduct)
-            .filter(
-                EnterpriseProduct.enterprise_id == enterprise_id,
-                EnterpriseProduct.category_id == cat.id,
-                EnterpriseProduct.is_active == True,  # noqa: E712
-            )
-            .order_by(EnterpriseProduct.sort_order, EnterpriseProduct.id)
-            .all()
-        )
-        if products:
-            menu.append({
-                "id": cat.id,
-                "name": cat.name,
-                "products": [
-                    {"id": p.id, "name": p.name, "description": p.description, "price": float(p.price), "image_url": p.image_url}
-                    for p in products
-                ],
-            })
-
-    # Products without a category
-    uncategorized = (
+    products = (
         db.query(EnterpriseProduct)
         .filter(
             EnterpriseProduct.enterprise_id == enterprise_id,
-            EnterpriseProduct.category_id == None,  # noqa: E711
             EnterpriseProduct.is_active == True,  # noqa: E712
         )
-        .order_by(EnterpriseProduct.sort_order, EnterpriseProduct.id)
+        .order_by(EnterpriseProduct.category_id, EnterpriseProduct.sort_order, EnterpriseProduct.id)
         .all()
     )
+
+    def product_dict(p: EnterpriseProduct) -> dict:
+        return {
+            "id": p.id,
+            "name": p.name,
+            "description": p.description,
+            "price": float(p.price),
+            "image_url": p.image_url,
+        }
+
+    products_by_category: dict[Optional[int], list[EnterpriseProduct]] = {}
+    for product in products:
+        products_by_category.setdefault(product.category_id, []).append(product)
+
+    menu = []
+    uncategorized = products_by_category.get(None, [])
     if uncategorized:
         menu.insert(0, {
             "id": 0,
             "name": "Башка",
-            "products": [
-                {"id": p.id, "name": p.name, "description": p.description, "price": float(p.price), "image_url": p.image_url}
-                for p in uncategorized
-            ],
+            "products": [product_dict(p) for p in uncategorized],
         })
+
+    for cat in categories:
+        category_products = products_by_category.get(cat.id, [])
+        if category_products:
+            menu.append({
+                "id": cat.id,
+                "name": cat.name,
+                "products": [product_dict(p) for p in category_products],
+            })
 
     return {
         "enterprise": {
@@ -357,7 +375,7 @@ def list_active_enterprises(
         query = query.filter(Enterprise.category == category)
     enterprises = query.order_by(Enterprise.name).offset(skip).limit(limit).all()
 
-    return [_enterprise_dict(e) for e in enterprises]
+    return [_enterprise_dict(e, include_logo=bool(category)) for e in enterprises]
 
 
 # ── Admin endpoints ───────────────────────────────────────────────────────────
