@@ -386,6 +386,15 @@ def delete_notification(
     return {"message": "Notification deleted"}
 
 
+@router.delete("/notifications")
+def clear_all_notifications(
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    deleted = db.query(Notification).delete(synchronize_session=False)
+    db.commit()
+    return {"deleted": deleted}
+
 
 @router.get("/orders")
 def all_orders(

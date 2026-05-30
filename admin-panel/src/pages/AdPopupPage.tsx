@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Trash2, Upload, XCircle, CheckCircle, Clock, ImagePlus, X, Building2, Search } from 'lucide-react';
+import { Send, Trash2, Upload, XCircle, CheckCircle, Clock, ImagePlus, X, Building2, Search, Eraser } from 'lucide-react';
 import api from '@/services/api';
 import './AdPopupPage.css';
 
@@ -107,6 +107,13 @@ export default function AdPopupPage() {
   const handleDelete = async (id: number) => {
     if (!confirm('Popup өчүрүлсүнбү?')) return;
     await api.delete(`/admin/ad-popup/${id}`);
+    load();
+  };
+
+  const handleClearHistory = async () => {
+    const historyCount = popups.filter(p => !p.is_active).length;
+    if (!confirm(`Тарыхтагы ${historyCount} попапты баарын өчүргүсүз бе? Бул аракетти кайтаруу мүмкүн эмес.`)) return;
+    await api.delete('/admin/ad-popup');
     load();
   };
 
@@ -319,9 +326,14 @@ export default function AdPopupPage() {
       {/* ── History ── */}
       {popups.filter(p => !p.is_active).length > 0 && (
         <div className="ap-history">
-          <h2 className="ap-history-title">
-            <Clock size={16} /> Тарых
-          </h2>
+          <div className="ap-history-header">
+            <h2 className="ap-history-title">
+              <Clock size={16} /> Тарых
+            </h2>
+            <button className="clear-all-btn" onClick={handleClearHistory}>
+              <Eraser size={15} /> Баарын тазала
+            </button>
+          </div>
           <div className="ap-history-list">
             {popups.filter(p => !p.is_active).map(p => (
               <div key={p.id} className="ap-history-item">

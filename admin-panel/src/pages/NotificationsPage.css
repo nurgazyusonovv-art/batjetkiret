@@ -38,6 +38,33 @@
   box-shadow: 0 4px 12px rgba(14, 165, 164, 0.3);
 }
 
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.clear-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: linear-gradient(120deg, #ef4444, #dc2626);
+  color: #fff;
+  font-weight: 700;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.clear-all-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+}
+
 .empty-state {
   background: #fff;
   border: 1px dashed #cbd5e1;

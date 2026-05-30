@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { notificationsService } from '@/services/notifications';
 import { Notification } from '@/types';
-import { Trash2, Check, Send } from 'lucide-react';
+import { Trash2, Check, Send, Eraser } from 'lucide-react';
 import { fmtDateTime } from '@/utils/date';
 import api from '@/services/api';
 import './NotificationsPage.css';
@@ -72,12 +72,22 @@ export default function NotificationsPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Ошол билдирүүнү чындай эле өчүргүсүз бе?')) return;
-    
+
     try {
       await notificationsService.deleteNotification(id);
       setNotifications(notifications.filter(n => n.id !== id));
     } catch (e) {
       console.error('Error deleting notification:', e);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!confirm(`Бардык ${notifications.length} билдирүүнү өчүргүсүз бе? Бул аракетти кайтаруу мүмкүн эмес.`)) return;
+    try {
+      await api.delete('/admin/notifications');
+      setNotifications([]);
+    } catch (e) {
+      console.error('Error clearing notifications:', e);
     }
   };
 
@@ -105,7 +115,14 @@ export default function NotificationsPage() {
             Жалпы: {notifications.length} | Окулбаган: {unreadCount}
           </p>
         </div>
-        <button className="refresh-btn" onClick={loadNotifications}>Жаңылоо</button>
+        <div className="header-actions">
+          <button className="refresh-btn" onClick={loadNotifications}>Жаңылоо</button>
+          {notifications.length > 0 && (
+            <button className="clear-all-btn" onClick={handleClearAll}>
+              <Eraser size={15} /> Баарын тазала
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Broadcast card */}

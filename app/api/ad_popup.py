@@ -134,6 +134,16 @@ def admin_delete_popup(
     return {"ok": True}
 
 
+@router.delete("/admin/ad-popup")
+def admin_clear_all_popups(
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    deleted = db.query(AdPopup).delete(synchronize_session=False)
+    db.commit()
+    return {"deleted": deleted}
+
+
 @router.patch("/admin/ad-popup/{popup_id}/deactivate")
 def admin_deactivate_popup(
     popup_id: int,
