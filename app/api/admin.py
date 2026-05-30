@@ -26,6 +26,7 @@ from app.models.chat import ChatRoom
 from app.models.message import Message
 from app.models.password_reset import PasswordReset
 from app.models.order_payment import OrderPayment
+from app.models.enterprise import Enterprise
 from app.services.order_status import apply_status_change
 from app.core.security import hash_password
 from app.services import fcm as fcm_service
@@ -442,15 +443,28 @@ def all_orders(
         query = query.filter(Order.created_at >= today_start)
 
     orders = query.order_by(Order.created_at.desc()).offset(skip).limit(limit).all()
+    enterprise_ids = {o.enterprise_id for o in orders if o.enterprise_id is not None}
+    enterprises = (
+        db.query(Enterprise).filter(Enterprise.id.in_(enterprise_ids)).all()
+        if enterprise_ids
+        else []
+    )
+    enterprise_names = {e.id: e.name for e in enterprises}
 
     return [
         {
             "id": o.id,
             "user_id": o.user_id,
+            "user_name": o.user.name if o.user else None,
             "user_phone": o.user.phone if o.user else None,
             "courier_id": o.courier_id,
+            "courier_name": o.courier.name if o.courier else None,
             "courier_phone": o.courier.phone if o.courier else None,
             "category": o.category,
+            "source": o.source,
+            "order_type": o.order_type,
+            "enterprise_id": o.enterprise_id,
+            "enterprise_name": enterprise_names.get(o.enterprise_id) if o.enterprise_id else None,
             "description": o.description,
             "from_address": o.from_address,
             "to_address": o.to_address,
@@ -523,15 +537,33 @@ def system_stats(
     
     revenue_today = float(delivered_orders_today or 0) * TOTAL_SERVICE_FEE_PER_COMPLETED_ORDER
 
-    total_users = db.query(func.count(User.id)).scalar()
+    total_accounts = db.query(func.count(User.id)).scalar()
+    total_users = (
+        db.query(func.count(User.id))
+        .filter(
+            User.is_admin == False,  # noqa: E712
+            User.is_courier == False,  # noqa: E712
+            User.is_enterprise == False,  # noqa: E712
+        )
+        .scalar()
+    )
+    total_enterprise_users = (
+        db.query(func.count(User.id))
+        .filter(User.is_enterprise == True)  # noqa: E712
+        .scalar()
+    )
     total_couriers = (
         db.query(func.count(User.id))
-        .filter(User.is_courier == True)
+        .filter(User.is_courier == True)  # noqa: E712
         .scalar()
     )
     online_couriers = (
         db.query(func.count(User.id))
-        .filter(User.is_courier == True, User.is_online == True, User.is_active == True)
+        .filter(
+            User.is_courier == True,  # noqa: E712
+            User.is_online == True,  # noqa: E712
+            User.is_active == True,  # noqa: E712
+        )
         .scalar()
     )
 
@@ -573,8 +605,10 @@ def system_stats(
         "active_orders": waiting_orders,
         "completed_orders": completed_orders,
         "total_revenue": float(total_revenue) if total_revenue else 0.0,
+        "total_accounts": total_accounts,
         "total_users": total_users,
         "total_couriers": total_couriers,
+        "total_enterprise_users": total_enterprise_users,
         "online_couriers": online_couriers,
         "pending_topups": pending_topups_count,
         "approved_topups_count": approved_topups_count,
@@ -870,6 +904,7 @@ def all_users(
                 "is_online": u.is_online,
                 "is_courier": u.is_courier,
                 "is_admin": u.is_admin,
+                "is_enterprise": u.is_enterprise,
                 "balance": float(u.balance),
                 "total_orders": int(total_orders or 0),
                 "average_rating": float(average_rating) if average_rating is not None else None,
@@ -1892,8 +1927,18 @@ SETTING_DEFAULTS = {
     "courier_cancel_penalty": ("10",  "Курьер заказдан баш тарткандагы штраф (сом)"),
     "delivery_base_price":    ("80",  "Жеткирүү акысынын башкы баасы (сом)"),
     "delivery_price_per_km":  ("20",  "1 км үчүн жеткирүү баасы (сом)"),
+    "delivery_extra_after_km": ("4",  "Жеткирүүдө кошумча акы баштала турган аралык (км)"),
+    "delivery_extra_price_per_km": ("0", "Жеткирүүдө чек аралыктан ашкан ар бир км үчүн кошумча баа (сом)"),
     "taxi_base_price":        ("100", "Такси акысынын башкы баасы (сом)"),
     "taxi_price_per_km":      ("30",  "Такси: 1 км үчүн баа (сом)"),
+    "taxi_extra_after_km":    ("4",   "Таксиде кошумча акы баштала турган аралык (км)"),
+    "taxi_extra_price_per_km": ("0",  "Таксиде чек аралыктан ашкан ар бир км үчүн кошумча баа (сом)"),
+    "android_latest_version_code": ("27", "Android тиркемесинин Play Marketтеги акыркы versionCode"),
+    "android_update_required": ("false", "Жаңы версияны милдеттүү жүктөтүү (true/false)"),
+    "play_market_url": ("https://play.google.com/store/apps/details?id=kg.batkenexpress.app", "Тиркеменин Play Market шилтемеси"),
+    "rating_dialog_enabled": ("true", "Play Market баалоо диалогун көрсөтүү (true/false)"),
+    "rating_prompt_min_launches": ("3", "Баалоо диалогу көрсөтүлгөнгө чейинки минималдуу кирүү саны"),
+    "rating_prompt_cooldown_days": ("14", "Баалоо диалогун кайра көрсөтүү аралыгы (күн)"),
     "contact_telegram":       ("",    "Администратордун Telegram username (@жок)"),
     "contact_whatsapp":       ("",    "Администратордун WhatsApp номери (996XXXXXXXXX)"),
 }
@@ -1906,8 +1951,18 @@ PUBLIC_SETTING_KEYS = {
     "courier_service_fee",
     "delivery_base_price",
     "delivery_price_per_km",
+    "delivery_extra_after_km",
+    "delivery_extra_price_per_km",
     "taxi_base_price",
     "taxi_price_per_km",
+    "taxi_extra_after_km",
+    "taxi_extra_price_per_km",
+    "android_latest_version_code",
+    "android_update_required",
+    "play_market_url",
+    "rating_dialog_enabled",
+    "rating_prompt_min_launches",
+    "rating_prompt_cooldown_days",
 }
 
 
@@ -1918,8 +1973,8 @@ def _get_setting(db: Session, key: str) -> str:
     return SETTING_DEFAULTS.get(key, ("",))[0]
 
 
-def get_delivery_pricing(db: Session) -> tuple[float, float]:
-    """Return (base_price, price_per_km) from DB settings."""
+def get_delivery_pricing(db: Session) -> tuple[float, float, float, float]:
+    """Return (base_price, price_per_km, extra_after_km, extra_price_per_km)."""
     try:
         base = float(_get_setting(db, "delivery_base_price"))
     except (ValueError, TypeError):
@@ -1928,11 +1983,19 @@ def get_delivery_pricing(db: Session) -> tuple[float, float]:
         per_km = float(_get_setting(db, "delivery_price_per_km"))
     except (ValueError, TypeError):
         per_km = 20.0
-    return base, per_km
+    try:
+        extra_after_km = float(_get_setting(db, "delivery_extra_after_km"))
+    except (ValueError, TypeError):
+        extra_after_km = 4.0
+    try:
+        extra_per_km = float(_get_setting(db, "delivery_extra_price_per_km"))
+    except (ValueError, TypeError):
+        extra_per_km = 0.0
+    return base, per_km, extra_after_km, extra_per_km
 
 
-def get_taxi_pricing(db: Session) -> tuple[float, float]:
-    """Return (base_price, price_per_km) for taxi orders from DB settings."""
+def get_taxi_pricing(db: Session) -> tuple[float, float, float, float]:
+    """Return (base_price, price_per_km, extra_after_km, extra_price_per_km)."""
     try:
         base = float(_get_setting(db, "taxi_base_price"))
     except (ValueError, TypeError):
@@ -1941,7 +2004,15 @@ def get_taxi_pricing(db: Session) -> tuple[float, float]:
         per_km = float(_get_setting(db, "taxi_price_per_km"))
     except (ValueError, TypeError):
         per_km = 30.0
-    return base, per_km
+    try:
+        extra_after_km = float(_get_setting(db, "taxi_extra_after_km"))
+    except (ValueError, TypeError):
+        extra_after_km = 4.0
+    try:
+        extra_per_km = float(_get_setting(db, "taxi_extra_price_per_km"))
+    except (ValueError, TypeError):
+        extra_per_km = 0.0
+    return base, per_km, extra_after_km, extra_per_km
 
 
 def get_user_service_fee(db: Session) -> float:
@@ -2304,4 +2375,99 @@ def fcm_debug(db: Session = Depends(get_db), admin=Depends(require_admin)):
     return {
         "fcm_initialized": fcm_service.is_initialized(),
         "admins": results,
+    }
+
+
+# ── УБАКТЫЛУУ: Base64 → R2 миграция ──────────────────────────────────────────
+@router.post("/migrate-images-to-r2")
+def migrate_images_to_r2(
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Убактылуу endpoint: base64 сүрөттөрдү Cloudflare R2'га өткөрөт."""
+    import base64 as b64mod
+    import mimetypes
+    import time
+    import boto3
+    from botocore.config import Config
+    from app.models.enterprise import Enterprise
+    from app.models.enterprise_product import EnterpriseProduct
+
+    R2_ACCESS_KEY = "dd3e6acf2fe48209abcc98e27c0afbcb"
+    R2_SECRET_KEY = "5c0efbe07b59feae5a5ebdb007034ea6ae340a988adfebb731d591a9ae09d5f5"
+    R2_ENDPOINT   = "https://90f676223297515e8526b77b1dc26aff.r2.cloudflarestorage.com"
+    R2_BUCKET     = "batjetkiret-media"
+    PUBLIC_BASE   = "https://pub-a3151ae89aa0437f833a8e4e4c80288e.r2.dev"
+
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=R2_ENDPOINT,
+        aws_access_key_id=R2_ACCESS_KEY,
+        aws_secret_access_key=R2_SECRET_KEY,
+        config=Config(signature_version="s3v4"),
+        region_name="auto",
+    )
+
+    def parse_b64(data_url):
+        if "," not in data_url:
+            return None, None
+        header, b64 = data_url.split(",", 1)
+        ctype = "image/jpeg"
+        if ":" in header and ";" in header:
+            ctype = header.split(":")[1].split(";")[0]
+        return b64mod.b64decode(b64), ctype
+
+    def ext_for(ctype):
+        ext = mimetypes.guess_extension(ctype)
+        return {".jpe": ".jpg", ".jpeg": ".jpg"}.get(ext, ext or ".jpg")
+
+    def upload(key, data, ctype):
+        s3.put_object(Bucket=R2_BUCKET, Key=key, Body=data, ContentType=ctype)
+        return f"{PUBLIC_BASE}/{key}"
+
+    p_ok = p_err = e_ok = e_err = 0
+
+    # Продукт сүрөттөрү
+    products = db.query(EnterpriseProduct).filter(
+        EnterpriseProduct.image_url.isnot(None),
+        EnterpriseProduct.image_url.like("data:%"),
+    ).all()
+
+    for p in products:
+        try:
+            img, ctype = parse_b64(p.image_url)
+            if img is None:
+                continue
+            url = upload(f"products/{p.id}{ext_for(ctype)}", img, ctype)
+            p.image_url = url
+            db.commit()
+            p_ok += 1
+        except Exception:
+            db.rollback()
+            p_err += 1
+        time.sleep(0.05)
+
+    # Ишкана логотиптери
+    enterprises = db.query(Enterprise).filter(
+        Enterprise.logo_data.isnot(None),
+        Enterprise.logo_data.like("data:%"),
+    ).all()
+
+    for e in enterprises:
+        try:
+            img, ctype = parse_b64(e.logo_data)
+            if img is None:
+                continue
+            url = upload(f"logos/{e.id}{ext_for(ctype)}", img, ctype)
+            e.logo_data = url
+            db.commit()
+            e_ok += 1
+        except Exception:
+            db.rollback()
+            e_err += 1
+        time.sleep(0.05)
+
+    return {
+        "products": {"migrated": p_ok, "errors": p_err, "total": len(products)},
+        "logos":    {"migrated": e_ok, "errors": e_err, "total": len(enterprises)},
     }
