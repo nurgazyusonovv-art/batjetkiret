@@ -76,6 +76,11 @@ export const topupService = {
       params: { note: comment },
     });
   },
+
+  async clearHistory(): Promise<number> {
+    const res = await api.delete<{ deleted: number }>('/admin/topup-requests/history');
+    return res.data.deleted;
+  },
 };
 
 export const statsService = {
@@ -87,8 +92,10 @@ export const statsService = {
       active_orders: response.data.active_orders ?? response.data.waiting_orders ?? 0,
       completed_orders: response.data.completed_orders ?? 0,
       total_revenue: response.data.total_revenue ?? 0,
+      total_accounts: response.data.total_accounts ?? response.data.total_users ?? 0,
       total_users: response.data.total_users ?? 0,
       total_couriers: response.data.total_couriers ?? 0,
+      total_enterprise_users: response.data.total_enterprise_users ?? 0,
       online_couriers: response.data.online_couriers ?? 0,
       pending_topups: response.data.pending_topups ?? 0,
       approved_topups_count: response.data.approved_topups_count ?? 0,
@@ -112,8 +119,10 @@ export const statsService = {
       active_orders: response.data.active_orders ?? response.data.waiting_orders ?? 0,
       completed_orders: response.data.completed_orders ?? 0,
       total_revenue: response.data.total_revenue ?? 0,
+      total_accounts: response.data.total_accounts ?? response.data.total_users ?? 0,
       total_users: response.data.total_users ?? 0,
       total_couriers: response.data.total_couriers ?? 0,
+      total_enterprise_users: response.data.total_enterprise_users ?? 0,
       online_couriers: response.data.online_couriers ?? 0,
       pending_topups: response.data.pending_topups ?? 0,
       approved_topups_count: response.data.approved_topups_count ?? 0,

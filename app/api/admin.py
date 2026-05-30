@@ -1634,6 +1634,21 @@ def get_topup_history(
     return result
 
 
+@router.delete("/topup-requests/history")
+def clear_topup_history(
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Delete all approved/rejected topup requests."""
+    deleted = (
+        db.query(TopUpRequest)
+        .filter(TopUpRequest.status.in_(["APPROVED", "REJECTED"]))
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return {"deleted": deleted}
+
+
 @router.get("/topup-requests/{request_id}/screenshot")
 def open_topup_screenshot(
     request_id: int,

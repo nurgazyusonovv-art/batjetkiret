@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, XCircle, Image as ImageIcon } from 'lucide-react';
+import { CheckCircle, XCircle, Image as ImageIcon, Eraser } from 'lucide-react';
 import { topupService } from '@/services/admin';
 import { TopupRequest } from '@/types';
 import { getErrorMessage } from '@/utils/error';
@@ -94,6 +94,16 @@ export default function TopupPage() {
     }
   };
 
+  const handleClearHistory = async () => {
+    if (!confirm(`Тарыхтагы ${history.length} жазууну баарын өчүргүсүз бе? Бул аракетти кайтаруу мүмкүн эмес.`)) return;
+    try {
+      await topupService.clearHistory();
+      setHistory([]);
+    } catch (e) {
+      console.error('Failed to clear history:', e);
+    }
+  };
+
   const handleReject = async (topupId: number) => {
     const comment = prompt('Четке кагуу себеби:');
     if (!comment) return;
@@ -141,18 +151,25 @@ export default function TopupPage() {
       </div>
 
       <div className="topup-tabs">
-        <button
-          className={`tab-btn ${activeTab === 'pending' ? 'active' : ''}`}
-          onClick={() => setActiveTab('pending')}
-        >
-          Күтүүдөгү өтүнүчтөр
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          Төлөм тарыхы
-        </button>
+        <div className="tabs-left">
+          <button
+            className={`tab-btn ${activeTab === 'pending' ? 'active' : ''}`}
+            onClick={() => setActiveTab('pending')}
+          >
+            Күтүүдөгү өтүнүчтөр
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
+            onClick={() => setActiveTab('history')}
+          >
+            Төлөм тарыхы
+          </button>
+        </div>
+        {activeTab === 'history' && history.length > 0 && (
+          <button className="clear-all-btn" onClick={handleClearHistory}>
+            <Eraser size={15} /> Баарын тазала
+          </button>
+        )}
       </div>
 
       {activeTab === 'history' && (
