@@ -2379,95 +2379,119 @@ def fcm_debug(db: Session = Depends(get_db), admin=Depends(require_admin)):
 
 
 # ── УБАКТЫЛУУ: Base64 → R2 миграция ──────────────────────────────────────────
+_migration_status: dict = {"state": "idle", "products": {}, "logos": {}, "error": None}
+
+
 @router.post("/migrate-images-to-r2")
-def migrate_images_to_r2(
-    db: Session = Depends(get_db),
-    admin=Depends(require_admin),
-):
-    """Убактылуу endpoint: base64 сүрөттөрдү Cloudflare R2'га өткөрөт."""
-    import base64 as b64mod
-    import mimetypes
-    import time
-    import boto3
-    from botocore.config import Config
-    from app.models.enterprise import Enterprise
-    from app.models.enterprise_product import EnterpriseProduct
+def migrate_images_to_r2(admin=Depends(require_admin)):
+    """Background thread'де миграцияны баштайт. /migrate-images-to-r2/status менен текшер."""
+    import threading
 
-    R2_ACCESS_KEY = "dd3e6acf2fe48209abcc98e27c0afbcb"
-    R2_SECRET_KEY = "5c0efbe07b59feae5a5ebdb007034ea6ae340a988adfebb731d591a9ae09d5f5"
-    R2_ENDPOINT   = "https://90f676223297515e8526b77b1dc26aff.r2.cloudflarestorage.com"
-    R2_BUCKET     = "batjetkiret-media"
-    PUBLIC_BASE   = "https://pub-a3151ae89aa0437f833a8e4e4c80288e.r2.dev"
+    global _migration_status
+    if _migration_status["state"] == "running":
+        return {"message": "Миграция мурунтан иштеп жатат", "status": _migration_status}
 
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=R2_ENDPOINT,
-        aws_access_key_id=R2_ACCESS_KEY,
-        aws_secret_access_key=R2_SECRET_KEY,
-        config=Config(signature_version="s3v4"),
-        region_name="auto",
-    )
+    def run():
+        import base64 as b64mod
+        import mimetypes
+        import boto3
+        from botocore.config import Config
+        from app.core.database import SessionLocal
+        from app.models.enterprise import Enterprise
+        from app.models.enterprise_product import EnterpriseProduct
 
-    def parse_b64(data_url):
-        if "," not in data_url:
-            return None, None
-        header, b64 = data_url.split(",", 1)
-        ctype = "image/jpeg"
-        if ":" in header and ";" in header:
-            ctype = header.split(":")[1].split(";")[0]
-        return b64mod.b64decode(b64), ctype
+        global _migration_status
+        _migration_status = {"state": "running", "products": {}, "logos": {}, "error": None}
 
-    def ext_for(ctype):
-        ext = mimetypes.guess_extension(ctype)
-        return {".jpe": ".jpg", ".jpeg": ".jpg"}.get(ext, ext or ".jpg")
+        R2_ACCESS_KEY = "dd3e6acf2fe48209abcc98e27c0afbcb"
+        R2_SECRET_KEY = "5c0efbe07b59feae5a5ebdb007034ea6ae340a988adfebb731d591a9ae09d5f5"
+        R2_ENDPOINT   = "https://90f676223297515e8526b77b1dc26aff.r2.cloudflarestorage.com"
+        R2_BUCKET     = "batjetkiret-media"
+        PUBLIC_BASE   = "https://pub-a3151ae89aa0437f833a8e4e4c80288e.r2.dev"
 
-    def upload(key, data, ctype):
-        s3.put_object(Bucket=R2_BUCKET, Key=key, Body=data, ContentType=ctype)
-        return f"{PUBLIC_BASE}/{key}"
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=R2_ENDPOINT,
+            aws_access_key_id=R2_ACCESS_KEY,
+            aws_secret_access_key=R2_SECRET_KEY,
+            config=Config(signature_version="s3v4"),
+            region_name="auto",
+        )
 
-    p_ok = p_err = e_ok = e_err = 0
+        def parse_b64(data_url):
+            if "," not in data_url:
+                return None, None
+            header, b64 = data_url.split(",", 1)
+            ctype = "image/jpeg"
+            if ":" in header and ";" in header:
+                ctype = header.split(":")[1].split(";")[0]
+            return b64mod.b64decode(b64), ctype
 
-    # Продукт сүрөттөрү
-    products = db.query(EnterpriseProduct).filter(
-        EnterpriseProduct.image_url.isnot(None),
-        EnterpriseProduct.image_url.like("data:%"),
-    ).all()
+        def ext_for(ctype):
+            ext = mimetypes.guess_extension(ctype)
+            return {".jpe": ".jpg", ".jpeg": ".jpg"}.get(ext, ext or ".jpg")
 
-    for p in products:
+        def upload(key, data, ctype):
+            s3.put_object(Bucket=R2_BUCKET, Key=key, Body=data, ContentType=ctype)
+            return f"{PUBLIC_BASE}/{key}"
+
+        db = SessionLocal()
         try:
-            img, ctype = parse_b64(p.image_url)
-            if img is None:
-                continue
-            url = upload(f"products/{p.id}{ext_for(ctype)}", img, ctype)
-            p.image_url = url
-            db.commit()
-            p_ok += 1
-        except Exception:
-            db.rollback()
-            p_err += 1
-        time.sleep(0.05)
+            # Продукт сүрөттөрү
+            products = db.query(EnterpriseProduct).filter(
+                EnterpriseProduct.image_url.isnot(None),
+                EnterpriseProduct.image_url.like("data:%"),
+            ).all()
+            p_ok = p_err = 0
+            _migration_status["products"] = {"total": len(products), "done": 0, "errors": 0}
 
-    # Ишкана логотиптери
-    enterprises = db.query(Enterprise).filter(
-        Enterprise.logo_data.isnot(None),
-        Enterprise.logo_data.like("data:%"),
-    ).all()
+            for p in products:
+                try:
+                    img, ctype = parse_b64(p.image_url)
+                    if img is None:
+                        continue
+                    url = upload(f"products/{p.id}{ext_for(ctype)}", img, ctype)
+                    p.image_url = url
+                    db.commit()
+                    p_ok += 1
+                except Exception:
+                    db.rollback()
+                    p_err += 1
+                _migration_status["products"].update({"done": p_ok, "errors": p_err})
 
-    for e in enterprises:
-        try:
-            img, ctype = parse_b64(e.logo_data)
-            if img is None:
-                continue
-            url = upload(f"logos/{e.id}{ext_for(ctype)}", img, ctype)
-            e.logo_data = url
-            db.commit()
-            e_ok += 1
-        except Exception:
-            db.rollback()
-            e_err += 1
-        time.sleep(0.05)
+            # Логотиптер
+            enterprises = db.query(Enterprise).filter(
+                Enterprise.logo_data.isnot(None),
+                Enterprise.logo_data.like("data:%"),
+            ).all()
+            e_ok = e_err = 0
+            _migration_status["logos"] = {"total": len(enterprises), "done": 0, "errors": 0}
 
-    return {
-        "products": {"migrated": p_ok, "errors": p_err, "total": len(products)},
-        "logos":    {"migrated": e_ok, "errors": e_err, "total": len(enterprises)},
-    }
+            for e in enterprises:
+                try:
+                    img, ctype = parse_b64(e.logo_data)
+                    if img is None:
+                        continue
+                    url = upload(f"logos/{e.id}{ext_for(ctype)}", img, ctype)
+                    e.logo_data = url
+                    db.commit()
+                    e_ok += 1
+                except Exception:
+                    db.rollback()
+                    e_err += 1
+                _migration_status["logos"].update({"done": e_ok, "errors": e_err})
+
+            _migration_status["state"] = "done"
+        except Exception as ex:
+            _migration_status["state"] = "error"
+            _migration_status["error"] = str(ex)
+        finally:
+            db.close()
+
+    threading.Thread(target=run, daemon=True).start()
+    return {"message": "Миграция башталды", "check": "/admin/migrate-images-to-r2/status"}
+
+
+@router.get("/migrate-images-to-r2/status")
+def migration_status(admin=Depends(require_admin)):
+    return _migration_status
