@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -12,6 +14,7 @@ import 'core/storage/hive_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'core/notifications/notification_overlay.dart';
 import 'core/notifications/notifications_service.dart';
+import 'core/services/app_market_prompt_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/notification_navigator.dart';
 import 'features/auth/presentation/auth_page.dart';
@@ -35,6 +38,15 @@ final _navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Force Android Photo Picker — no READ_MEDIA_IMAGES permission needed
+  if (!kIsWeb) {
+    final picker = ImagePickerPlatform.instance;
+    if (picker is ImagePickerAndroid) {
+      picker.useAndroidPhotoPicker = true;
+    }
+  }
+
   await HiveService.initialize();
   if (!kIsWeb) {
     await NotificationsService.initialize();
@@ -129,7 +141,7 @@ class _AppStartFlowState extends State<_AppStartFlow> {
 
   bool _isSplashDone = false;
   bool? _isOnboardingSeen;
-  String? _role;           // 'user' | 'courier' | 'enterprise' | null
+  String? _role; // 'user' | 'courier' | 'enterprise' | null
   bool _entLoggedIn = false;
 
   @override
@@ -171,9 +183,10 @@ class _AppStartFlowState extends State<_AppStartFlow> {
     super.didUpdateWidget(oldWidget);
     // When user/courier logs out, clear role → go back to RoleSelectionPage
     final wasLoggedIn = oldWidget.authState.token?.isNotEmpty == true;
-    final isNowLoggedOut = widget.authState.token == null ||
-        widget.authState.token!.isEmpty;
-    if (wasLoggedIn && isNowLoggedOut &&
+    final isNowLoggedOut =
+        widget.authState.token == null || widget.authState.token!.isEmpty;
+    if (wasLoggedIn &&
+        isNowLoggedOut &&
         (_role == 'user' || _role == 'courier')) {
       _clearRole();
     }
@@ -191,8 +204,8 @@ class _AppStartFlowState extends State<_AppStartFlow> {
     final key = role == AppRole.enterprise
         ? 'enterprise'
         : role == AppRole.courier
-            ? 'courier'
-            : 'user';
+        ? 'courier'
+        : 'user';
     await prefs.setString(_roleKey, key);
     if (!mounted) return;
     setState(() => _role = key);
@@ -306,6 +319,7 @@ class _MainNavigationState extends State<MainNavigation>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      AppMarketPromptService.checkAndShow(context);
       _refreshForTab(_currentIndex);
       _scheduleNextAutoRefresh();
       _startNotificationPolling();
@@ -359,9 +373,7 @@ class _MainNavigationState extends State<MainNavigation>
 
       if (newUnread.isNotEmpty) {
         // Update baseline to max id seen
-        _lastSeenNotificationId = notifications
-            .map((n) => n.id)
-            .reduce(max);
+        _lastSeenNotificationId = notifications.map((n) => n.id).reduce(max);
 
         for (final n in newUnread) {
           // System notification with sound + chatId payload for tap navigation
@@ -380,9 +392,7 @@ class _MainNavigationState extends State<MainNavigation>
         }
       } else if (_lastSeenNotificationId == 0 && notifications.isNotEmpty) {
         // First run — set baseline without showing notifications
-        _lastSeenNotificationId = notifications
-            .map((n) => n.id)
-            .reduce(max);
+        _lastSeenNotificationId = notifications.map((n) => n.id).reduce(max);
       }
     } catch (_) {}
   }
