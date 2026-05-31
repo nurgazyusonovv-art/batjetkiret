@@ -13,7 +13,6 @@ import 'package:frontend/features/home/data/enterprise_model.dart';
 import 'package:frontend/features/home/data/banner_api.dart';
 import 'package:frontend/features/home/data/banner_model.dart';
 import 'package:frontend/features/home/data/ad_popup_api.dart';
-import 'package:http/http.dart';
 import 'banner_carousel.dart';
 import 'ad_popup_overlay.dart';
 import 'package:frontend/features/home/presentation/cubit/home_cubit.dart';
@@ -471,7 +470,6 @@ class _HomePageState extends State<HomePage> {
                               ) {
                                 final category = _filteredCategories[index];
                                 final cardColor = _categoryColor(index);
-                                final iconBgColor = _categoryIconBg(index);
 
                                 return TweenAnimationBuilder<double>(
                                   tween: Tween(begin: 0, end: 1),
@@ -578,17 +576,6 @@ class _HomePageState extends State<HomePage> {
     ];
     return palette[index % palette.length];
   }
-
-  Color _categoryIconBg(int index) {
-    const palette = [
-      Color(0x55FFF3D1),
-      Color(0x55FFE3BF),
-      Color(0x55FFD1B0),
-      Color(0x55FFC6C6),
-      Color(0x55EFAAAA),
-    ];
-    return palette[index % palette.length];
-  }
 }
 
 // ── Order creation screen — Multi-step wizard ─────────────────────────────────
@@ -673,7 +660,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     _fromAddressController.addListener(() => setState(() {}));
     _toAddressController.addListener(() => setState(() {}));
     _enterpriseSearchController.addListener(
-      () => setState(() => _enterpriseSearch = _enterpriseSearchController.text),
+      () =>
+          setState(() => _enterpriseSearch = _enterpriseSearchController.text),
     );
     _fetchEnterprises().then((_) {
       if (widget.initialEnterpriseId != null && mounted) {
@@ -704,6 +692,14 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     } catch (_) {}
   }
 
+  String _friendlyError(Object error) {
+    final message = error.toString();
+    const prefix = 'Exception: ';
+    return message.startsWith(prefix)
+        ? message.substring(prefix.length)
+        : message;
+  }
+
   Future<void> _fetchEnterprises() async {
     setState(() {
       _isLoadingEnterprises = true;
@@ -723,7 +719,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _enterpriseError = e.toString();
+        _enterpriseError = _friendlyError(e);
         _isLoadingEnterprises = false;
       });
     }
@@ -777,7 +773,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     } catch (e) {
       if (!mounted || version != _menuFetchVersion) return;
       setState(() {
-        _menuError = e.toString();
+        _menuError = _friendlyError(e);
         _isLoadingMenu = false;
       });
     }
@@ -810,7 +806,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     } catch (e) {
       if (!mounted || version != _menuFetchVersion) return;
       setState(() {
-        _menuError = e.toString();
+        _menuError = _friendlyError(e);
         _isLoadingMenu = false;
       });
     }
@@ -880,13 +876,18 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) { return; }
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.low,
       );
       if (!mounted) return;
       setState(() {
-        _userLocation = LatLng(latitude: pos.latitude, longitude: pos.longitude);
+        _userLocation = LatLng(
+          latitude: pos.latitude,
+          longitude: pos.longitude,
+        );
       });
     } catch (_) {}
   }
@@ -1329,7 +1330,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                         const SizedBox(height: 2),
                         Text(
                           ent.address!,
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1339,7 +1343,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 ),
                 if (isClosed)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.red.shade600,
                       borderRadius: BorderRadius.circular(8),
@@ -1372,8 +1379,12 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                   _infoChip(
                     icon: Icons.access_time_rounded,
                     label: '${ent.openTime} – ${ent.closeTime}',
-                    color: isClosed ? Colors.red.shade600 : Colors.green.shade600,
-                    bgColor: isClosed ? Colors.red.shade50 : Colors.green.shade50,
+                    color: isClosed
+                        ? Colors.red.shade600
+                        : Colors.green.shade600,
+                    bgColor: isClosed
+                        ? Colors.red.shade50
+                        : Colors.green.shade50,
                   ),
 
                 // Prep time
@@ -1398,10 +1409,12 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 if (_userLocation != null && ent.lat != null && ent.lon != null)
                   _infoChip(
                     icon: Icons.near_me_outlined,
-                    label: _formatDistance(DistanceCalculator.calculateDistance(
-                      from: _userLocation!,
-                      to: LatLng(latitude: ent.lat!, longitude: ent.lon!),
-                    )),
+                    label: _formatDistance(
+                      DistanceCalculator.calculateDistance(
+                        from: _userLocation!,
+                        to: LatLng(latitude: ent.lat!, longitude: ent.lon!),
+                      ),
+                    ),
                     color: Colors.indigo.shade600,
                     bgColor: Colors.indigo.shade50,
                   ),
@@ -1441,10 +1454,16 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                         color: const Color(0xFF25D366),
                         bgColor: const Color(0xFFE9FBF0),
                         onTap: () async {
-                          final digits = ent.phone!.replaceAll(RegExp(r'\D'), '');
+                          final digits = ent.phone!.replaceAll(
+                            RegExp(r'\D'),
+                            '',
+                          );
                           final uri = Uri.parse('https://wa.me/$digits');
                           if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            await launchUrl(
+                              uri,
+                              mode: LaunchMode.externalApplication,
+                            );
                           }
                         },
                       ),
@@ -1465,12 +1484,18 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                           final lon = ent.lon!;
                           final geoUri = Uri.parse('geo:$lat,$lon?q=$lat,$lon');
                           if (await canLaunchUrl(geoUri)) {
-                            await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+                            await launchUrl(
+                              geoUri,
+                              mode: LaunchMode.externalApplication,
+                            );
                           } else {
                             final webUri = Uri.parse(
                               'https://maps.google.com/?q=$lat,$lon',
                             );
-                            await launchUrl(webUri, mode: LaunchMode.externalApplication);
+                            await launchUrl(
+                              webUri,
+                              mode: LaunchMode.externalApplication,
+                            );
                           }
                         },
                       ),
@@ -1555,21 +1580,33 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   }
 
   Widget _buildEnterpriseCardBackground(Enterprise ent) {
-    if (ent.logoData != null && ent.logoData!.isNotEmpty) {
+    final logo = ent.logoData;
+    if (logo != null && logo.isNotEmpty) {
+      // HTTP URL (Cloudflare R2)
+      if (logo.startsWith('http')) {
+        return Image.network(
+          logo,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _enterpriseFallbackIcon(),
+        );
+      }
+      // Legacy base64 data URL
       try {
-        final bytes = base64Decode(ent.logoData!.contains(',')
-            ? ent.logoData!.split(',').last
-            : ent.logoData!);
+        final bytes = base64Decode(
+          logo.contains(',') ? logo.split(',').last : logo,
+        );
         return Image.memory(bytes, fit: BoxFit.cover);
       } catch (_) {}
     }
-    return Container(
-      color: AppColors.primarySoft,
-      child: const Center(
-        child: Icon(Icons.store, color: AppColors.primary, size: 48),
-      ),
-    );
+    return _enterpriseFallbackIcon();
   }
+
+  Widget _enterpriseFallbackIcon() => Container(
+        color: AppColors.primarySoft,
+        child: const Center(
+          child: Icon(Icons.store, color: AppColors.primary, size: 48),
+        ),
+      );
 
   // ── Step bodies ─────────────────────────────────────────────────────────────
 
@@ -1605,9 +1642,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     final q = _enterpriseSearch.trim().toLowerCase();
     final filtered = q.isEmpty
         ? enterprises
-        : enterprises
-            .where((e) => e.name.toLowerCase().contains(q))
-            .toList();
+        : enterprises.where((e) => e.name.toLowerCase().contains(q)).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1681,11 +1716,22 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   hintText: 'Ишкана аталышы боюнча издөө...',
-                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                  prefixIcon: Icon(Icons.search, color: Colors.grey.shade400, size: 20),
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 14,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: Colors.grey.shade400,
+                    size: 20,
+                  ),
                   suffixIcon: _enterpriseSearch.isNotEmpty
                       ? IconButton(
-                          icon: Icon(Icons.close, size: 18, color: Colors.grey.shade500),
+                          icon: Icon(
+                            Icons.close,
+                            size: 18,
+                            color: Colors.grey.shade500,
+                          ),
                           onPressed: () => _enterpriseSearchController.clear(),
                         )
                       : null,
@@ -1702,7 +1748,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 padding: const EdgeInsets.symmetric(vertical: 32),
                 child: Column(
                   children: [
-                    Icon(Icons.store_outlined, size: 56, color: Colors.grey[300]),
+                    Icon(
+                      Icons.store_outlined,
+                      size: 56,
+                      color: Colors.grey[300],
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'Бул категорияда ишканалар жок',
@@ -1732,7 +1782,9 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           else ...[
             Text(
               'Ишкана тандаңыз',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             GridView.builder(
@@ -1776,7 +1828,12 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                                   ],
                                 ),
                               ),
-                              padding: const EdgeInsets.fromLTRB(10, 20, 10, 10),
+                              padding: const EdgeInsets.fromLTRB(
+                                10,
+                                20,
+                                10,
+                                10,
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
@@ -1790,11 +1847,15 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                       shadows: [
-                                        Shadow(blurRadius: 4, color: Colors.black54),
+                                        Shadow(
+                                          blurRadius: 4,
+                                          color: Colors.black54,
+                                        ),
                                       ],
                                     ),
                                   ),
-                                  if (ent.openTime != null && ent.closeTime != null) ...[
+                                  if (ent.openTime != null &&
+                                      ent.closeTime != null) ...[
                                     const SizedBox(height: 3),
                                     Text(
                                       '${ent.openTime} – ${ent.closeTime}',
@@ -1817,7 +1878,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                               top: 8,
                               right: 8,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.red.shade600,
                                   borderRadius: BorderRadius.circular(8),
@@ -1873,7 +1937,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                   color: Colors.orange.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.storefront_outlined, size: 56, color: Colors.orange),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  size: 56,
+                  color: Colors.orange,
+                ),
               ),
               const SizedBox(height: 20),
               const Text(
@@ -2302,6 +2370,20 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     );
   }
 
+  Future<void> _openProductDetail(EnterpriseMenuProduct product) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _EnterpriseProductDetailPage(
+          product: product,
+          initialQty: _cubit.state.selectedItems[product.id] ?? 0,
+          onAdd: () => _cubit.addItem(product.id),
+          onRemove: () => _cubit.removeItem(product.id),
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   Widget _buildPickupLocationBody() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -2428,10 +2510,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     final isTaxi = widget.selectedCategory.id == 'taxi';
     final price = distKm != null
         ? (isTaxi
-              ? (_appSettings.taxiBasePrice +
-                    distKm * _appSettings.taxiPricePerKm)
-              : (_appSettings.deliveryBasePrice +
-                    distKm * _appSettings.deliveryPricePerKm))
+              ? _appSettings.taxiPriceFor(distKm)
+              : _appSettings.deliveryPriceFor(distKm))
         : null;
 
     return SingleChildScrollView(
@@ -2795,128 +2875,137 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     final qty = state.selectedItems[product.id] ?? 0;
     final hasImage = product.imageUrl != null && product.imageUrl!.isNotEmpty;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: qty > 0 ? AppColors.primarySoft : Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openProductDetail(product),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: qty > 0 ? AppColors.primary : AppColors.border,
-          width: qty > 0 ? 1.5 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Image or placeholder
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
-            child: hasImage
-                ? _buildProductImage(product.imageUrl!, height: 120)
-                : _productImagePlaceholder(),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: qty > 0 ? AppColors.primarySoft : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: qty > 0 ? AppColors.primary : AppColors.border,
+              width: qty > 0 ? 1.5 : 1,
+            ),
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Image or placeholder
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(13),
+                ),
+                child: hasImage
+                    ? _buildProductImage(product.imageUrl!, height: 120)
+                    : _productImagePlaceholder(),
+              ),
 
-          // Info
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (product.description != null &&
-                    product.description!.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    product.description!,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 6),
-                Text(
-                  '${product.price.toStringAsFixed(0)} сом',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (qty == 0)
-                  GestureDetector(
-                    onTap: () => _cubit.addItem(product.id),
-                    child: Container(
-                      height: 36,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(10),
+              // Info
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
                       ),
-                      child: const Text(
-                        '+ Кошуу',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (product.description != null &&
+                        product.description!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        product.description!,
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      '${product.price.toStringAsFixed(0)} сом',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
-                  )
-                else
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => _cubit.removeItem(product.id),
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[200],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.remove, size: 17),
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          '$qty',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
+                    const SizedBox(height: 8),
+                    if (qty == 0)
                       GestureDetector(
                         onTap: () => _cubit.addItem(product.id),
                         child: Container(
-                          width: 32,
-                          height: 32,
+                          height: 36,
+                          alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(
-                            Icons.add,
-                            size: 17,
-                            color: Colors.white,
+                          child: const Text(
+                            '+ Кошуу',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
+                      )
+                    else
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => _cubit.removeItem(product.id),
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.remove, size: 17),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '$qty',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => _cubit.addItem(product.id),
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.add,
+                                size: 17,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-              ],
-            ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2957,4 +3046,223 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       ),
     );
   }
+}
+
+class _EnterpriseProductDetailPage extends StatefulWidget {
+  const _EnterpriseProductDetailPage({
+    required this.product,
+    required this.initialQty,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final EnterpriseMenuProduct product;
+  final int initialQty;
+  final VoidCallback onAdd;
+  final VoidCallback onRemove;
+
+  @override
+  State<_EnterpriseProductDetailPage> createState() =>
+      _EnterpriseProductDetailPageState();
+}
+
+class _EnterpriseProductDetailPageState
+    extends State<_EnterpriseProductDetailPage> {
+  late int _qty;
+
+  @override
+  void initState() {
+    super.initState();
+    _qty = widget.initialQty;
+  }
+
+  void _add() {
+    widget.onAdd();
+    setState(() => _qty++);
+  }
+
+  void _remove() {
+    if (_qty == 0) return;
+    widget.onRemove();
+    setState(() => _qty--);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.product;
+    final hasDescription =
+        p.description != null && p.description!.trim().isNotEmpty;
+    final hasImage = p.imageUrl != null && p.imageUrl!.isNotEmpty;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Товардын деталы')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: AspectRatio(
+              aspectRatio: 16 / 11,
+              child: hasImage
+                  ? _detailProductImage(p.imageUrl!)
+                  : Container(
+                      color: AppColors.primarySoft,
+                      child: const Center(
+                        child: Icon(
+                          Icons.fastfood_rounded,
+                          size: 70,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  p.name,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    height: 1.18,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '${p.price.toStringAsFixed(0)} сом',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primary,
+                  ),
+                ),
+                if (hasDescription) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Сүрөттөмө',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    p.description!.trim(),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 1.5,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: _qty == 0
+              ? AppButton.primary(label: '+ Кошуу', onPressed: _add)
+              : Row(
+                  children: [
+                    _detailQtyButton(Icons.remove, _remove),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$_qty даана',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            '${(p.price * _qty).toStringAsFixed(0)} сом',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _detailQtyButton(Icons.add, _add, filled: true),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _detailProductImage(String imageUrl) {
+    if (imageUrl.startsWith('data:')) {
+      final commaIdx = imageUrl.indexOf(',');
+      if (commaIdx != -1) {
+        try {
+          final bytes = base64Decode(imageUrl.substring(commaIdx + 1));
+          return Image.memory(
+            bytes,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _detailPlaceholder(),
+          );
+        } catch (_) {}
+      }
+      return _detailPlaceholder();
+    }
+    return Image.network(
+      imageUrl,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _detailPlaceholder(),
+    );
+  }
+
+  Widget _detailPlaceholder() => Container(
+    color: AppColors.primarySoft,
+    child: const Center(
+      child: Icon(Icons.fastfood_rounded, size: 70, color: AppColors.primary),
+    ),
+  );
+
+  Widget _detailQtyButton(
+    IconData icon,
+    VoidCallback onTap, {
+    bool filled = false,
+  }) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: filled ? AppColors.primary : Colors.grey[200],
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(icon, color: filled ? Colors.white : AppColors.textPrimary),
+    ),
+  );
 }
