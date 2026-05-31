@@ -375,7 +375,7 @@ def list_active_enterprises(
         query = query.filter(Enterprise.category == category)
     enterprises = query.order_by(Enterprise.name).offset(skip).limit(limit).all()
 
-    return [_enterprise_dict(e, include_logo=bool(category)) for e in enterprises]
+    return [_enterprise_dict(e) for e in enterprises]
 
 
 # ── Admin endpoints ───────────────────────────────────────────────────────────
