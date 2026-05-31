@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.frontend"
+    namespace = "kg.batkenexpress.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -36,6 +36,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Force image_picker to use Android Photo Picker (no READ_MEDIA_IMAGES needed)
+        manifestPlaceholders["usePhotoPicker"] = "true"
     }
 
     buildTypes {
