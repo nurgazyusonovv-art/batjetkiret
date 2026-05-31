@@ -200,11 +200,11 @@ def create_order(
             raise HTTPException(status_code=404, detail="City not found or inactive")
         price = float(city.price)
     elif data.category == "taxi":
-        base, per_km = get_taxi_pricing(db)
-        price = calculate_price(data.distance_km, base, per_km)
+        base, per_km, extra_after_km, extra_per_km = get_taxi_pricing(db)
+        price = calculate_price(data.distance_km, base, per_km, extra_after_km, extra_per_km)
     else:
-        base, per_km = get_delivery_pricing(db)
-        price = calculate_price(data.distance_km, base, per_km)
+        base, per_km, extra_after_km, extra_per_km = get_delivery_pricing(db)
+        price = calculate_price(data.distance_km, base, per_km, extra_after_km, extra_per_km)
 
     # Commission values read from DB settings.
     user_fee = get_user_service_fee(db)
@@ -559,10 +559,10 @@ def update_order(
     # Recalculate price if distance changed
     if "distance_km" in data and data["distance_km"] is not None:
         if order.category == "taxi":
-            base, per_km = get_taxi_pricing(db)
+            base, per_km, extra_after_km, extra_per_km = get_taxi_pricing(db)
         else:
-            base, per_km = get_delivery_pricing(db)
-        order.price = calculate_price(float(data["distance_km"]), base, per_km)
+            base, per_km, extra_after_km, extra_per_km = get_delivery_pricing(db)
+        order.price = calculate_price(float(data["distance_km"]), base, per_km, extra_after_km, extra_per_km)
 
     db.commit()
     db.refresh(order)
