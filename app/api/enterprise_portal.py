@@ -409,8 +409,6 @@ def _order_dict(o: Order) -> dict:
         "order_type": getattr(o, 'order_type', 'delivery'),
         "created_at": o.created_at.isoformat() if o.created_at else None,
     }
-    if o.status == "DELIVERED" and o.verification_code:
-        data["verification_code"] = o.verification_code
     return data
 
 

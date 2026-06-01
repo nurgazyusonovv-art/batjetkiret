@@ -358,7 +358,6 @@ def my_orders(
             "price": float(o.price),
             "distance_km": o.distance_km,
             "courier_id": o.courier_id,
-            "verification_code": o.verification_code,
             "created_at": o.created_at,
             "enterprise_id": o.enterprise_id,
             "items_total": float(o.items_total) if o.items_total is not None else None,
@@ -452,9 +451,6 @@ def get_order(
         "items_total": float(order.items_total) if order.items_total is not None else None,
     }
 
-    # Only show verification code to the order owner when status is DELIVERED
-    if order.user_id == current_user.id and order.status == "DELIVERED":
-        result["verification_code"] = order.verification_code
 
     if order.courier_id and order.courier:
         result["courier_name"] = order.courier.name

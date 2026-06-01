@@ -86,7 +86,8 @@ class OrderApi {
       };
       if (enterpriseId != null) body['enterprise_id'] = enterpriseId;
       if (intercityCityId != null) body['intercity_city_id'] = intercityCityId;
-      if (itemsTotal != null && itemsTotal > 0) body['items_total'] = itemsTotal;
+      if (itemsTotal != null && itemsTotal > 0)
+        body['items_total'] = itemsTotal;
 
       final response = await http.post(
         Uri.parse('${AppConfig.baseUrl}/orders/'),
@@ -325,46 +326,8 @@ class OrderApi {
     }
   }
 
-  Future<void> completeDelivery(
-    String token,
-    int orderId,
-    String verificationCode,
-  ) async {
-    try {
-      final response = await http.post(
-        Uri.parse('${AppConfig.baseUrl}/courier/orders/$orderId/complete'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'verification_code': verificationCode}),
-      );
-
-      if (response.statusCode == 200) {
-        return;
-      } else if (response.statusCode == 401) {
-        AuthEventBus.instance.fireUnauthorized();
-        throw const UnauthorizedException();
-      } else if (response.statusCode == 403) {
-        throw Exception('Бул аракет курьерлер үчүн гана.');
-      } else if (response.statusCode == 404) {
-        throw Exception('Заказ табылган жок.');
-      } else {
-        final dynamic body = jsonDecode(response.body);
-        final detail = body is Map<String, dynamic> ? body['detail'] : null;
-        throw Exception(
-          detail is String ? detail : 'Жеткирүүнү аяктоодо ката кетти',
-        );
-      }
-    } catch (e) {
-      if (e is FormatException) {
-        throw Exception('Сервер жообу туура эмес форматта келди');
-      }
-      if (e is Exception) {
-        rethrow;
-      }
-      throw Exception('Жеткирүүнү аяктоодо ката кетти');
-    }
+  Future<void> completeDelivery(String token, int orderId) async {
+    await markDelivered(token, orderId);
   }
 
   Future<List<OrderStatusAuditEntry>> getOrderStatusAudit({
@@ -410,7 +373,7 @@ class OrderApi {
     }
   }
 
-  Future<String> markDelivered(String token, int orderId) async {
+  Future<void> markDelivered(String token, int orderId) async {
     try {
       final response = await http.post(
         Uri.parse('${AppConfig.baseUrl}/courier/orders/$orderId/delivered'),
@@ -421,11 +384,7 @@ class OrderApi {
       );
 
       if (response.statusCode == 200) {
-        final dynamic body = jsonDecode(response.body);
-        if (body is Map<String, dynamic> && body['verification_code'] != null) {
-          return body['verification_code'].toString();
-        }
-        throw Exception('Тастыктоо коду алынган жок');
+        return;
       } else if (response.statusCode == 401) {
         AuthEventBus.instance.fireUnauthorized();
         throw const UnauthorizedException();
@@ -490,7 +449,11 @@ class OrderApi {
   }
 
   // Колдонуучу курьер жолдо болгон заказга жокко чыгаруу суроосун жөнөтүү
-  Future<void> requestCancelOrder(String token, int orderId, {String reason = ''}) async {
+  Future<void> requestCancelOrder(
+    String token,
+    int orderId, {
+    String reason = '',
+  }) async {
     try {
       final response = await http.post(
         Uri.parse('${AppConfig.baseUrl}/orders/$orderId/cancel-request'),
@@ -1039,7 +1002,10 @@ class OrderApi {
   }
 
   /// Заказга байланыштырылган админ билдирүүлөрүн жүктөө
-  Future<List<Map<String, dynamic>>> getOrderNotifications(String token, int orderId) async {
+  Future<List<Map<String, dynamic>>> getOrderNotifications(
+    String token,
+    int orderId,
+  ) async {
     try {
       final response = await http.get(
         Uri.parse('${AppConfig.baseUrl}/notifications/for-order/$orderId'),

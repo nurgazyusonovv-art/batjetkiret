@@ -37,15 +37,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     if (_orderType == 'dine_in') {
       return switch (_status) {
         'PREPARING' => ['READY', 'COMPLETED', 'CANCELLED'],
-        'READY'     => ['COMPLETED', 'CANCELLED'],
-        _           => [],
+        'READY' => ['COMPLETED', 'CANCELLED'],
+        _ => [],
       };
     }
     return switch (_status) {
-      'PREPARING'       => ['READY', 'CANCELLED'],
-      'READY'           => ['WAITING_COURIER', 'CANCELLED'],
+      'PREPARING' => ['READY', 'CANCELLED'],
+      'READY' => ['WAITING_COURIER', 'CANCELLED'],
       'WAITING_COURIER' => ['CANCELLED'],
-      _                 => [],
+      _ => [],
     };
   }
 
@@ -59,14 +59,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           content: const Text('Заказды жокко чыгарууну каалайсызбы?'),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Жок')),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Жок'),
+            ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFDC2626)),
-              child: const Text('Ооба, жокко чыгар',
-                  style: TextStyle(color: Colors.white)),
+                backgroundColor: const Color(0xFFDC2626),
+              ),
+              child: const Text(
+                'Ооба, жокко чыгар',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -83,8 +87,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           _order = {..._order, 'status': next};
           _updating = false;
         });
-        _showSnack('✅ Статус өзгөртүлдү: ${OrdersScreen.statusLabel(next)}',
-            const Color(0xFF16A34A));
+        _showSnack(
+          '✅ Статус өзгөртүлдү: ${OrdersScreen.statusLabel(next)}',
+          const Color(0xFF16A34A),
+        );
         if (next == 'COMPLETED' || next == 'CANCELLED') {
           await Future.delayed(const Duration(milliseconds: 800));
           if (mounted) Navigator.pop(context, true);
@@ -99,11 +105,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   void _showSnack(String msg, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, style: const TextStyle(color: Colors.white)),
-      backgroundColor: color,
-      duration: const Duration(seconds: 2),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(color: Colors.white)),
+        backgroundColor: color,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   List<_ParsedItem> _parseItems() {
@@ -112,14 +120,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final items = <_ParsedItem>[];
     for (final line in desc.split('\n')) {
       if (line.trim().isEmpty || line.startsWith('Эскертүү:')) continue;
-      final match =
-          RegExp(r'^(.+?)\s+x(\d+)\s*=\s*([\d.]+)\s*сом$').firstMatch(line.trim());
+      final match = RegExp(
+        r'^(.+?)\s+x(\d+)\s*=\s*([\d.]+)\s*сом$',
+      ).firstMatch(line.trim());
       if (match != null) {
-        items.add(_ParsedItem(
-          name: match.group(1)!,
-          qty: int.parse(match.group(2)!),
-          total: double.parse(match.group(3)!),
-        ));
+        items.add(
+          _ParsedItem(
+            name: match.group(1)!,
+            qty: int.parse(match.group(2)!),
+            total: double.parse(match.group(3)!),
+          ),
+        );
       } else {
         items.add(_ParsedItem(name: line.trim(), qty: 0, total: 0));
       }
@@ -167,18 +178,22 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           toolbarHeight: 48,
           backgroundColor: const Color(0xFF16A34A),
           foregroundColor: Colors.white,
-          title: Text('Заказ #$id',
-              style:
-                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          title: Text(
+            'Заказ #$id',
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          ),
           actions: [
             if (_loading)
               const Padding(
                 padding: EdgeInsets.all(14),
                 child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white)),
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
               )
             else
               IconButton(
@@ -197,30 +212,39 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           children: [
             // Status banner
             _card([
-              Row(children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(OrdersScreen.statusLabel(status),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      OrdersScreen.statusLabel(status),
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13)),
-                ),
-                const SizedBox(width: 8),
-                _sourceChip(source, _orderType),
-                const Spacer(),
-                if (createdAt.length >= 16)
-                  Text(
-                    createdAt.replaceAll('T', ' ').substring(0, 16),
-                    style: const TextStyle(
-                        fontSize: 11, color: Color(0xFF9CA3AF)),
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
-              ]),
+                  const SizedBox(width: 8),
+                  _sourceChip(source, _orderType),
+                  const Spacer(),
+                  if (createdAt.length >= 16)
+                    Text(
+                      createdAt.replaceAll('T', ' ').substring(0, 16),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF9CA3AF),
+                      ),
+                    ),
+                ],
+              ),
             ]),
             const SizedBox(height: 10),
 
@@ -256,46 +280,66 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               _card([
                 _sectionTitle('Товарлар'),
                 const SizedBox(height: 10),
-                ...items.map((item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(children: [
+                ...items.map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
                         if (item.qty > 0)
                           Container(
                             width: 28,
                             height: 28,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF16A34A)
-                                  .withValues(alpha: 0.1),
+                              color: const Color(
+                                0xFF16A34A,
+                              ).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Center(
-                              child: Text('${item.qty}',
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF16A34A))),
+                              child: Text(
+                                '${item.qty}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF16A34A),
+                                ),
+                              ),
                             ),
                           )
                         else
                           const SizedBox(width: 28),
                         const SizedBox(width: 10),
                         Expanded(
-                            child: Text(item.name,
-                                style: const TextStyle(fontSize: 14))),
+                          child: Text(
+                            item.name,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
                         if (item.total > 0)
-                          Text('${item.total.toStringAsFixed(0)} с',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14)),
-                      ]),
-                    )),
+                          Text(
+                            '${item.total.toStringAsFixed(0)} с',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
                 const Divider(height: 16),
                 if (itemsTotal != null)
-                  _totalRow('Товарлар суммасы', '$itemsTotal сом',
-                      const Color(0xFF16A34A)),
+                  _totalRow(
+                    'Товарлар суммасы',
+                    '$itemsTotal сом',
+                    const Color(0xFF16A34A),
+                  ),
                 if (delivery != '0')
-                  _totalRow('Жеткирүү акысы', '$delivery сом',
-                      const Color(0xFF6B7280)),
+                  _totalRow(
+                    'Жеткирүү акысы',
+                    '$delivery сом',
+                    const Color(0xFF6B7280),
+                  ),
                 _totalRow(
                   'Жалпы',
                   itemsTotal != null && delivery != '0'
@@ -312,22 +356,30 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               _card([
                 _sectionTitle('Эскертүү'),
                 const SizedBox(height: 8),
-                Text(note,
-                    style: const TextStyle(
-                        fontSize: 14, color: Color(0xFF374151))),
+                Text(
+                  note,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF374151),
+                  ),
+                ),
               ]),
             ],
+
 
             // Status change buttons
             if (nexts.isNotEmpty) ...[
               const SizedBox(height: 16),
               const Padding(
                 padding: EdgeInsets.only(bottom: 8),
-                child: Text('Статусту өзгөртүү',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: Color(0xFF374151))),
+                child: Text(
+                  'Статусту өзгөртүү',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: Color(0xFF374151),
+                  ),
+                ),
               ),
               ...nexts.map((s) {
                 final c = OrdersScreen.statusColor(s);
@@ -344,10 +396,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: isCancelled
-                                      ? const Color(0xFFDC2626)
-                                      : Colors.white))
+                                strokeWidth: 2,
+                                color: isCancelled
+                                    ? const Color(0xFFDC2626)
+                                    : Colors.white,
+                              ),
+                            )
                           : Icon(
                               _statusIcon(s),
                               size: 20,
@@ -358,11 +412,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       label: Text(
                         OrdersScreen.statusLabel(s),
                         style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            color: isCancelled
-                                ? const Color(0xFFDC2626)
-                                : Colors.white),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: isCancelled
+                              ? const Color(0xFFDC2626)
+                              : Colors.white,
+                        ),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isCancelled
@@ -372,7 +427,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             ? const BorderSide(color: Color(0xFFFCA5A5))
                             : BorderSide.none,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -386,15 +442,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   color: const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Row(children: [
-                  Icon(Icons.info_outline,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
                       size: 16,
-                      color: OrdersScreen.statusColor(status)),
-                  const SizedBox(width: 8),
-                  Text('${OrdersScreen.statusLabel(status)} — өзгөртүүгө болбойт',
+                      color: OrdersScreen.statusColor(status),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${OrdersScreen.statusLabel(status)} — өзгөртүүгө болбойт',
                       style: const TextStyle(
-                          fontSize: 13, color: Color(0xFF6B7280))),
-                ]),
+                        fontSize: 13,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
 
@@ -406,74 +470,98 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   static IconData _statusIcon(String s) => switch (s) {
-        'READY'           => Icons.check_circle_outline,
-        'WAITING_COURIER' => Icons.delivery_dining,
-        'COMPLETED'       => Icons.done_all,
-        'CANCELLED'       => Icons.cancel_outlined,
-        _                 => Icons.arrow_forward,
-      };
+    'READY' => Icons.check_circle_outline,
+    'WAITING_COURIER' => Icons.delivery_dining,
+    'COMPLETED' => Icons.done_all,
+    'CANCELLED' => Icons.cancel_outlined,
+    _ => Icons.arrow_forward,
+  };
 
   static Widget _card(List<Widget> children) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2)),
-          ],
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 6,
+          offset: const Offset(0, 2),
         ),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
-      );
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    ),
+  );
 
-  static Widget _sectionTitle(String t) => Text(t,
-      style: const TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 13,
-          color: Color(0xFF6B7280)));
+  static Widget _sectionTitle(String t) => Text(
+    t,
+    style: const TextStyle(
+      fontWeight: FontWeight.w700,
+      fontSize: 13,
+      color: Color(0xFF6B7280),
+    ),
+  );
 
   static Widget _row(IconData icon, String text, {Color? color}) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: color ?? const Color(0xFF9CA3AF)),
-          const SizedBox(width: 8),
-          Expanded(
-              child: Text(text,
-                  style: TextStyle(
-                      fontSize: 14, color: color ?? const Color(0xFF374151)))),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Icon(icon, size: 16, color: color ?? const Color(0xFF9CA3AF)),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 14,
+            color: color ?? const Color(0xFF374151),
+          ),
+        ),
+      ),
+    ],
+  );
 
-  static Widget _totalRow(String label, String value, Color color,
-          {bool big = false}) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(children: [
-          Expanded(
-              child: Text(label,
-                  style: TextStyle(
-                      fontSize: big ? 14 : 13,
-                      fontWeight:
-                          big ? FontWeight.w700 : FontWeight.normal,
-                      color: const Color(0xFF374151)))),
-          Text(value,
-              style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: big ? 16 : 14,
-                  color: color)),
-        ]),
-      );
+  static Widget _totalRow(
+    String label,
+    String value,
+    Color color, {
+    bool big = false,
+  }) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: big ? 14 : 13,
+              fontWeight: big ? FontWeight.w700 : FontWeight.normal,
+              color: const Color(0xFF374151),
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: big ? 16 : 14,
+            color: color,
+          ),
+        ),
+      ],
+    ),
+  );
 
   static Widget _sourceChip(String source, String orderType) {
     final (label, color) = switch (source) {
-      'online'   => ('Онлайн', const Color(0xFF2563EB)),
-      'dine_in'  => ('Стол', const Color(0xFF7C3AED)),
-      'local'    => ('Жергиликтүү', const Color(0xFFDC2626)),
-      _          => (orderType == 'dine_in' ? 'Стол' : 'Жеткирүү',
-                     const Color(0xFF6B7280)),
+      'online' => ('Онлайн', const Color(0xFF2563EB)),
+      'dine_in' => ('Стол', const Color(0xFF7C3AED)),
+      'local' => ('Жергиликтүү', const Color(0xFFDC2626)),
+      _ => (
+        orderType == 'dine_in' ? 'Стол' : 'Жеткирүү',
+        const Color(0xFF6B7280),
+      ),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -482,9 +570,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
     );
   }
 }
@@ -493,6 +586,9 @@ class _ParsedItem {
   final String name;
   final int qty;
   final double total;
-  const _ParsedItem(
-      {required this.name, required this.qty, required this.total});
+  const _ParsedItem({
+    required this.name,
+    required this.qty,
+    required this.total,
+  });
 }

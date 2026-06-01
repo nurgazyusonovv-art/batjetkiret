@@ -51,37 +51,14 @@ class OrderDetailCubit extends Cubit<OrderDetailState> {
     await _updateOrderStatus(token, 'start');
   }
 
-  Future<String> markDelivered(String? token) async {
+  Future<void> markDelivered(String? token) async {
     if (token == null) {
       throw Exception('Сессия бүттү. Кайра кириңиз.');
     }
 
     emit(state.copyWith(isUpdatingStatus: true));
     try {
-      final verificationCode = await _orderApi.markDelivered(
-        token,
-        state.currentOrder.id,
-      );
-
-      _updateLocalOrderStatus('delivered', verificationCode: verificationCode);
-      return verificationCode;
-    } finally {
-      emit(state.copyWith(isUpdatingStatus: false));
-    }
-  }
-
-  Future<void> completeDelivery(String? token, String verificationCode) async {
-    if (token == null) {
-      throw Exception('Сессия бүттү. Кайра кириңиз.');
-    }
-
-    emit(state.copyWith(isUpdatingStatus: true));
-    try {
-      await _orderApi.completeDelivery(
-        token,
-        state.currentOrder.id,
-        verificationCode,
-      );
+      await _orderApi.markDelivered(token, state.currentOrder.id);
       _updateLocalOrderStatus('complete');
     } finally {
       emit(state.copyWith(isUpdatingStatus: false));
@@ -118,19 +95,12 @@ class OrderDetailCubit extends Cubit<OrderDetailState> {
     emit(state.copyWith(isUpdatingStatus: false));
   }
 
-  void _updateLocalOrderStatus(String action, {String? verificationCode}) {
+  void _updateLocalOrderStatus(String action) {
     final current = state.currentOrder;
     final updatedOrder = switch (action) {
       'accept' => current.copyWith(status: 'picked_up'),
       'start' => current.copyWith(status: 'in_transit'),
-      'complete' => current.copyWith(
-        status: 'completed',
-        verificationCode: null,
-      ),
-      'delivered' => current.copyWith(
-        status: 'delivered',
-        verificationCode: verificationCode ?? current.verificationCode,
-      ),
+      'complete' => current.copyWith(status: 'completed'),
       'cancel_user' => current.copyWith(status: 'cancelled'),
       'cancel_courier' => current.copyWith(status: 'pending'),
       _ => current,
@@ -170,15 +140,21 @@ class OrderDetailCubit extends Cubit<OrderDetailState> {
     }
     emit(state.copyWith(isUpdatingStatus: true, clearError: true));
     try {
-      await _orderApi.requestCancelOrder(token, state.currentOrder.id, reason: reason);
+      await _orderApi.requestCancelOrder(
+        token,
+        state.currentOrder.id,
+        reason: reason,
+      );
       // Mark cancel_requested locally so the button changes to "waiting" state
       final updated = state.currentOrder.copyWith(cancelRequested: true);
       emit(state.copyWith(isUpdatingStatus: false, currentOrder: updated));
     } catch (error) {
-      emit(state.copyWith(
-        isUpdatingStatus: false,
-        error: error.toString().replaceFirst('Exception: ', ''),
-      ));
+      emit(
+        state.copyWith(
+          isUpdatingStatus: false,
+          error: error.toString().replaceFirst('Exception: ', ''),
+        ),
+      );
     }
   }
 

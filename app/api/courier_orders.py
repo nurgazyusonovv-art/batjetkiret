@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from decimal import Decimal
-import random
 from datetime import datetime, timedelta
 
 from app.api.deps import get_db, get_current_user
 from app.models.order import Order
+from app.models.order_payment import OrderPayment
+from app.models.enterprise import Enterprise
 from app.models.user import User
 from app.models.chat import ChatRoom
 from app.models.transaction import Transaction
@@ -20,6 +21,15 @@ from app.api.admin import get_courier_cancel_penalty
 router = APIRouter(prefix="/courier/orders", tags=["Courier Orders"])
 
 COURIER_ORDER_SERVICE_FEE_DEFAULT = Decimal("5")
+ACTIVE_COURIER_STATUSES = (
+    "ACCEPTED",
+    "PREPARING",
+    "READY",
+    "PICKED_UP",
+    "ON_THE_WAY",
+    "IN_TRANSIT",
+    "DELIVERED",
+)
 
 
 def _get_service_fee(db) -> Decimal:
@@ -32,8 +42,25 @@ def _get_service_fee(db) -> Decimal:
     return COURIER_ORDER_SERVICE_FEE_DEFAULT
 
 
-class CompleteOrderRequest(BaseModel):
-    verification_code: str
+def _enterprise_name_map(db: Session, orders: list[Order]) -> dict[int, str]:
+    enterprise_ids = {o.enterprise_id for o in orders if o.enterprise_id is not None}
+    if not enterprise_ids:
+        return {}
+    enterprises = db.query(Enterprise).filter(Enterprise.id.in_(enterprise_ids)).all()
+    return {e.id: e.name for e in enterprises}
+
+
+def _active_courier_order(db: Session, courier_id: int) -> Order | None:
+    return (
+        db.query(Order)
+        .filter(
+            Order.courier_id == courier_id,
+            Order.status.in_(ACTIVE_COURIER_STATUSES),
+            Order.hidden_for_courier == False,  # noqa: E712
+        )
+        .order_by(Order.created_at.desc())
+        .first()
+    )
 
 
 def _charge_courier_service_fee(db: Session, courier: User, order_id: int):
@@ -51,6 +78,8 @@ def _charge_courier_service_fee(db: Session, courier: User, order_id: int):
             status_code=400,
             detail=f"Заказды аяктоо үчүн курьер балансында {fee} сом болушу керек",
         ) from exc
+
+
 
 
 @router.get("/my")
@@ -73,6 +102,7 @@ def my_courier_orders(
         .all()
     )
 
+    enterprise_names = _enterprise_name_map(db, orders)
     result = []
     for o in orders:
         order_dict = {
@@ -89,6 +119,8 @@ def my_courier_orders(
             "price": float(o.price),
             "status": o.status,
             "created_at": o.created_at,
+            "enterprise_id": o.enterprise_id,
+            "enterprise_name": enterprise_names.get(o.enterprise_id) if o.enterprise_id else None,
         }
         
         # Include user info
@@ -120,15 +152,31 @@ def available_orders(
     if not current_user.is_courier:
         raise HTTPException(status_code=403, detail="Not a courier")
 
-    from sqlalchemy import or_
+    if _active_courier_order(db, current_user.id):
+        return []
+
+    confirmed_enterprise_payments = (
+        db.query(OrderPayment.order_id)
+        .filter(OrderPayment.status == "confirmed")
+    )
     orders = (
         db.query(Order)
         .filter(
             or_(
                 # Regular (non-enterprise) orders: visible as soon as placed
                 (Order.status == "WAITING_COURIER") & (Order.enterprise_id.is_(None)),
-                # Enterprise orders: visible when ACCEPTED (Ишкана кабыл алды) or READY, no courier assigned yet
-                (Order.status.in_(["ACCEPTED", "READY"])) & (Order.enterprise_id.isnot(None)) & (Order.courier_id.is_(None)),
+                # Enterprise orders: visible after enterprise confirmation or when marked ready.
+                (
+                    Order.enterprise_id.isnot(None)
+                    & Order.courier_id.is_(None)
+                    & or_(
+                        Order.status.in_(["ACCEPTED", "READY"]),
+                        (
+                            (Order.status == "WAITING_COURIER")
+                            & Order.id.in_(confirmed_enterprise_payments)
+                        ),
+                    )
+                ),
             ),
             Order.category != "intercity",
         )
@@ -136,6 +184,7 @@ def available_orders(
         .all()
     )
 
+    enterprise_names = _enterprise_name_map(db, orders)
     return [
         {
             "id": o.id,
@@ -151,6 +200,8 @@ def available_orders(
             "price": float(o.price),
             "status": o.status,
             "created_at": o.created_at,
+            "enterprise_id": o.enterprise_id,
+            "enterprise_name": enterprise_names.get(o.enterprise_id) if o.enterprise_id else None,
         }
         for o in orders
     ]
@@ -168,6 +219,16 @@ def accept_order(
         raise HTTPException(
             status_code=400,
             detail="Балансыңыз терс. Заказ кабыл алуу үчүн алгач балансыңызды толуктаңыз",
+        )
+
+    active_order = _active_courier_order(db, current_user.id)
+    if active_order and active_order.id != order_id:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Сизде активдүү заказ #{active_order.id} бар. "
+                "Жаңы заказ алуу үчүн алгач активдүү заказды аяктаңыз."
+            ),
         )
 
     order = (
@@ -319,52 +380,13 @@ def mark_delivered(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Courier marks order as delivered and immediately completes it."""
     if not current_user.is_courier:
         raise HTTPException(status_code=403)
 
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order or order.courier_id != current_user.id:
         raise HTTPException(status_code=404)
-
-    # Generate 6-digit verification code
-    verification_code = str(random.randint(100000, 999999))
-    order.verification_code = verification_code
-
-    apply_status_change(
-        db=db,
-        order=order,
-        new_status="DELIVERED",
-        actor_user_id=current_user.id,
-    )
-    db.commit()
-
-    return {
-        "message": "Order delivered",
-        "verification_code": verification_code,
-    }
-
-
-
-@router.post("/{order_id}/complete")
-def complete_order(
-    order_id: int,
-    request: CompleteOrderRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if not current_user.is_courier:
-        raise HTTPException(status_code=403)
-
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order or order.courier_id != current_user.id:
-        raise HTTPException(status_code=404)
-
-    # Verify the code
-    if not order.verification_code:
-        raise HTTPException(status_code=400, detail="Verification code not generated yet")
-    
-    if order.verification_code != request.verification_code:
-        raise HTTPException(status_code=400, detail="Invalid verification code")
 
     apply_status_change(
         db=db,
@@ -372,12 +394,33 @@ def complete_order(
         new_status="COMPLETED",
         actor_user_id=current_user.id,
     )
-    # Do not add order price to courier balance on completion.
     _charge_courier_service_fee(db, current_user, order.id)
+    db.commit()
 
-    # Clear verification code after successful completion
-    order.verification_code = None
-    
+    return {"message": "Order completed"}
+
+
+@router.post("/{order_id}/complete")
+def complete_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Kept for backwards compatibility — same as /delivered."""
+    if not current_user.is_courier:
+        raise HTTPException(status_code=403)
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order or order.courier_id != current_user.id:
+        raise HTTPException(status_code=404)
+
+    apply_status_change(
+        db=db,
+        order=order,
+        new_status="COMPLETED",
+        actor_user_id=current_user.id,
+    )
+    _charge_courier_service_fee(db, current_user, order.id)
     db.commit()
 
     return {"message": "Order completed"}

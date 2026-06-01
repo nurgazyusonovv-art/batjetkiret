@@ -18,10 +18,10 @@ class Order {
   final String? userPhone;
   final int? userId;
   final String createdAt;
-  final String? verificationCode;
   final double? courierLatitude;
   final double? courierLongitude;
   final int? enterpriseId;
+  final String? enterpriseName;
   final double? itemsTotal;
   final bool cancelRequested;
 
@@ -45,10 +45,10 @@ class Order {
     this.userPhone,
     this.userId,
     required this.createdAt,
-    this.verificationCode,
     this.courierLatitude,
     this.courierLongitude,
     this.enterpriseId,
+    this.enterpriseName,
     this.itemsTotal,
     this.cancelRequested = false,
   });
@@ -80,7 +80,6 @@ class Order {
     }
   }
 
-  /// Create a copy of this order with some fields replaced
   Order copyWith({
     int? id,
     String? category,
@@ -101,10 +100,10 @@ class Order {
     String? userPhone,
     int? userId,
     String? createdAt,
-    String? verificationCode,
     double? courierLatitude,
     double? courierLongitude,
     int? enterpriseId,
+    String? enterpriseName,
     double? itemsTotal,
     bool? cancelRequested,
   }) {
@@ -128,10 +127,10 @@ class Order {
       userPhone: userPhone ?? this.userPhone,
       userId: userId ?? this.userId,
       createdAt: createdAt ?? this.createdAt,
-      verificationCode: verificationCode ?? this.verificationCode,
       courierLatitude: courierLatitude ?? this.courierLatitude,
       courierLongitude: courierLongitude ?? this.courierLongitude,
       enterpriseId: enterpriseId ?? this.enterpriseId,
+      enterpriseName: enterpriseName ?? this.enterpriseName,
       itemsTotal: itemsTotal ?? this.itemsTotal,
       cancelRequested: cancelRequested ?? this.cancelRequested,
     );
@@ -178,10 +177,10 @@ class Order {
       userPhone: user?['phone'],
       userId: user?['id'],
       createdAt: (json['created_at'] ?? '').toString(),
-      verificationCode: json['verification_code'],
       courierLatitude: (json['courier_latitude'] as num?)?.toDouble(),
       courierLongitude: (json['courier_longitude'] as num?)?.toDouble(),
       enterpriseId: json['enterprise_id'] as int?,
+      enterpriseName: json['enterprise_name']?.toString(),
       itemsTotal: (json['items_total'] as num?)?.toDouble(),
       cancelRequested: json['cancel_requested'] == true,
     );

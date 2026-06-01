@@ -292,7 +292,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.admin_panel_settings, color: Color(0xFFE65100), size: 20),
+          const Icon(
+            Icons.admin_panel_settings,
+            color: Color(0xFFE65100),
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -309,7 +313,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 const SizedBox(height: 4),
                 Text(
                   message,
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF5D4037)),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF5D4037),
+                  ),
                 ),
               ],
             ),
@@ -529,14 +536,20 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                                 token: widget.token!,
                                 orderId: currentOrder.id,
                                 enterpriseId: currentOrder.enterpriseId!,
-                                amount: currentOrder.itemsTotal ?? currentOrder.estimatedPrice ?? 0,
+                                amount:
+                                    currentOrder.itemsTotal ??
+                                    currentOrder.estimatedPrice ??
+                                    0,
                               ),
                             );
                           },
                           icon: const Icon(Icons.qr_code, size: 20),
                           label: const Text(
                             'Төлөмдү тастыктоо',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF4f46e5),
@@ -550,98 +563,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       ),
                     ),
 
-                  // Verification code section - shown only to regular users when order is delivered
-                  if (!widget.isCourier &&
-                      currentOrder.status == 'delivered' &&
-                      currentOrder.verificationCode != null)
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.orange.withAlpha(60),
-                            Colors.orange.withAlpha(25),
-                          ],
-                        ),
-                        border: Border.all(color: Colors.orange, width: 3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.orange.withAlpha(80),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.warning_amber_rounded,
-                                color: Colors.orange,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Курьерге берүү коду',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.orange.shade900,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.orange,
-                                width: 2,
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 16,
-                            ),
-                            child: Text(
-                              currentOrder.verificationCode!,
-                              style: TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange.shade700,
-                                letterSpacing: 8,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withAlpha(50),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '⚠️ Бул кодду курьерге берип, төлөмүн аяктаңыз',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.orange.shade900,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 24),
 
                   // ── Info block ────────────────────────────────────────
                   Container(
@@ -663,7 +584,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                         _buildInfoRow(
                           icon: Icons.route,
                           label: 'Аралык',
-                          value: '${currentOrder.distance.toStringAsFixed(1)} км',
+                          value:
+                              '${currentOrder.distance.toStringAsFixed(1)} км',
                           color: accentColor,
                         ),
                         if (currentOrder.estimatedPrice != null) ...[
@@ -671,7 +593,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                           _buildInfoRow(
                             icon: Icons.local_shipping_outlined,
                             label: 'Жеткирүү баасы',
-                            value: '${currentOrder.estimatedPrice?.round()} сом',
+                            value:
+                                '${currentOrder.estimatedPrice?.round()} сом',
                             color: accentColor,
                             isLast: true,
                           ),
@@ -688,9 +611,64 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: AppColors.border),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: Column(
                       children: [
+                        if (widget.isCourier &&
+                            currentOrder.enterpriseName != null &&
+                            currentOrder.enterpriseName!.trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 14, bottom: 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFeef2ff),
+                                    borderRadius: BorderRadius.circular(9),
+                                  ),
+                                  child: const Icon(
+                                    Icons.storefront,
+                                    size: 17,
+                                    color: Color(0xFF4f46e5),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Ишкана',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.textSecondary,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        currentOrder.enterpriseName!,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         // From
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -811,28 +789,42 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                                 latitude: currentOrder.toLatitude!,
                                 longitude: currentOrder.toLongitude!,
                               ),
-                              userLat: widget.isCourier ? _userPosition?.latitude : null,
-                              userLon: widget.isCourier ? _userPosition?.longitude : null,
-                              courierLat: widget.isCourier ? null : currentOrder.courierLatitude,
-                              courierLon: widget.isCourier ? null : currentOrder.courierLongitude,
+                              userLat: widget.isCourier
+                                  ? _userPosition?.latitude
+                                  : null,
+                              userLon: widget.isCourier
+                                  ? _userPosition?.longitude
+                                  : null,
+                              courierLat: widget.isCourier
+                                  ? null
+                                  : currentOrder.courierLatitude,
+                              courierLon: widget.isCourier
+                                  ? null
+                                  : currentOrder.courierLongitude,
                             )
                           : GestureDetector(
                               onTap: () {
-                                Navigator.of(context).push(MaterialPageRoute(
-                                  builder: (_) => _FullScreenMapPage(
-                                    from: LatLng(
-                                      latitude: currentOrder.fromLatitude!,
-                                      longitude: currentOrder.fromLongitude!,
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => _FullScreenMapPage(
+                                      from: LatLng(
+                                        latitude: currentOrder.fromLatitude!,
+                                        longitude: currentOrder.fromLongitude!,
+                                      ),
+                                      to: LatLng(
+                                        latitude: currentOrder.toLatitude!,
+                                        longitude: currentOrder.toLongitude!,
+                                      ),
+                                      isCourier: widget.isCourier,
+                                      courierLat: widget.isCourier
+                                          ? null
+                                          : currentOrder.courierLatitude,
+                                      courierLon: widget.isCourier
+                                          ? null
+                                          : currentOrder.courierLongitude,
                                     ),
-                                    to: LatLng(
-                                      latitude: currentOrder.toLatitude!,
-                                      longitude: currentOrder.toLongitude!,
-                                    ),
-                                    isCourier: widget.isCourier,
-                                    courierLat: widget.isCourier ? null : currentOrder.courierLatitude,
-                                    courierLon: widget.isCourier ? null : currentOrder.courierLongitude,
                                   ),
-                                ));
+                                );
                               },
                               child: Stack(
                                 children: [
@@ -845,10 +837,18 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                                       latitude: currentOrder.toLatitude!,
                                       longitude: currentOrder.toLongitude!,
                                     ),
-                                    userLat: widget.isCourier ? _userPosition?.latitude : null,
-                                    userLon: widget.isCourier ? _userPosition?.longitude : null,
-                                    courierLat: widget.isCourier ? null : currentOrder.courierLatitude,
-                                    courierLon: widget.isCourier ? null : currentOrder.courierLongitude,
+                                    userLat: widget.isCourier
+                                        ? _userPosition?.latitude
+                                        : null,
+                                    userLon: widget.isCourier
+                                        ? _userPosition?.longitude
+                                        : null,
+                                    courierLat: widget.isCourier
+                                        ? null
+                                        : currentOrder.courierLatitude,
+                                    courierLon: widget.isCourier
+                                        ? null
+                                        : currentOrder.courierLongitude,
                                   ),
                                   Positioned(
                                     top: 8,
@@ -856,10 +856,16 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                                     child: Container(
                                       padding: const EdgeInsets.all(6),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.9),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.9,
+                                        ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
-                                      child: const Icon(Icons.fullscreen, size: 20, color: Colors.black87),
+                                      child: const Icon(
+                                        Icons.fullscreen,
+                                        size: 20,
+                                        color: Colors.black87,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -1391,7 +1397,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                         icon: const Icon(Icons.map_outlined, size: 20),
                         label: const Text(
                           'Яндекс картасында ачуу',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFFC3F1D),
@@ -1470,7 +1479,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Future<void> _openYandexMaps(double lat, double lon) async {
-    final appUrl = Uri.parse('yandexmaps://maps.yandex.ru/?pt=$lon,$lat&z=15&l=map');
+    final appUrl = Uri.parse(
+      'yandexmaps://maps.yandex.ru/?pt=$lon,$lat&z=15&l=map',
+    );
     final webUrl = Uri.parse('https://maps.yandex.ru/?pt=$lon,$lat&z=15&l=map');
     if (await canLaunchUrl(appUrl)) {
       await launchUrl(appUrl);
@@ -1481,11 +1492,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   Widget _buildStatusActionButtons(Order currentOrder, bool isUpdatingStatus) {
     final isPending = currentOrder.status == 'pending';
-    final isReady = currentOrder.status == 'ready'; // enterprise order ready for pickup
+    final isReady =
+        currentOrder.status == 'ready'; // enterprise order ready for pickup
     final isPickedUp = currentOrder.status == 'picked_up';
     final isAccepted = currentOrder.status == 'accepted'; // legacy fallback
     final isInTransit = currentOrder.status == 'in_transit';
-    final isDelivered = currentOrder.status == 'delivered';
     final isCompleted = currentOrder.status == 'completed';
 
     return Column(
@@ -1549,17 +1560,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         if (isInTransit)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: AppButton.secondary(
+            child: AppButton.primary(
               onPressed: isUpdatingStatus ? null : _markDelivered,
               isLoading: isUpdatingStatus,
-              label: 'Жеткирилди',
+              label: 'Заказды аяктоо',
             ),
-          ),
-        if (isDelivered)
-          AppButton.secondary(
-            onPressed: isUpdatingStatus ? null : _completeDelivery,
-            isLoading: isUpdatingStatus,
-            label: 'Аяктоо',
           ),
         if (isCompleted)
           AppButton.secondary(
@@ -1578,38 +1583,13 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     await _updateOrderStatus('start');
   }
 
-  Future<void> _completeDelivery() async {
-    final code = await _showVerificationCodeDialog();
-    if (code == null || code.isEmpty) return;
-
-    try {
-      await _detailCubit.completeDelivery(widget.token, code);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Заказ ийгиликтүү аякталды'),
-          backgroundColor: AppColors.accent4,
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: AppColors.accent5,
-        ),
-      );
-    }
-  }
-
   Future<void> _markDelivered() async {
     try {
       await _detailCubit.markDelivered(widget.token);
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Заказ жеткирилди'),
+          content: Text('Заказ ийгиликтүү аякталды'),
           backgroundColor: AppColors.accent4,
         ),
       );
@@ -1719,7 +1699,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
-  Widget _buildCancelRequestButton(dynamic currentOrder, bool isUpdatingStatus) {
+  Widget _buildCancelRequestButton(
+    dynamic currentOrder,
+    bool isUpdatingStatus,
+  ) {
     final alreadyRequested = currentOrder.cancelRequested == true;
 
     if (alreadyRequested) {
@@ -1754,7 +1737,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       width: double.infinity,
       height: 48,
       child: OutlinedButton.icon(
-        onPressed: isUpdatingStatus ? null : () => _sendCancelRequest(currentOrder),
+        onPressed: isUpdatingStatus
+            ? null
+            : () => _sendCancelRequest(currentOrder),
         icon: const Icon(Icons.cancel_outlined, size: 18),
         label: const Text(
           'Жокко чыгаруу суроосун жөнөт',
@@ -1763,7 +1748,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.accent5,
           side: BorderSide(color: AppColors.accent5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );
@@ -1809,7 +1796,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accent5,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: const Text('Жөнөтүү'),
           ),
@@ -1820,7 +1809,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     if (confirm != true || !mounted) return;
 
     try {
-      await _detailCubit.requestCancelOrder(widget.token, reason: reasonController.text);
+      await _detailCubit.requestCancelOrder(
+        widget.token,
+        reason: reasonController.text,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1900,7 +1892,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Widget _buildInfoDivider() {
-    return const Divider(height: 1, indent: 46, endIndent: 0, color: Color(0xFFf1f5f9));
+    return const Divider(
+      height: 1,
+      indent: 46,
+      endIndent: 0,
+      color: Color(0xFFf1f5f9),
+    );
   }
 
   Widget _buildStatusBadge(String status, Color accentColor) {
@@ -2278,8 +2275,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               SnackBar(
                 content: const Row(
                   children: [
-                    Icon(Icons.check_circle_rounded,
-                        color: Colors.white, size: 18),
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                     SizedBox(width: 8),
                     Text('Баалоо ийгиликтүү сакталды'),
                   ],
@@ -2287,9 +2287,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 backgroundColor: AppColors.accent4,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                margin:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
             );
           },
@@ -2304,91 +2307,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         commentController.dispose();
       } catch (_) {}
     }
-  }
-
-  Future<String?> _showVerificationCodeDialog() async {
-    final TextEditingController codeController = TextEditingController();
-
-    return showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            'Тастыктоо коду',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Колдонуучудан алган 6 цифралуу кодду киргизиңиз:',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: codeController,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 8,
-                ),
-                decoration: InputDecoration(
-                  hintText: '000000',
-                  counterText: '',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
-                      width: 2,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
-                      width: 2,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Отмена'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final code = codeController.text.trim();
-                if (code.length == 6) {
-                  Navigator.of(context).pop(code);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('6 цифра киргизиңиз'),
-                      backgroundColor: AppColors.accent5,
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Тастыктоо'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Color _getAccentColorForStatus(String status) {
@@ -2442,7 +2360,10 @@ class _FullScreenMapPageState extends State<_FullScreenMapPage> {
     super.initState();
     if (widget.isCourier) {
       _fetchLocation();
-      _gpsTimer = Timer.periodic(const Duration(seconds: 5), (_) => _fetchLocation());
+      _gpsTimer = Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => _fetchLocation(),
+      );
     }
   }
 
@@ -2494,7 +2415,11 @@ class _FullScreenMapPageState extends State<_FullScreenMapPage> {
                   color: Colors.white.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.arrow_back, size: 22, color: Colors.black87),
+                child: const Icon(
+                  Icons.arrow_back,
+                  size: 22,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ),
@@ -2540,8 +2465,14 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
           'ymap_${widget.from.latitude}_${widget.from.longitude}_${widget.to.latitude}_${widget.to.longitude}_${DateTime.now().microsecondsSinceEpoch}';
       registerWebIframe(
         _webViewId,
-        _buildHtml(widget.from, widget.to, widget.userLat, widget.userLon,
-            widget.courierLat, widget.courierLon),
+        _buildHtml(
+          widget.from,
+          widget.to,
+          widget.userLat,
+          widget.userLon,
+          widget.courierLat,
+          widget.courierLon,
+        ),
       );
     } else {
       _buildController();
@@ -2561,13 +2492,21 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
       return;
     }
     // Smooth JS updates for moving markers
-    if (widget.userLat != null && widget.userLon != null &&
-        (oldWidget.userLat != widget.userLat || oldWidget.userLon != widget.userLon)) {
-      _controller.runJavaScript('if(window.updateUserPos) updateUserPos(${widget.userLat}, ${widget.userLon});');
+    if (widget.userLat != null &&
+        widget.userLon != null &&
+        (oldWidget.userLat != widget.userLat ||
+            oldWidget.userLon != widget.userLon)) {
+      _controller.runJavaScript(
+        'if(window.updateUserPos) updateUserPos(${widget.userLat}, ${widget.userLon});',
+      );
     }
-    if (widget.courierLat != null && widget.courierLon != null &&
-        (oldWidget.courierLat != widget.courierLat || oldWidget.courierLon != widget.courierLon)) {
-      _controller.runJavaScript('if(window.updateCourierPos) updateCourierPos(${widget.courierLat}, ${widget.courierLon});');
+    if (widget.courierLat != null &&
+        widget.courierLon != null &&
+        (oldWidget.courierLat != widget.courierLat ||
+            oldWidget.courierLon != widget.courierLon)) {
+      _controller.runJavaScript(
+        'if(window.updateCourierPos) updateCourierPos(${widget.courierLat}, ${widget.courierLon});',
+      );
     }
   }
 
@@ -2583,8 +2522,14 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
         ),
       )
       ..loadHtmlString(
-        _buildHtml(widget.from, widget.to, widget.userLat, widget.userLon,
-            widget.courierLat, widget.courierLon),
+        _buildHtml(
+          widget.from,
+          widget.to,
+          widget.userLat,
+          widget.userLon,
+          widget.courierLat,
+          widget.courierLon,
+        ),
         baseUrl: 'https://yandex.ru',
       );
   }
@@ -2597,8 +2542,14 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
         return ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: buildWebIframeMap(
-            _buildHtml(widget.from, widget.to, widget.userLat, widget.userLon,
-                widget.courierLat, widget.courierLon),
+            _buildHtml(
+              widget.from,
+              widget.to,
+              widget.userLat,
+              widget.userLon,
+              widget.courierLat,
+              widget.courierLon,
+            ),
             _webViewId,
           ),
         );
@@ -2628,25 +2579,36 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
     );
   }
 
-  String _buildHtml(LatLng from, LatLng to, double? userLat, double? userLon,
-      [double? courierLat, double? courierLon]) =>
-      _buildYandexMapHtml(from, to, userLat, userLon, courierLat, courierLon);
+  String _buildHtml(
+    LatLng from,
+    LatLng to,
+    double? userLat,
+    double? userLon, [
+    double? courierLat,
+    double? courierLon,
+  ]) => _buildYandexMapHtml(from, to, userLat, userLon, courierLat, courierLon);
 }
 
-String _buildYandexMapHtml(LatLng from, LatLng to, double? userLat,
-    double? userLon, [double? courierLat, double? courierLon]) {
-    final centerLat = (from.latitude + to.latitude) / 2;
-    final centerLon = (from.longitude + to.longitude) / 2;
-    final hasUser = userLat != null && userLon != null;
-    final hasCourier = courierLat != null && courierLon != null;
-    final initUserMark = hasUser
-        ? 'userMark = new ymaps.Placemark([$userLat, $userLon], { hintContent: "Менин жайгашкан жерим" }, { preset: "islands#blueCircleDotIcon" }); map.geoObjects.add(userMark);'
-        : '';
-    final initCourierMark = hasCourier
-        ? 'courierMark = new ymaps.Placemark([$courierLat, $courierLon], { hintContent: "Курьер" }, { preset: "islands#orangeDeliveryIcon" }); map.geoObjects.add(courierMark);'
-        : '';
+String _buildYandexMapHtml(
+  LatLng from,
+  LatLng to,
+  double? userLat,
+  double? userLon, [
+  double? courierLat,
+  double? courierLon,
+]) {
+  final centerLat = (from.latitude + to.latitude) / 2;
+  final centerLon = (from.longitude + to.longitude) / 2;
+  final hasUser = userLat != null && userLon != null;
+  final hasCourier = courierLat != null && courierLon != null;
+  final initUserMark = hasUser
+      ? 'userMark = new ymaps.Placemark([$userLat, $userLon], { hintContent: "Менин жайгашкан жерим" }, { preset: "islands#blueCircleDotIcon" }); map.geoObjects.add(userMark);'
+      : '';
+  final initCourierMark = hasCourier
+      ? 'courierMark = new ymaps.Placemark([$courierLat, $courierLon], { hintContent: "Курьер" }, { preset: "islands#orangeDeliveryIcon" }); map.geoObjects.add(courierMark);'
+      : '';
 
-    return '''
+  return '''
 <!DOCTYPE html>
 <html>
 <head>
@@ -2758,7 +2720,14 @@ class _WebMapPreview extends StatelessWidget {
   void _openFullscreen(BuildContext context) {
     final viewId =
         'ymap_fs_${from.latitude}_${from.longitude}_${DateTime.now().microsecondsSinceEpoch}';
-    final html = _buildYandexMapHtml(from, to, userLat, userLon, courierLat, courierLon);
+    final html = _buildYandexMapHtml(
+      from,
+      to,
+      userLat,
+      userLon,
+      courierLat,
+      courierLon,
+    );
     registerWebIframe(viewId, html);
 
     showDialog(
@@ -2787,7 +2756,11 @@ class _WebMapPreview extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.92),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.close, size: 22, color: Colors.black87),
+                    child: const Icon(
+                      Icons.close,
+                      size: 22,
+                      color: Colors.black87,
+                    ),
                   ),
                 ),
               ),
@@ -2833,7 +2806,11 @@ class _WebMapPreview extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.fullscreen, size: 20, color: Colors.black87),
+                child: const Icon(
+                  Icons.fullscreen,
+                  size: 20,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ],
@@ -2893,13 +2870,17 @@ class _RatingBottomSheetState extends State<_RatingBottomSheet> {
         return;
       }
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(msg),
-        backgroundColor: AppColors.accent5,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: AppColors.accent5,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      );
     }
   }
 
@@ -2940,9 +2921,7 @@ class _RatingBottomSheetState extends State<_RatingBottomSheet> {
 
           // Title
           Text(
-            widget.isCourier
-                ? 'Колдонуучуну баалаңыз'
-                : 'Курьерди баалаңыз',
+            widget.isCourier ? 'Колдонуучуну баалаңыз' : 'Курьерди баалаңыз',
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -3016,12 +2995,16 @@ class _RatingBottomSheetState extends State<_RatingBottomSheet> {
             maxLines: 3,
             decoration: InputDecoration(
               hintText: 'Комментарий жазыңыз (милдеттүү эмес)',
-              hintStyle:
-                  const TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+              hintStyle: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFFAAAAAA),
+              ),
               filled: true,
               fillColor: const Color(0xFFF7F7F9),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
@@ -3035,17 +3018,21 @@ class _RatingBottomSheetState extends State<_RatingBottomSheet> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed:
-                      _isSubmitting ? null : () => Navigator.of(context).pop(),
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 15),
                     side: const BorderSide(color: Color(0xFFE0E0E0)),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     foregroundColor: const Color(0xFF7B7B93),
                   ),
-                  child: const Text('Кийин',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: const Text(
+                    'Кийин',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
