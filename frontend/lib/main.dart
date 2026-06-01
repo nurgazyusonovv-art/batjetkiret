@@ -1,6 +1,4 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:image_picker_android/image_picker_android.dart';
-import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -38,14 +36,6 @@ final _navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Force Android Photo Picker — no READ_MEDIA_IMAGES permission needed
-  if (!kIsWeb) {
-    final picker = ImagePickerPlatform.instance;
-    if (picker is ImagePickerAndroid) {
-      picker.useAndroidPhotoPicker = true;
-    }
-  }
 
   await HiveService.initialize();
   if (!kIsWeb) {

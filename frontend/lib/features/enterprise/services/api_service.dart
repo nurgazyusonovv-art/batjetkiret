@@ -1,26 +1,44 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
+import 'package:frontend/core/config.dart';
+import 'package:file_picker/file_picker.dart';
 import 'auth_service.dart';
-
-const _base = 'https://batjetkiret-production.up.railway.app';
 
 class ApiService {
   static Future<Dio> _client() async {
     final token = await AuthService.getToken();
-    return Dio(BaseOptions(
-      baseUrl: _base,
-      headers: {'Authorization': 'Bearer $token'},
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
-    ));
+    return Dio(
+      BaseOptions(
+        baseUrl: AppConfig.baseUrl,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 30),
+      ),
+    );
   }
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
   static Future<String> login(String phone, String password) async {
-    final dio = Dio(BaseOptions(baseUrl: _base));
-    final resp = await dio.post('/enterprise-portal/login',
-        data: {'phone': phone, 'password': password});
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: AppConfig.baseUrl,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 30),
+      ),
+    );
+    final resp = await dio.post(
+      '/enterprise-portal/login',
+      data: {'phone': phone, 'password': password},
+    );
     return resp.data['access_token'] as String;
   }
 
@@ -32,6 +50,20 @@ class ApiService {
     return resp.data as Map<String, dynamic>;
   }
 
+  static Future<String> uploadEnterpriseLogo(
+    int enterpriseId,
+    PlatformFile imageFile,
+  ) async {
+    final dio = await _client();
+    final bytes = imageFile.bytes ?? Uint8List(0);
+    final filename = imageFile.name.isNotEmpty ? imageFile.name : 'logo.jpg';
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    final resp = await dio.post('/enterprises/$enterpriseId/logo', data: form);
+    return resp.data['logo_data'] as String;
+  }
+
   static Future<void> saveFcmToken(String token) async {
     final dio = await _client();
     await dio.post('/enterprise-portal/fcm-token', data: {'token': token});
@@ -39,8 +71,10 @@ class ApiService {
 
   static Future<bool> setOpenStatus(bool isOpen) async {
     final dio = await _client();
-    final resp = await dio.patch('/enterprise-portal/me/open-status',
-        data: {'is_open': isOpen});
+    final resp = await dio.patch(
+      '/enterprise-portal/me/open-status',
+      data: {'is_open': isOpen},
+    );
     return resp.data['is_open_override'] as bool;
   }
 
@@ -54,8 +88,10 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getReports({int days = 1}) async {
     final dio = await _client();
-    final resp = await dio.get('/enterprise-portal/reports',
-        queryParameters: {'days': days});
+    final resp = await dio.get(
+      '/enterprise-portal/reports',
+      queryParameters: {'days': days},
+    );
     return resp.data as Map<String, dynamic>;
   }
 
@@ -63,8 +99,10 @@ class ApiService {
 
   static Future<List<dynamic>> getOrders({String? status}) async {
     final dio = await _client();
-    final resp = await dio.get('/enterprise-portal/orders',
-        queryParameters: status != null ? {'status': status} : null);
+    final resp = await dio.get(
+      '/enterprise-portal/orders',
+      queryParameters: status != null ? {'status': status} : null,
+    );
     return resp.data as List<dynamic>;
   }
 
@@ -78,24 +116,34 @@ class ApiService {
 
   static Future<List<dynamic>> getPayments({String? status}) async {
     final dio = await _client();
-    final resp = await dio.get('/enterprise-portal/payments',
-        queryParameters: status != null ? {'status': status} : null);
+    final resp = await dio.get(
+      '/enterprise-portal/payments',
+      queryParameters: status != null ? {'status': status} : null,
+    );
     return resp.data as List<dynamic>;
   }
 
-  static Future<Map<String, dynamic>> confirmPayment(int paymentId,
-      {String? note}) async {
+  static Future<Map<String, dynamic>> confirmPayment(
+    int paymentId, {
+    String? note,
+  }) async {
     final dio = await _client();
-    final resp = await dio.post('/enterprise-portal/payments/$paymentId/confirm',
-        data: note != null ? {'note': note} : {});
+    final resp = await dio.post(
+      '/enterprise-portal/payments/$paymentId/confirm',
+      data: note != null ? {'note': note} : {},
+    );
     return resp.data as Map<String, dynamic>;
   }
 
-  static Future<Map<String, dynamic>> rejectPayment(int paymentId,
-      {String? note}) async {
+  static Future<Map<String, dynamic>> rejectPayment(
+    int paymentId, {
+    String? note,
+  }) async {
     final dio = await _client();
-    final resp = await dio.post('/enterprise-portal/payments/$paymentId/reject',
-        data: note != null ? {'note': note} : {});
+    final resp = await dio.post(
+      '/enterprise-portal/payments/$paymentId/reject',
+      data: note != null ? {'note': note} : {},
+    );
     return resp.data as Map<String, dynamic>;
   }
 
@@ -105,18 +153,26 @@ class ApiService {
     return resp.data as List<dynamic>;
   }
 
-  static Future<void> updateOrderStatus(int orderId, String status,
-      {String? note}) async {
+  static Future<void> updateOrderStatus(
+    int orderId,
+    String status, {
+    String? note,
+  }) async {
     final dio = await _client();
-    await dio.post('/enterprise-portal/orders/$orderId/update-status',
-        queryParameters: {'status': status, 'note': note});
+    await dio.post(
+      '/enterprise-portal/orders/$orderId/update-status',
+      queryParameters: {'status': status, 'note': note},
+    );
   }
 
   static Future<Map<String, dynamic>> createLocalOrder(
-      Map<String, dynamic> data) async {
+    Map<String, dynamic> data,
+  ) async {
     final dio = await _client();
-    final resp = await dio.post('/enterprise-portal/orders/create-local',
-        data: data);
+    final resp = await dio.post(
+      '/enterprise-portal/orders/create-local',
+      data: data,
+    );
     return resp.data as Map<String, dynamic>;
   }
 
@@ -130,15 +186,23 @@ class ApiService {
 
   static Future<void> createCategory(String name, {int sortOrder = 0}) async {
     final dio = await _client();
-    await dio.post('/enterprise-portal/categories',
-        data: {'name': name, 'sort_order': sortOrder});
+    await dio.post(
+      '/enterprise-portal/categories',
+      data: {'name': name, 'sort_order': sortOrder},
+    );
   }
 
-  static Future<void> updateCategory(int id, String name,
-      {bool isActive = true, int sortOrder = 0}) async {
+  static Future<void> updateCategory(
+    int id,
+    String name, {
+    bool isActive = true,
+    int sortOrder = 0,
+  }) async {
     final dio = await _client();
-    await dio.put('/enterprise-portal/categories/$id',
-        data: {'name': name, 'is_active': isActive, 'sort_order': sortOrder});
+    await dio.put(
+      '/enterprise-portal/categories/$id',
+      data: {'name': name, 'is_active': isActive, 'sort_order': sortOrder},
+    );
   }
 
   static Future<void> deleteCategory(int id) async {
@@ -154,7 +218,9 @@ class ApiService {
     return resp.data as List<dynamic>;
   }
 
-  static Future<Map<String, dynamic>> createProduct(Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> createProduct(
+    Map<String, dynamic> data,
+  ) async {
     final dio = await _client();
     final resp = await dio.post('/enterprise-portal/products', data: data);
     return resp.data as Map<String, dynamic>;
@@ -170,29 +236,41 @@ class ApiService {
     await dio.delete('/enterprise-portal/products/$id');
   }
 
-  static Future<void> uploadProductImage(int productId, File imageFile) async {
+  static Future<void> uploadProductImage(
+    int productId,
+    PlatformFile imageFile,
+  ) async {
     final dio = await _client();
+    final bytes = imageFile.bytes ?? Uint8List(0);
+    final filename = imageFile.name.isNotEmpty ? imageFile.name : 'product.jpg';
     final form = FormData.fromMap({
-      'file': await MultipartFile.fromFile(imageFile.path),
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
     });
     await dio.post('/enterprise-portal/products/$productId/image', data: form);
   }
 
   // ── Location ─────────────────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> updateLocation(double lat, double lon) async {
+  static Future<Map<String, dynamic>> updateLocation(
+    double lat,
+    double lon,
+  ) async {
     final dio = await _client();
-    final resp = await dio.patch('/enterprise-portal/me/location',
-        data: {'lat': lat, 'lon': lon});
+    final resp = await dio.patch(
+      '/enterprise-portal/me/location',
+      data: {'lat': lat, 'lon': lon},
+    );
     return resp.data as Map<String, dynamic>;
   }
 
   // ── Payment QR ───────────────────────────────────────────────────────────────
 
-  static Future<String> uploadPaymentQr(File imageFile) async {
+  static Future<String> uploadPaymentQr(PlatformFile imageFile) async {
     final dio = await _client();
+    final bytes = imageFile.bytes ?? Uint8List(0);
+    final filename = imageFile.name.isNotEmpty ? imageFile.name : 'qr.jpg';
     final form = FormData.fromMap({
-      'file': await MultipartFile.fromFile(imageFile.path),
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
     });
     final resp = await dio.post('/enterprise-portal/payment-qr', data: form);
     return resp.data['payment_qr_url'] as String;
@@ -207,8 +285,10 @@ class ApiService {
 
   static Future<void> changePassword(String current, String newPass) async {
     final dio = await _client();
-    await dio.post('/enterprise-portal/change-password',
-        data: {'current_password': current, 'new_password': newPass});
+    await dio.post(
+      '/enterprise-portal/change-password',
+      data: {'current_password': current, 'new_password': newPass},
+    );
   }
 
   // ── History ──────────────────────────────────────────────────────────────────

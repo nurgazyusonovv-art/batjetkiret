@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 
 import 'package:frontend/core/config.dart';
 import 'package:frontend/core/theme/app_colors.dart';
@@ -63,69 +63,22 @@ class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
     if (mounted) setState(() => _loadingQr = false);
   }
 
-  Future<void> _pickScreenshot(ImageSource source) async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: source,
-      imageQuality: 85,
-      requestFullMetadata: false,
+  Future<void> _pickScreenshot() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
     );
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    if (file.bytes == null) return;
     setState(() {
-      _screenshotBytes = bytes;
-      _screenshotName = picked.name.isNotEmpty ? picked.name : 'screenshot.jpg';
+      _screenshotBytes = file.bytes!;
+      _screenshotName = file.name.isNotEmpty ? file.name : 'screenshot.jpg';
       _error = null;
     });
   }
 
-  void _showImageSourceSheet() {
-    // On web only gallery is supported
-    if (kIsWeb) {
-      _pickScreenshot(ImageSource.gallery);
-      return;
-    }
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE0E0E0),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Галерея'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickScreenshot(ImageSource.gallery);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Камера'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickScreenshot(ImageSource.camera);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
+  void _showImageSourceSheet() => _pickScreenshot();
 
   Future<String?> _uploadScreenshot(Uint8List bytes, String filename) async {
     final uri = Uri.parse('${AppConfig.baseUrl}/topup/upload-screenshot');
