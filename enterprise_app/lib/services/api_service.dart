@@ -37,11 +37,12 @@ class ApiService {
     await dio.post('/enterprise-portal/fcm-token', data: {'token': token});
   }
 
-  static Future<bool> setOpenStatus(bool isOpen) async {
+  /// [isOpen] = true → force open, false → force closed, null → auto (follow working hours).
+  static Future<bool?> setOpenStatus(bool? isOpen) async {
     final dio = await _client();
     final resp = await dio.patch('/enterprise-portal/me/open-status',
         data: {'is_open': isOpen});
-    return resp.data['is_open_override'] as bool;
+    return resp.data['is_open_override'] as bool?;
   }
 
   // ── Stats & Reports ─────────────────────────────────────────────────────────
@@ -176,5 +177,50 @@ class ApiService {
       'file': await MultipartFile.fromFile(imageFile.path),
     });
     await dio.post('/enterprise-portal/products/$productId/image', data: form);
+  }
+
+  // ── Location ─────────────────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> updateLocation(double lat, double lon) async {
+    final dio = await _client();
+    final resp = await dio.patch('/enterprise-portal/me/location',
+        data: {'lat': lat, 'lon': lon});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  // ── Payment QR ───────────────────────────────────────────────────────────────
+
+  static Future<String> uploadPaymentQr(File imageFile) async {
+    final dio = await _client();
+    final form = FormData.fromMap({
+      'file': await MultipartFile.fromFile(imageFile.path),
+    });
+    final resp = await dio.post('/enterprise-portal/payment-qr', data: form);
+    return resp.data['payment_qr_url'] as String;
+  }
+
+  static Future<void> deletePaymentQr() async {
+    final dio = await _client();
+    await dio.delete('/enterprise-portal/payment-qr');
+  }
+
+  // ── Password ─────────────────────────────────────────────────────────────────
+
+  static Future<void> changePassword(String current, String newPass) async {
+    final dio = await _client();
+    await dio.post('/enterprise-portal/change-password',
+        data: {'current_password': current, 'new_password': newPass});
+  }
+
+  // ── History ──────────────────────────────────────────────────────────────────
+
+  static Future<void> deleteHistoryOrder(int orderId) async {
+    final dio = await _client();
+    await dio.delete('/enterprise-portal/history/$orderId');
+  }
+
+  static Future<void> clearHistory() async {
+    final dio = await _client();
+    await dio.delete('/enterprise-portal/history');
   }
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../core/config.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/map_picker.dart';
@@ -56,15 +57,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {}
   }
 
-  Future<void> _toggleOpen(bool? current) async {
+  /// [target] = true → force open, false → force closed, null → auto (working hours).
+  Future<void> _setOpenStatus(bool? target) async {
     setState(() => _togglingOpen = true);
     try {
-      final next = !(current ?? false);
-      await ApiService.setOpenStatus(next);
+      await ApiService.setOpenStatus(target);
       await _load();
     } catch (_) {
       if (mounted) setState(() => _togglingOpen = false);
     }
+  }
+
+  /// 3-state selector: Авто (null) / Ачык (true) / Жабык (false).
+  Widget _openStatusSelector(bool? current) {
+    Widget seg(String label, bool? value, Color activeColor) {
+      final selected = current == value;
+      return Expanded(
+        child: GestureDetector(
+          onTap: _togglingOpen || selected ? null : () => _setOpenStatus(value),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: selected ? activeColor : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: selected ? Colors.white : const Color(0xFF6B7280),
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          seg('🟢 Ачык', true, const Color(0xFF16A34A)),
+          seg('🔴 Жабык', false, const Color(0xFFDC2626)),
+          seg('⏰ Авто', null, const Color(0xFF2563EB)),
+        ],
+      ),
+    );
   }
 
   Future<void> _uploadLogo() async {
@@ -523,33 +567,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else
-                GestureDetector(
-                  onTap: () => _toggleOpen(isOpen),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isOpen == true
-                          ? const Color(0xFF16A34A)
-                          : const Color(0xFFDC2626),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      isOpen == true ? '🟢 Ачык' : '🔴 Жабык',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
                 ),
             ],
           ),
+          const SizedBox(height: 8),
+          _openStatusSelector(isOpen),
+          if (isOpen == null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Авто режимде жумуш сааты боюнча автоматтык ачылып-жабылат',
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
+              ),
+            ),
           if (e['open_time'] != null || e['close_time'] != null) ...[
             const SizedBox(height: 6),
             Text(
@@ -609,7 +639,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
     return Image.network(
-      data,
+      AppConfig.mediaUrl(data) ?? data,
       width: 64,
       height: 64,
       fit: BoxFit.cover,
@@ -717,7 +747,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
     return Image.network(
-      url,
+      AppConfig.mediaUrl(url) ?? url,
       width: double.infinity,
       height: 180,
       fit: BoxFit.contain,

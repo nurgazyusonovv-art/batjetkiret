@@ -69,13 +69,14 @@ class ApiService {
     await dio.post('/enterprise-portal/fcm-token', data: {'token': token});
   }
 
-  static Future<bool> setOpenStatus(bool isOpen) async {
+  /// [isOpen] = true → force open, false → force closed, null → auto (follow working hours).
+  static Future<bool?> setOpenStatus(bool? isOpen) async {
     final dio = await _client();
     final resp = await dio.patch(
       '/enterprise-portal/me/open-status',
       data: {'is_open': isOpen},
     );
-    return resp.data['is_open_override'] as bool;
+    return resp.data['is_open_override'] as bool?;
   }
 
   // ── Stats & Reports ─────────────────────────────────────────────────────────
