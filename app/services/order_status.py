@@ -11,6 +11,7 @@ ALLOWED_STATUSES = {
     "READY",
     "ACCEPTED",
     "ON_THE_WAY",
+    "PICKED_UP",
     "DELIVERED",
     "COMPLETED",
     "CANCELLED",
@@ -18,15 +19,18 @@ ALLOWED_STATUSES = {
 
 
 ALLOWED_TRANSITIONS = {
-    "WAITING_COURIER": {"ACCEPTED", "CANCELLED"},
-    "PREPARING": {"READY", "CANCELLED"},
-    "READY": {"ACCEPTED", "CANCELLED"},
-    "ACCEPTED": {"PREPARING", "ON_THE_WAY", "CANCELLED", "WAITING_COURIER"},
-    "ON_THE_WAY": {"DELIVERED", "COMPLETED"},
+    "WAITING_COURIER": {"PREPARING", "ACCEPTED", "CANCELLED"},
+    "PREPARING": {"READY", "ACCEPTED", "COMPLETED", "CANCELLED"},
+    "READY": {"ACCEPTED", "COMPLETED", "CANCELLED"},
+    "ACCEPTED": {"PREPARING", "READY", "ON_THE_WAY", "PICKED_UP", "DELIVERED", "COMPLETED", "CANCELLED", "WAITING_COURIER"},
+    "PICKED_UP": {"ON_THE_WAY", "DELIVERED", "COMPLETED", "CANCELLED", "WAITING_COURIER"},
+    "ON_THE_WAY": {"DELIVERED", "COMPLETED", "CANCELLED"},
     "DELIVERED": {"COMPLETED"},
     "COMPLETED": set(),
     "CANCELLED": set(),
 }
+
+TERMINAL_STATUSES = {"COMPLETED", "CANCELLED"}
 
 
 def ensure_valid_status(status: str) -> None:
@@ -43,6 +47,14 @@ def ensure_transition(current_status: str, new_status: str) -> None:
         raise HTTPException(
             status_code=400,
             detail=f"Cannot change status from {current_status} to {new_status}",
+        )
+
+
+def ensure_not_terminal(current_status: str) -> None:
+    if current_status in TERMINAL_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot change terminal order status: {current_status}",
         )
 
 
@@ -68,6 +80,7 @@ def apply_status_change(
         return
 
     if enforce_transition:
+        ensure_not_terminal(current_status)
         ensure_transition(current_status, new_status)
     else:
         ensure_valid_status(new_status)
@@ -82,17 +95,31 @@ def apply_status_change(
     )
     order.status = new_status
 
-    # Web Push to customer (Flutter web) on key status changes
+    # Push notifications to customer on key status changes
     if new_status in _USER_PUSH_MESSAGES and order.user_id:
+        title, body = _USER_PUSH_MESSAGES[new_status]
+        push_data = {"order_id": str(order.id), "status": new_status, "type": "order_status"}
+        push_body = f"Заказ #{order.id} — {body}"
+
+        # FCM push to mobile user
+        try:
+            from app.models.user import User
+            from app.services import fcm as fcm_service
+            user = db.query(User).filter(User.id == order.user_id).first()
+            if user:
+                fcm_service.send_push_to_user(user, title=title, body=push_body, data=push_data)
+        except Exception:
+            pass
+
+        # Web Push to customer (Flutter web)
         try:
             from app.services.web_push import notify_user
-            title, body = _USER_PUSH_MESSAGES[new_status]
             notify_user(
                 db,
                 user_id=order.user_id,
                 title=title,
-                body=f"Заказ #{order.id} — {body}",
-                data={"order_id": order.id, "status": new_status, "type": "order_status"},
+                body=push_body,
+                data=push_data,
             )
         except Exception:
             pass

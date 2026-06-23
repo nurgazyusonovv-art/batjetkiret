@@ -742,6 +742,39 @@ class OrderApi {
     }
   }
 
+  Future<ChatContext> getChatContextByOrderId({
+    required String token,
+    required int orderId,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConfig.baseUrl}/chat/order/$orderId/context'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final dynamic body = jsonDecode(response.body);
+        if (body is Map<String, dynamic>) {
+          return ChatContext.fromJson(body);
+        }
+        throw Exception('Сервер жообу туура эмес форматта келди');
+      }
+
+      if (response.statusCode == 401) {
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
+      }
+
+      throw Exception('Заказ чатын алууда ката');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Заказ чатын алууда ката');
+    }
+  }
+
   Future<void> sendChatMessage({
     required String token,
     required int chatId,

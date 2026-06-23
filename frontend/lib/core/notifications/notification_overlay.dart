@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'notifications_service.dart';
 
 class NotificationOverlay extends StatefulWidget {
@@ -39,6 +40,9 @@ class _NotificationOverlayState extends State<NotificationOverlay>
   void _showNotification(Map<String, dynamic> notification) {
     if (_isVisible) return;
     _isVisible = true;
+
+    // Haptic feedback so the user feels the notification arrive
+    HapticFeedback.mediumImpact();
 
     final overlayState = Overlay.of(context);
     _overlayEntry = OverlayEntry(

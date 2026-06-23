@@ -3,28 +3,33 @@ import '../../features/orders/data/order_api.dart';
 import '../../features/orders/presentation/order_chat_page.dart';
 import '../../features/profile/presentation/support_chat_page.dart';
 
-/// Stores auth context and opens the correct chat screen
+/// Stores auth context and opens the correct screen
 /// when a notification is tapped (from FCM or local notification).
 class NotificationNavigator {
   static GlobalKey<NavigatorState>? navigatorKey;
   static String? _token;
   static int? _userId;
 
-  // Prevent concurrent navigation calls (double-tap, FCM + polling race)
+  // Prevent concurrent navigation calls
   static bool _isNavigating = false;
 
-  // If a tap arrived before auth was ready, queue it here
+  // Queue taps that arrive before auth is ready
   static int? _pendingChatId;
+  static int? _pendingOrderId;
 
   static void setAuth(String token, int userId) {
     _token = token;
     _userId = userId;
 
-    // Flush any notification tap that arrived before login completed
-    final pending = _pendingChatId;
-    if (pending != null) {
-      _pendingChatId = null;
-      openChatById(pending);
+    final pendingChat = _pendingChatId;
+    final pendingOrder = _pendingOrderId;
+    _pendingChatId = null;
+    _pendingOrderId = null;
+
+    if (pendingOrder != null) {
+      openOrderById(pendingOrder);
+    } else if (pendingChat != null) {
+      openChatById(pendingChat);
     }
   }
 
@@ -33,16 +38,15 @@ class NotificationNavigator {
     _userId = null;
     _isNavigating = false;
     _pendingChatId = null;
+    _pendingOrderId = null;
   }
 
   static Future<void> openChatById(int chatId) async {
-    // If not logged in yet, queue and wait for setAuth
     if (_token == null || _userId == null) {
       _pendingChatId = chatId;
       return;
     }
 
-    // Prevent double-tap / concurrent navigation
     if (_isNavigating) return;
     _isNavigating = true;
 
@@ -51,7 +55,6 @@ class NotificationNavigator {
     final userId = _userId!;
 
     try {
-      // Use navigatorKey.currentState — safe after async gaps (unlike BuildContext)
       final navState = key?.currentState;
       if (navState == null) return;
 
@@ -62,7 +65,6 @@ class NotificationNavigator {
             onTimeout: () => throw Exception('Чат жүктөөдө убакыт аяктады'),
           );
 
-      // Re-check navigator is still alive after the await
       final nav = key?.currentState;
       if (nav == null) return;
 
@@ -94,4 +96,79 @@ class NotificationNavigator {
       _isNavigating = false;
     }
   }
+
+  /// Navigate to the order chat when user taps an order-status notification.
+  static Future<void> openOrderById(int orderId) async {
+    if (_token == null || _userId == null) {
+      _pendingOrderId = orderId;
+      return;
+    }
+
+    if (_isNavigating) return;
+    _isNavigating = true;
+
+    final key = navigatorKey;
+    final token = _token!;
+
+    try {
+      final navState = key?.currentState;
+      if (navState == null) return;
+
+      // Find the chat for this order and open it
+      final ctx = await OrderApi()
+          .getChatContextByOrderId(token: token, orderId: orderId)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('timeout'),
+          );
+
+      final nav = key?.currentState;
+      if (nav == null) return;
+
+      nav.push(MaterialPageRoute(
+        builder: (_) => OrderChatPage(
+          token: token,
+          orderId: orderId,
+          counterpartyName: ctx.counterpartyName ?? 'Заказ #$orderId',
+          counterpartyId: ctx.counterpartyId,
+        ),
+      ));
+    } catch (_) {
+      // If chat fetch fails, silently ignore — user can navigate manually
+    } finally {
+      _isNavigating = false;
+    }
+  }
+
+  static void _openOrderWithRetry(int orderId, {int attempt = 0}) {
+    const delays = [500, 1000, 2000, 3000];
+    final ms = attempt < delays.length ? delays[attempt] : 0;
+    if (ms == 0) return;
+
+    Future.delayed(Duration(milliseconds: ms), () {
+      if (navigatorKey?.currentState != null) {
+        openOrderById(orderId);
+      } else {
+        _openOrderWithRetry(orderId, attempt: attempt + 1);
+      }
+    });
+  }
+
+  static void _openChatWithRetry(int chatId, {int attempt = 0}) {
+    const delays = [500, 1000, 2000, 3000];
+    final ms = attempt < delays.length ? delays[attempt] : 0;
+    if (ms == 0) return;
+
+    Future.delayed(Duration(milliseconds: ms), () {
+      if (navigatorKey?.currentState != null) {
+        openChatById(chatId);
+      } else {
+        _openChatWithRetry(chatId, attempt: attempt + 1);
+      }
+    });
+  }
+
+  // Expose retry helpers for FCM terminated-app launch
+  static void openChatByIdWithRetry(int chatId) => _openChatWithRetry(chatId);
+  static void openOrderByIdWithRetry(int orderId) => _openOrderWithRetry(orderId);
 }

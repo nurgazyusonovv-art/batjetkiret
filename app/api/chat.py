@@ -271,21 +271,36 @@ def get_order_unread_count(
 @router.websocket("/ws/{chat_id}")
 async def chat_socket(websocket: WebSocket, chat_id: int):
     db = SessionLocal()
-    user: User | None = None
 
     try:
         token = websocket.query_params.get("token")
         user = _get_user_from_token(db, token)
+        user_id = user.id
 
         chat = db.query(ChatRoom).filter(ChatRoom.id == chat_id).first()
         if chat is None or not _is_allowed_participant(chat, user):
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
+    except HTTPException:
+        try:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        except Exception:
+            pass
+        return
+    finally:
+        db.close()
 
-        await manager.connect(chat_id, websocket)
+    await manager.connect(chat_id, websocket)
 
-        _, last_read_message_id = _mark_chat_messages_read(db, chat, user.id)
-        await _broadcast_read_update(chat_id, user.id, last_read_message_id)
+    try:
+        db = SessionLocal()
+        try:
+            chat = db.query(ChatRoom).filter(ChatRoom.id == chat_id).first()
+            if chat is not None:
+                _, last_read_message_id = _mark_chat_messages_read(db, chat, user_id)
+                await _broadcast_read_update(chat_id, user_id, last_read_message_id)
+        finally:
+            db.close()
 
         while True:
             data = await websocket.receive_json()
@@ -296,8 +311,14 @@ async def chat_socket(websocket: WebSocket, chat_id: int):
                 continue
 
             if event == "mark_read":
-                _, last_read_message_id = _mark_chat_messages_read(db, chat, user.id)
-                await _broadcast_read_update(chat_id, user.id, last_read_message_id)
+                db = SessionLocal()
+                try:
+                    chat = db.query(ChatRoom).filter(ChatRoom.id == chat_id).first()
+                    if chat is not None:
+                        _, last_read_message_id = _mark_chat_messages_read(db, chat, user_id)
+                        await _broadcast_read_update(chat_id, user_id, last_read_message_id)
+                finally:
+                    db.close()
                 continue
 
             if event == "send_message":
@@ -305,27 +326,38 @@ async def chat_socket(websocket: WebSocket, chat_id: int):
                 if not text:
                     continue
 
-                message = Message(
-                    chat_id=chat.id,
-                    sender_id=user.id,
-                    text=text,
-                )
-                db.add(message)
+                db = SessionLocal()
+                try:
+                    user = db.query(User).filter(User.id == user_id).first()
+                    chat = db.query(ChatRoom).filter(ChatRoom.id == chat_id).first()
+                    if user is None or chat is None:
+                        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                        return
 
-                _create_notifications(db, chat, user.id)
+                    message = Message(
+                        chat_id=chat.id,
+                        sender_id=user_id,
+                        text=text,
+                    )
+                    db.add(message)
 
-                if chat.type == "SUPPORT" and user.is_admin:
-                    chat.admin_id = user.id
+                    _create_notifications(db, chat, user_id)
 
-                db.commit()
-                db.refresh(message)
+                    if chat.type == "SUPPORT" and user.is_admin:
+                        chat.admin_id = user_id
+
+                    db.commit()
+                    db.refresh(message)
+                    message_data = _message_to_dict(message)
+                finally:
+                    db.close()
 
                 await manager.broadcast(
                     chat_id,
                     {
                         "event": "new_message",
                         "chat_id": chat_id,
-                        "message": _message_to_dict(message),
+                        "message": message_data,
                     },
                 )
                 continue
@@ -341,7 +373,6 @@ async def chat_socket(websocket: WebSocket, chat_id: int):
             pass
     finally:
         manager.disconnect(chat_id, websocket)
-        db.close()
 
 
 @router.post("/{chat_id}/send")
@@ -410,6 +441,45 @@ def get_chat_messages(
     )
 
     return [_message_to_dict(m) for m in messages]
+
+
+@router.get("/order/{order_id}/context")
+def get_chat_context_by_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get chat context for an order (used by notification tap navigation)."""
+    chat = (
+        db.query(ChatRoom)
+        .filter(ChatRoom.order_id == order_id, ChatRoom.type == "ORDER")
+        .first()
+    )
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found for this order")
+
+    if not _is_allowed_participant(chat, current_user):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    counterparty_id: int | None = None
+    if current_user.id == chat.user_id:
+        counterparty_id = chat.courier_id
+    elif current_user.id == chat.courier_id:
+        counterparty_id = chat.user_id
+
+    counterparty_name = None
+    if counterparty_id is not None:
+        counterparty = db.query(User).filter(User.id == counterparty_id).first()
+        if counterparty is not None:
+            counterparty_name = counterparty.name
+
+    return {
+        "chat_id": chat.id,
+        "type": chat.type,
+        "order_id": chat.order_id,
+        "counterparty_id": counterparty_id,
+        "counterparty_name": counterparty_name,
+    }
 
 
 @router.get("/{chat_id}/context")

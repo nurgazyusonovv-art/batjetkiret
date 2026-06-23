@@ -101,7 +101,7 @@ def send_push_to_user(user, title: str, body: str, data: dict | None = None) -> 
     """Send push if the user has an FCM token."""
     if user is None or not getattr(user, "fcm_token", None):
         return False
-    return send_push(user.fcm_token, title, body, data)
+    return send_push(user.fcm_token, title, body, data, include_notification=True)
 
 
 def is_initialized() -> bool:

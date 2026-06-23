@@ -20,6 +20,20 @@ int? _chatIdFromMessage(RemoteMessage message) {
   return int.tryParse(raw.toString());
 }
 
+int? _orderIdFromMessage(RemoteMessage message) {
+  final raw = message.data['order_id'];
+  if (raw == null) return null;
+  return int.tryParse(raw.toString());
+}
+
+String _titleFromMessage(RemoteMessage message) {
+  return message.notification?.title ?? message.data['title'] ?? '';
+}
+
+String _bodyFromMessage(RemoteMessage message) {
+  return message.notification?.body ?? message.data['body'] ?? '';
+}
+
 class FcmService {
   static const _tokenKey = 'fcm_device_token';
   static bool _initialized = false;
@@ -47,47 +61,56 @@ class FcmService {
     // App was TERMINATED and user tapped notification
     final initial = await messaging.getInitialMessage();
     if (initial != null) {
+      final orderId = _orderIdFromMessage(initial);
       final chatId = _chatIdFromMessage(initial);
-      if (chatId != null) {
-        // Navigator may not be mounted yet — retry with backoff
-        _openWithRetry(chatId);
+      if (orderId != null) {
+        NotificationNavigator.openOrderByIdWithRetry(orderId);
+      } else if (chatId != null) {
+        NotificationNavigator.openChatByIdWithRetry(chatId);
       }
     }
 
     // App was in BACKGROUND and user tapped notification
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      final orderId = _orderIdFromMessage(message);
       final chatId = _chatIdFromMessage(message);
-      if (chatId != null) {
-        // Small delay so any pending frame callbacks finish first
-        Future.delayed(const Duration(milliseconds: 300), () {
+
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (orderId != null) {
+          NotificationNavigator.openOrderById(orderId);
+        } else if (chatId != null) {
           NotificationNavigator.openChatById(chatId);
-        });
-      }
+        }
+      });
     });
 
-    // App in FOREGROUND — show heads-up local notification
+    // App in FOREGROUND — show in-app banner + play sound
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      final notification = message.notification;
-      if (notification == null) return;
+      final title = _titleFromMessage(message);
+      final body = _bodyFromMessage(message);
+      if (title.isEmpty && body.isEmpty) return;
 
-      final title = notification.title ?? '';
-      final body = notification.body ?? '';
       final chatId = _chatIdFromMessage(message);
+      final orderId = _orderIdFromMessage(message);
+      final type = message.data['type'] ?? 'info';
 
-      // Show system heads-up with chat_id as payload so tap opens chat
+      // Show system notification with sound (handles chat payload for tap nav)
       NotificationsService.showNotification(
         message.hashCode,
         title,
         body,
         chatId: chatId,
+        orderId: orderId,
+        channelId: _channelForType(type),
       );
 
-      // In-app overlay banner
+      // In-app overlay banner (without duplicate sound — sound comes from showNotification above)
       NotificationsService.addNotification({
         'title': title,
         'body': body,
-        'type': 'info',
-      });
+        'type': type,
+        'order_id': orderId,
+      }, withSound: false);
     });
 
     // Get and sync FCM token
@@ -99,19 +122,16 @@ class FcmService {
     });
   }
 
-  /// Retries openChatById until the navigator is mounted (terminated-app launch).
-  static void _openWithRetry(int chatId, {int attempt = 0}) {
-    const delays = [500, 1000, 2000, 3000];
-    final ms = attempt < delays.length ? delays[attempt] : 0;
-    if (ms == 0) return; // gave up
-
-    Future.delayed(Duration(milliseconds: ms), () {
-      if (NotificationNavigator.navigatorKey?.currentState != null) {
-        NotificationNavigator.openChatById(chatId);
-      } else {
-        _openWithRetry(chatId, attempt: attempt + 1);
-      }
-    });
+  static String _channelForType(String type) {
+    switch (type) {
+      case 'topup_approved':
+      case 'topup_rejected':
+        return 'topup_status';
+      case 'order_status':
+        return 'order_status';
+      default:
+        return 'batken_messages';
+    }
   }
 
   static Future<void> _syncTokenToBackend(String authToken) async {
@@ -120,7 +140,6 @@ class FcmService {
       final token = await messaging.getToken();
       if (token == null) return;
 
-      // Only send if token changed
       final prefs = await SharedPreferences.getInstance();
       final lastSent = prefs.getString(_tokenKey);
       if (lastSent == token) return;

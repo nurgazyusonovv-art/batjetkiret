@@ -31,16 +31,25 @@ MIN_BALANCE_TO_CREATE_ORDER = Decimal("10")
 
 
 def _notify_admins_cancel(db, order, requester) -> None:
-    """Send FCM push to all admins when a user submits a cancel request."""
+    """Send FCM push + DB notification to all admins when a user submits a cancel request."""
+    from app.models.notification import Notification as NotifModel
     admins = db.query(User).filter(User.is_admin == True, User.is_active == True).all()  # noqa: E712
     name = requester.name or requester.phone or "Колдонуучу"
     reason = getattr(order, "cancel_request_reason", None) or ""
+    title = "❌ Жокко чыгаруу суроосу"
     body = f"{name} — Заказ #{order.id}" + (f": {reason}" if reason else "")
     for admin in admins:
+        # Save to DB so admin sees it even if push was missed
+        db.add(NotifModel(
+            user_id=admin.id,
+            title=title,
+            message=body,
+            order_id=order.id,
+        ))
         if admin.fcm_token:
             fcm_service.send_push(
                 token=admin.fcm_token,
-                title="❌ Жокко чыгаруу суроосу",
+                title=title,
                 body=body,
                 data={"order_id": str(order.id), "type": "cancel_request"},
                 channel_id="cancel_requests",
@@ -83,7 +92,7 @@ def _get_user_from_ws_token(db: Session, token: str | None) -> User:
     return user
 
 
-def _build_orders_live_snapshot(db: Session, current_user: User) -> list[dict]:
+def _build_orders_live_snapshot(db: Session, user_id: int) -> list[dict]:
     # Exclude hidden orders based on user role; dine_in orders are not shown in the app
     orders = (
         db.query(Order)
@@ -91,9 +100,9 @@ def _build_orders_live_snapshot(db: Session, current_user: User) -> list[dict]:
             Order.source != "dine_in",
             or_(
                 # User sees their orders that aren't hidden for them
-                (Order.user_id == current_user.id) & (Order.hidden_for_user == False),  # noqa: E712
+                (Order.user_id == user_id) & (Order.hidden_for_user == False),  # noqa: E712
                 # Courier sees their orders that aren't hidden for them
-                (Order.courier_id == current_user.id) & (Order.hidden_for_courier == False),  # noqa: E712
+                (Order.courier_id == user_id) & (Order.hidden_for_courier == False),  # noqa: E712
             )
         )
         .order_by(Order.created_at.desc())
@@ -114,7 +123,7 @@ def _build_orders_live_snapshot(db: Session, current_user: User) -> list[dict]:
                 db.query(Message)
                 .filter(
                     Message.chat_id == chat.id,
-                    Message.sender_id != current_user.id,
+                    Message.sender_id != user_id,
                     Message.is_read == False,  # noqa: E712
                 )
                 .count()
@@ -138,17 +147,23 @@ async def orders_live_socket(websocket: WebSocket):
     try:
         token = websocket.query_params.get("token")
         current_user = _get_user_from_ws_token(db, token)
+        user_id = current_user.id
     except HTTPException:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        db.close()
         return
+    finally:
+        db.close()
 
     await websocket.accept()
     previous_signature = ""
 
     try:
         while True:
-            snapshot = _build_orders_live_snapshot(db, current_user)
+            db = SessionLocal()
+            try:
+                snapshot = _build_orders_live_snapshot(db, user_id)
+            finally:
+                db.close()
             signature = "|".join(
                 f"{item['id']}:{item['status']}:{item['unread_count']}"
                 for item in snapshot
@@ -171,8 +186,6 @@ async def orders_live_socket(websocket: WebSocket):
             await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
         except Exception:
             pass
-    finally:
-        db.close()
 
 
 

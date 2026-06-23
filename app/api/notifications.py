@@ -1,14 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.models.notification import Notification
 from app.models.user import User
+from app.services import fcm as fcm_service
 from sqlalchemy import func
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
+
 @router.get("/")
 def my_notifications(
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -16,6 +20,8 @@ def my_notifications(
         db.query(Notification)
         .filter(Notification.user_id == current_user.id)
         .order_by(Notification.created_at.desc())
+        .limit(limit)
+        .offset(offset)
         .all()
     )
 
@@ -59,6 +65,7 @@ def notifications_for_order(
         for n in notifs
     ]
 
+
 @router.post("/{notif_id}/read")
 def mark_read(
     notif_id: int,
@@ -80,7 +87,6 @@ def mark_read(
     db.commit()
 
     return {"message": "Marked as read"}
-
 
 
 @router.post("/mark-all-read")
@@ -125,15 +131,26 @@ def send_support_message(
     current_user: User = Depends(get_current_user),
 ):
     """Allow authenticated users to send a support message visible to all admins."""
-    admins = db.query(User).filter(User.is_admin == True).all()
+    admins = db.query(User).filter(User.is_admin == True).all()  # noqa: E712
+    full_title = f"[{current_user.phone}] {title}"
     for admin in admins:
         db.add(
             Notification(
                 user_id=admin.id,
-                title=f"[{current_user.phone}] {title}",
+                title=full_title,
                 message=message,
             )
         )
+        # FCM push to admin device
+        if admin.fcm_token:
+            fcm_service.send_push(
+                token=admin.fcm_token,
+                title=full_title,
+                body=message,
+                data={"type": "support_message"},
+                channel_id="batken_messages",
+                include_notification=False,
+            )
     db.commit()
     return {"message": "Билдирүү жөнөтүлдү"}
 
