@@ -11,6 +11,9 @@ def _to_decimal(amount: float | Decimal) -> Decimal:
 
 
 def topup(db: Session, user: User, amount: float):
+    """Credit a user's balance (admin approval of a payment proof).
+    Caller is responsible for commit so the credit and the request-status update
+    that follows it are committed atomically (no double-credit on partial failure)."""
     amount_decimal = _to_decimal(amount)
 
     user.balance += amount_decimal
@@ -21,7 +24,6 @@ def topup(db: Session, user: User, amount: float):
             type="TOPUP",
         )
     )
-    db.commit()
 
 
 def hold_amount(db: Session, user: User, order_id: int, amount: float):

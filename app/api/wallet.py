@@ -1,26 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
-from app.services.wallet import topup
 from app.models.user import User
 from app.models.transaction import Transaction
 
 router = APIRouter(prefix="/wallet", tags=["Wallet"])
 
-@router.post("/topup")
-def wallet_topup(
-    amount: float,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if amount <= 0:
-        raise HTTPException(status_code=400, detail="Толуктоо суммасы оң болушу керек")
-    
-    if amount < 10:
-        raise HTTPException(status_code=400, detail="Минималдуу толуктоо суммасы 10 сом")
-    
-    topup(db, current_user, amount)
-    return {"balance": float(current_user.balance)}
+# NOTE: There is intentionally no self-service /wallet/topup endpoint. Balance can
+# only be credited by an admin after reviewing a payment proof (see /topup/request
+# and /admin/topups/{id}/approve). A direct self-topup would let any authenticated
+# user mint balance for free.
 
 
 @router.get("/transactions")

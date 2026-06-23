@@ -219,13 +219,17 @@ def approve_topup(
     if not req or req.status != "PENDING":
         raise HTTPException(status_code=404)
 
-    if req.expires_at < datetime.utcnow():
+    # Telegram-flow requests have no expires_at — only enforce expiry when it's set.
+    if req.expires_at and req.expires_at < datetime.utcnow():
         req.status = "EXPIRED"
         db.commit()
         raise HTTPException(status_code=400, detail="Request expired")
 
     user = db.query(User).filter(User.id == req.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Колдонуучу табылган жок")
 
+    # Credit + status update committed together (topup no longer self-commits).
     topup(db, user, approved_amount)
 
     req.approved_amount = approved_amount
@@ -234,7 +238,22 @@ def approve_topup(
     req.approved_by_admin_id = admin.id
     req.approved_at = datetime.utcnow()
 
+    db.add(Notification(
+        user_id=user.id,
+        title="✅ Топап тастыкталды",
+        message=f"{int(approved_amount)} сом балансыңызга кошулду",
+    ))
     db.commit()
+
+    # Notify the user their balance was credited (web-panel approvals).
+    if user.fcm_token:
+        fcm_service.send_push(
+            token=user.fcm_token,
+            title="✅ Топап тастыкталды",
+            body=f"{int(approved_amount)} сом кошулду. Баланс: {int(float(user.balance))} сом",
+            channel_id="topup_status",
+            include_notification=True,
+        )
 
     return {"message": "Top-up approved"}
 
@@ -246,7 +265,7 @@ def reject_topup(
     db: Session = Depends(get_db),
     admin=Depends(require_admin),
 ):
-    req = db.query(TopUpRequest).filter(TopUpRequest.id == topup_id).first()
+    req = db.query(TopUpRequest).filter(TopUpRequest.id == topup_id).with_for_update().first()
     if not req or req.status != "PENDING":
         raise HTTPException(status_code=404)
 
@@ -255,7 +274,24 @@ def reject_topup(
     req.approved_by_admin_id = admin.id
     req.approved_at = datetime.utcnow()
 
+    user = db.query(User).filter(User.id == req.user_id).first() if req.user_id else None
+    if user:
+        db.add(Notification(
+            user_id=user.id,
+            title="❌ Топап четке кагылды",
+            message=f"{int(float(req.amount))} сом. Себеп: {note}",
+        ))
+
     db.commit()
+
+    if user and user.fcm_token:
+        fcm_service.send_push(
+            token=user.fcm_token,
+            title="❌ Топап четке кагылды",
+            body=f"{int(float(req.amount))} сом. Себеп: {note}",
+            channel_id="topup_status",
+            include_notification=True,
+        )
 
     return {"message": "Top-up rejected"}
 
