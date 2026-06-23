@@ -620,10 +620,10 @@ class _HomePageState extends State<HomePage> {
                 boxShadow: [
                   BoxShadow(
                     color: selected
-                        ? AppColors.primary.withValues(alpha: 0.32)
-                        : Colors.black.withValues(alpha: 0.05),
-                    blurRadius: selected ? 16 : 10,
-                    offset: Offset(0, selected ? 7 : 4),
+                        ? AppColors.primary.withValues(alpha: 0.20)
+                        : Colors.black.withValues(alpha: 0.035),
+                    blurRadius: selected ? 10 : 6,
+                    offset: Offset(0, selected ? 4 : 2),
                   ),
                 ],
               ),
@@ -802,9 +802,9 @@ class _HomePageState extends State<HomePage> {
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 9,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -881,16 +881,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ],
                     ),
-                  ),
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primarySoft,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.arrow_forward_ios,
-                        size: 13, color: AppColors.primary),
                   ),
                 ],
               ),
