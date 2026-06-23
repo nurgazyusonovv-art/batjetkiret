@@ -48,7 +48,11 @@ class _HomePageState extends State<HomePage> {
   String? _homeEnterprisesError;
   int _homeEnterpriseFetchVersion = 0;
 
-  // Categories that are not enterprise-based — tapping them opens a dedicated flow.
+  final _homeSearchController = TextEditingController();
+  String _homeSearch = '';
+  LatLng? _homeUserLocation;
+
+  // Categories that are not enterprise-based — they show a dedicated action card.
   static const _actionCategories = {'taxi', 'intercity'};
 
   @override
@@ -59,10 +63,52 @@ class _HomePageState extends State<HomePage> {
         .firstWhere((c) => !_actionCategories.contains(c.id),
             orElse: () => models.categories.first)
         .id;
+    _homeSearchController.addListener(
+      () => setState(() => _homeSearch = _homeSearchController.text.trim()),
+    );
     _fetchBanners();
     _loadHomeEnterprises(_selectedCategoryId);
+    _fetchHomeUserLocation();
     _maybeShowWelcomeBonus();
     _checkAndShowPopup();
+  }
+
+  // Silent location read — only if permission is already granted (no prompt here).
+  Future<void> _fetchHomeUserLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.low,
+      );
+      if (!mounted) return;
+      setState(() => _homeUserLocation =
+          LatLng(latitude: pos.latitude, longitude: pos.longitude));
+    } catch (_) {}
+  }
+
+  double? _enterpriseDistanceKm(Enterprise e) {
+    if (_homeUserLocation == null || e.lat == null || e.lon == null) return null;
+    return DistanceCalculator.calculateDistance(
+      from: _homeUserLocation!,
+      to: LatLng(latitude: e.lat!, longitude: e.lon!),
+    );
+  }
+
+  String _formatDistance(double km) =>
+      km < 1 ? '${(km * 1000).round()} м' : '${km.toStringAsFixed(1)} км';
+
+  List<Enterprise> get _visibleHomeEnterprises {
+    if (_homeSearch.isEmpty) return _homeEnterprises;
+    final q = _homeSearch.toLowerCase();
+    return _homeEnterprises
+        .where((e) =>
+            e.name.toLowerCase().contains(q) ||
+            (e.address ?? '').toLowerCase().contains(q))
+        .toList();
   }
 
   Future<void> _loadHomeEnterprises(String categoryId) async {
@@ -91,30 +137,24 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _onCategoryChipTap(models.Category category, dynamic user, dynamic homeState) {
-    // Action categories navigate to their dedicated flow instead of filtering.
-    if (category.id == 'intercity') {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => IntercityOrderPage(
-          token: widget.token,
-          userId: user?.id ?? 0,
-        ),
-      ));
-      return;
-    }
-    if (category.id == 'taxi') {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) => OrderCreatePage(
-          token: widget.token,
-          selectedCategory: category,
-          initialFromAddress: user?.address,
-        ),
-      ));
-      return;
-    }
+  // Unified: every chip selects in place. Enterprise categories load a list;
+  // action categories (taxi/intercity) show a dedicated order card below.
+  void _selectCategory(models.Category category) {
     if (_selectedCategoryId == category.id) return;
-    setState(() => _selectedCategoryId = category.id);
-    _loadHomeEnterprises(category.id);
+    setState(() {
+      _selectedCategoryId = category.id;
+      _homeSearchController.clear();
+      _homeSearch = '';
+    });
+    if (!_actionCategories.contains(category.id)) {
+      _loadHomeEnterprises(category.id);
+    }
+  }
+
+  @override
+  void dispose() {
+    _homeSearchController.dispose();
+    super.dispose();
   }
 
   Future<void> _maybeShowWelcomeBonus() async {
@@ -357,7 +397,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Couriers: list title. Users: horizontal scrollable category chips.
+              // Couriers: list title. Users: search bar + horizontal category chips.
               if (homeState.isCourier)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -371,8 +411,11 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 )
-              else
-                _buildCategoryChips(homeState, user),
+              else ...[
+                _buildHomeSearchBar(),
+                const SizedBox(height: 10),
+                _buildCategoryChips(),
+              ],
               if (homeState.isCourier && (user?.balance ?? 0) < 0) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -592,95 +635,275 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ── Search bar ───────────────────────────────────────────────────────────────
+  Widget _buildHomeSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        height: 46,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.035),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: TextField(
+          controller: _homeSearchController,
+          textInputAction: TextInputAction.search,
+          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+          decoration: InputDecoration(
+            isCollapsed: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 13),
+            hintText: 'Ишкана издөө...',
+            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+            prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 21),
+            suffixIcon: _homeSearch.isEmpty
+                ? null
+                : IconButton(
+                    icon: Icon(Icons.close, color: Colors.grey[500], size: 19),
+                    onPressed: () => _homeSearchController.clear(),
+                  ),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Horizontal category chips ────────────────────────────────────────────────
-  Widget _buildCategoryChips(dynamic homeState, dynamic user) {
+  Widget _buildCategoryChips() {
     return SizedBox(
       height: 116,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
-        itemCount: _filteredCategories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final category = _filteredCategories[index];
-          final selected = !_actionCategories.contains(category.id) &&
-              category.id == _selectedCategoryId;
-          // A single card holds the image tile + label; selected card fills primary.
-          return GestureDetector(
-            onTap: () => _onCategoryChipTap(category, user, homeState),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              width: 84,
-              height: 104,
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primary : Colors.white,
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: [
-                  BoxShadow(
-                    color: selected
-                        ? AppColors.primary.withValues(alpha: 0.20)
-                        : Colors.black.withValues(alpha: 0.035),
-                    blurRadius: selected ? 10 : 6,
-                    offset: Offset(0, selected ? 4 : 2),
+      child: Stack(
+        children: [
+          ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(16, 2, 28, 6),
+            itemCount: _filteredCategories.length + 1, // + trailing "all" chip
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              if (index == _filteredCategories.length) {
+                return _buildAllCategoriesChip();
+              }
+              final category = _filteredCategories[index];
+              final selected = category.id == _selectedCategoryId;
+              return _categoryChip(
+                selected: selected,
+                onTap: () => _selectCategory(category),
+                label: category.name,
+                imageTile: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(category.icon, fit: BoxFit.cover),
+                ),
+              );
+            },
+          ),
+          // Right-edge fade hints there are more categories to scroll.
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              child: Container(
+                width: 24,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      AppColors.background.withValues(alpha: 0),
+                      AppColors.background,
+                    ],
                   ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // White tile keeps the photo icon crisp on any card colour.
-                  Container(
-                    width: 52,
-                    height: 52,
-                    padding: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(category.icon, fit: BoxFit.cover),
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  Expanded(
-                    child: Text(
-                      category.name,
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        height: 1.1,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.1,
-                        color: selected ? Colors.white : AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          );
-        },
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _categoryChip({
+    required bool selected,
+    required VoidCallback onTap,
+    required String label,
+    required Widget imageTile,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        width: 84,
+        height: 104,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: selected
+                  ? AppColors.primary.withValues(alpha: 0.20)
+                  : Colors.black.withValues(alpha: 0.035),
+              blurRadius: selected ? 10 : 6,
+              offset: Offset(0, selected ? 4 : 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: imageTile,
+            ),
+            const SizedBox(height: 7),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1.1,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.1,
+                  color: selected ? Colors.white : AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAllCategoriesChip() {
+    return _categoryChip(
+      selected: false,
+      onTap: _openCategoriesSheet,
+      label: 'Баары',
+      imageTile: const Icon(Icons.grid_view_rounded,
+          color: AppColors.primary, size: 26),
+    );
+  }
+
+  // Bottom sheet showing every category in a grid for quick discovery.
+  void _openCategoriesSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(left: 4, bottom: 12),
+                  child: Text(
+                    'Категориялар',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.82,
+                  children: [
+                    for (final c in _filteredCategories)
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(sheetCtx).pop();
+                          _selectCategory(c);
+                        },
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 56,
+                              height: 56,
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: c.id == _selectedCategoryId
+                                    ? AppColors.primarySoft
+                                    : const Color(0xFFF3F4F6),
+                                borderRadius: BorderRadius.circular(16),
+                                border: c.id == _selectedCategoryId
+                                    ? Border.all(
+                                        color: AppColors.primary, width: 2)
+                                    : null,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(11),
+                                child: Image.asset(c.icon, fit: BoxFit.cover),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              c.name,
+                              maxLines: 2,
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                height: 1.1,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   // ── User browse: banner + selected-category enterprises ──────────────────────
   Widget _buildUserBrowse(dynamic homeState, dynamic user) {
-    final selectedName = _filteredCategories
-        .firstWhere((c) => c.id == _selectedCategoryId,
-            orElse: () => _filteredCategories.first)
-        .name;
+    final selectedCategory = _filteredCategories.firstWhere(
+        (c) => c.id == _selectedCategoryId,
+        orElse: () => _filteredCategories.first);
+    final isAction = _actionCategories.contains(selectedCategory.id);
+    final visible = _visibleHomeEnterprises;
 
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: () async {
         await Future.wait([
           _fetchBanners(),
-          _loadHomeEnterprises(_selectedCategoryId),
+          if (!isAction) _loadHomeEnterprises(_selectedCategoryId),
         ]);
       },
       child: ListView(
@@ -705,7 +928,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  selectedName,
+                  selectedCategory.name,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -714,7 +937,9 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (!_loadingHomeEnterprises && _homeEnterprisesError == null)
+                if (!isAction &&
+                    !_loadingHomeEnterprises &&
+                    _homeEnterprisesError == null)
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 2),
@@ -723,7 +948,7 @@ class _HomePageState extends State<HomePage> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      '${_homeEnterprises.length}',
+                      '${visible.length}',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -734,13 +959,116 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-          _buildHomeEnterpriseSection(),
+          if (isAction)
+            _buildActionCategoryCard(selectedCategory, user)
+          else
+            _buildHomeEnterpriseSection(visible),
         ],
       ),
     );
   }
 
-  Widget _buildHomeEnterpriseSection() {
+  // Taxi / intercity have no enterprises — show a dedicated order card instead.
+  Widget _buildActionCategoryCard(models.Category category, dynamic user) {
+    final isTaxi = category.id == 'taxi';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 9,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: AppColors.primarySoft,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isTaxi ? Icons.local_taxi_rounded : Icons.alt_route_rounded,
+                  size: 32,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                isTaxi ? 'Такси чакыруу' : 'Шаарлар аралык сапар',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                isTaxi
+                    ? 'Барар жериңизди көрсөтүп, дароо заказ бериңиз'
+                    : 'Башка шаарга жеткирүү же сапар заказ кылыңыз',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.4,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (isTaxi) {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (context) => OrderCreatePage(
+                          token: widget.token,
+                          selectedCategory: category,
+                          initialFromAddress: user?.address,
+                        ),
+                      ));
+                    } else {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => IntercityOrderPage(
+                          token: widget.token,
+                          userId: user?.id ?? 0,
+                        ),
+                      ));
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    isTaxi ? 'Такси заказ кылуу' : 'Заказ берүү',
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeEnterpriseSection(List<Enterprise> visible) {
     if (_loadingHomeEnterprises) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 48),
@@ -768,15 +1096,19 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     }
-    if (_homeEnterprises.isEmpty) {
+    if (visible.isEmpty) {
+      final searching = _homeSearch.isNotEmpty;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
         child: Column(
           children: [
-            Icon(Icons.storefront_outlined, size: 46, color: Colors.grey[400]),
+            Icon(searching ? Icons.search_off : Icons.storefront_outlined,
+                size: 46, color: Colors.grey[400]),
             const SizedBox(height: 12),
             Text(
-              'Бул категорияда ишкана жок',
+              searching
+                  ? '«$_homeSearch» боюнча эч нерсе табылган жок'
+                  : 'Бул категорияда ишкана жок',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey[600], fontSize: 15),
             ),
@@ -786,7 +1118,7 @@ class _HomePageState extends State<HomePage> {
     }
     return Column(
       children: [
-        for (final e in _homeEnterprises) _buildHomeEnterpriseCard(e),
+        for (final e in visible) _buildHomeEnterpriseCard(e),
       ],
     );
   }
@@ -876,6 +1208,11 @@ class _HomePageState extends State<HomePage> {
                             if (prep != null && prep > 0) ...[
                               const SizedBox(width: 8),
                               _metaPill(Icons.schedule, '$prep мин'),
+                            ],
+                            if (_enterpriseDistanceKm(e) != null) ...[
+                              const SizedBox(width: 8),
+                              _metaPill(Icons.near_me_outlined,
+                                  _formatDistance(_enterpriseDistanceKm(e)!)),
                             ],
                           ],
                         ),
