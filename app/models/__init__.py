@@ -19,6 +19,7 @@ from app.models.banner import Banner
 from app.models.ad_popup import AdPopup
 from app.models.push_subscription import PushSubscription
 from app.models.user_push_subscription import UserPushSubscription
+from app.models.chat_clear import ChatClear
 
 __all__ = [
     "User",
@@ -42,4 +43,5 @@ __all__ = [
     "AdPopup",
     "PushSubscription",
     "UserPushSubscription",
+    "ChatClear",
 ]

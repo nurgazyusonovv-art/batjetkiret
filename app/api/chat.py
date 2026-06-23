@@ -15,7 +15,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.core.config import settings
 from app.core.database import SessionLocal
+from sqlalchemy import func
 from app.models.chat import ChatRoom
+from app.models.chat_clear import ChatClear
 from app.models.message import Message
 from app.models.notification import Notification
 from app.models.order import Order
@@ -433,14 +435,58 @@ def get_chat_messages(
     if not _is_allowed_participant(chat, current_user):
         raise HTTPException(status_code=403)
 
-    messages = (
-        db.query(Message)
-        .filter(Message.chat_id == chat.id)
-        .order_by(Message.id)  # stable: id is monotonic, created_at can tie within a second
-        .all()
+    q = db.query(Message).filter(Message.chat_id == chat.id)
+
+    # Apply this user's "clear chat" marker — hide messages they cleared.
+    clear = (
+        db.query(ChatClear)
+        .filter(ChatClear.chat_id == chat.id, ChatClear.user_id == current_user.id)
+        .first()
     )
+    if clear is not None:
+        q = q.filter(Message.id > clear.cleared_message_id)
+
+    messages = q.order_by(Message.id).all()  # id is monotonic; created_at can tie
 
     return [_message_to_dict(m) for m in messages]
+
+
+@router.post("/{chat_id}/clear")
+def clear_chat(
+    chat_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Clear the chat for the current user only ("hide for me"): records the latest
+    message id so older messages are hidden from this user. The other participant
+    keeps seeing everything, and new messages still arrive."""
+    chat = db.query(ChatRoom).filter(ChatRoom.id == chat_id).first()
+    if not chat:
+        raise HTTPException(status_code=404)
+    if not _is_allowed_participant(chat, current_user):
+        raise HTTPException(status_code=403)
+
+    max_id = (
+        db.query(func.max(Message.id))
+        .filter(Message.chat_id == chat.id)
+        .scalar()
+    ) or 0
+
+    clear = (
+        db.query(ChatClear)
+        .filter(ChatClear.chat_id == chat.id, ChatClear.user_id == current_user.id)
+        .first()
+    )
+    if clear is not None:
+        clear.cleared_message_id = max_id
+    else:
+        db.add(ChatClear(
+            chat_id=chat.id,
+            user_id=current_user.id,
+            cleared_message_id=max_id,
+        ))
+    db.commit()
+    return {"ok": True, "cleared_message_id": max_id}
 
 
 @router.get("/order/{order_id}/context")

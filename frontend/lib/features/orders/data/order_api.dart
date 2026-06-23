@@ -777,6 +777,26 @@ class OrderApi {
     }
   }
 
+  /// Clear the chat for the current user only ("hide for me").
+  Future<void> clearChat({
+    required String token,
+    required int chatId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}/chat/$chatId/clear'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    if (response.statusCode == 200) return;
+    if (response.statusCode == 401) {
+      AuthEventBus.instance.fireUnauthorized();
+      throw const UnauthorizedException();
+    }
+    throw Exception('Чатты тазалоодо ката кетти');
+  }
+
   Future<void> sendChatMessage({
     required String token,
     required int chatId,

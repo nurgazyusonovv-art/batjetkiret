@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { MessageSquare, Send, RefreshCw } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Trash2 } from 'lucide-react';
 import api from '@/services/api';
 import { parseUtc } from '@/utils/date';
 import './SupportChatsPage.css';
@@ -70,6 +70,24 @@ export default function SupportChatsPage() {
         prev.map(c => c.chat_id === chatId ? { ...c, unread_count: 0 } : c)
       );
     } catch (_) {}
+  };
+
+  // ── Clear chat (hide for me only) ───────────────────────────────
+  const clearChat = async (chatId: number) => {
+    if (!window.confirm('Бул чат сиз үчүн тазаланат. Колдонуучуда сакталат. Уланталбы?')) {
+      return;
+    }
+    try {
+      await api.post(`/chat/${chatId}/clear`);
+      setMessages([]);
+      setChats(prev =>
+        prev.map(c => c.chat_id === chatId
+          ? { ...c, last_message: null, unread_count: 0 }
+          : c)
+      );
+    } catch (e) {
+      console.error('Failed to clear chat', e);
+    }
   };
 
   // ── Select a chat ───────────────────────────────────────────────
@@ -233,6 +251,26 @@ export default function SupportChatsPage() {
                   <div className="chat-header-phone">{selectedChat.user_phone}</div>
                 )}
               </div>
+              <button
+                className="support-clear-btn"
+                title="Чатты тазалоо"
+                onClick={() => selectedChatId && clearChat(selectedChatId)}
+                style={{
+                  marginLeft: 'auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#dc2626',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                }}
+              >
+                <Trash2 size={16} /> Тазалоо
+              </button>
             </div>
 
             {/* Messages */}

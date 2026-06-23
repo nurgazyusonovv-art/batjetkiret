@@ -170,13 +170,22 @@ def support_chats(
         .all()
     )
 
+    from app.models.chat_clear import ChatClear
     result = []
     for c in chats:
         user = db.query(User).filter(User.id == c.user_id).first()
 
+        # Respect this admin's "clear chat" marker for the preview/counts.
+        clear = (
+            db.query(ChatClear)
+            .filter(ChatClear.chat_id == c.id, ChatClear.user_id == admin.id)
+            .first()
+        )
+        cleared_id = clear.cleared_message_id if clear else 0
+
         last_msg = (
             db.query(Message)
-            .filter(Message.chat_id == c.id)
+            .filter(Message.chat_id == c.id, Message.id > cleared_id)
             .order_by(Message.id.desc())  # stable: id is monotonic, created_at can tie
             .first()
         )
@@ -185,6 +194,7 @@ def support_chats(
             db.query(func.count(Message.id))
             .filter(
                 Message.chat_id == c.id,
+                Message.id > cleared_id,
                 Message.is_read == False,  # noqa: E712
                 Message.sender_id != admin.id,
             )

@@ -199,6 +199,41 @@ class _SupportChatPageState extends State<SupportChatPage> {
     }
   }
 
+  Future<void> _clearChat() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Чатты тазалоо'),
+        content: const Text(
+            'Бул чат сиз үчүн тазаланат. Экинчи тарапта сакталып калат.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Жок')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Тазалоо'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _orderApi.clearChat(token: widget.token, chatId: widget.chatId);
+      if (!mounted) return;
+      setState(() => _messages = const []);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Чат тазаланды')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Чатты тазалоодо ката кетти')),
+      );
+    }
+  }
+
   Future<void> _loadMessages({bool autoscroll = false}) async {
     final messages = await _orderApi.getChatMessages(
       token: widget.token,
@@ -307,6 +342,25 @@ class _SupportChatPageState extends State<SupportChatPage> {
             fontSize: 18,
           ),
         ),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (v) {
+              if (v == 'clear') _clearChat();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'clear',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_sweep_outlined, size: 20),
+                    SizedBox(width: 10),
+                    Text('Чатты тазалоо'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Column(
         children: [

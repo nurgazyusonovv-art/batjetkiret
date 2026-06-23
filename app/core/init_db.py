@@ -36,6 +36,7 @@ def _migrate(engine):
         "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS is_open_override BOOLEAN",
         "CREATE TABLE IF NOT EXISTS push_subscriptions (id SERIAL PRIMARY KEY, enterprise_id INTEGER NOT NULL, subscription_json TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())",
         "CREATE TABLE IF NOT EXISTS user_push_subscriptions (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, subscription_json TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())",
+        "CREATE TABLE IF NOT EXISTS chat_clears (id SERIAL PRIMARY KEY, chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, cleared_message_id INTEGER NOT NULL DEFAULT 0, UNIQUE(chat_id, user_id))",
     ]
     for sql in migrations:
         try:
