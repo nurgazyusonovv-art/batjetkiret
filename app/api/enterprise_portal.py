@@ -2,9 +2,7 @@
 Enterprise Portal API
 All endpoints require is_enterprise=True user with active enterprise.
 """
-import os
-
-from app.services.r2 import upload_bytes, delete_object, ext_for as r2_ext_for
+from app.services.r2 import delete_object
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -25,13 +23,32 @@ from app.models.enterprise import Enterprise
 from app.models.enterprise_category import EnterpriseCategory
 from app.models.enterprise_product import EnterpriseProduct
 from app.models.order_payment import OrderPayment
+from app.services.media_upload import upload_image_file
 from app.services.order_status import apply_status_change
 
 router = APIRouter(prefix="/enterprise-portal", tags=["Enterprise Portal"])
 
-_ALLOWED_IMG = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"}
-_EXT_MIME = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
-             ".webp": "image/webp", ".gif": "image/gif", ".heic": "image/heic", ".heif": "image/heif"}
+
+def _local_day_start_utc(days_ago: int = 0) -> datetime:
+    """Return the naive-UTC instant that corresponds to local midnight `days_ago` days back.
+
+    Order.created_at is stored as naive UTC (PostgreSQL now() / SQLite). To bucket orders
+    by the local business day (Kyrgyzstan = UTC+6) we shift to local time, take the calendar
+    day boundary, then convert back to a UTC instant for comparison against created_at.
+    """
+    import os
+    tz_offset = int(os.getenv("TZ_OFFSET_HOURS", "6"))
+    now_utc = datetime.utcnow()
+    local_now = now_utc + timedelta(hours=tz_offset)
+    local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_ago)
+    return local_midnight - timedelta(hours=tz_offset)
+
+
+def _local_date(dt: datetime) -> date:
+    """Convert a naive-UTC datetime to the local calendar date (UTC+6)."""
+    import os
+    tz_offset = int(os.getenv("TZ_OFFSET_HOURS", "6"))
+    return (dt + timedelta(hours=tz_offset)).date()
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -114,7 +131,8 @@ def update_my_location(
 # ── Open/Close toggle ────────────────────────────────────────────────────────
 
 class OpenStatusUpdate(BaseModel):
-    is_open: bool  # True = force open, False = force closed
+    # True = force open, False = force closed, None = auto (follow working hours)
+    is_open: Optional[bool] = None
 
 
 @router.patch("/me/open-status")
@@ -124,6 +142,7 @@ def set_open_status(
     auth: Tuple = Depends(require_enterprise),
 ):
     _user, e = auth
+    # None resets to auto/time-based mode so working hours take over again.
     e.is_open_override = data.is_open
     db.commit()
     return {"is_open_override": e.is_open_override}
@@ -354,23 +373,15 @@ async def upload_product_image(
     if not prod:
         raise HTTPException(status_code=404, detail="Товар табылган жок")
 
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    mime = _EXT_MIME.get(ext, file.content_type or "image/jpeg")
-    if mime not in _ALLOWED_IMG:
-        raise HTTPException(status_code=400, detail="Сүрөт форматы туура эмес (jpeg, png, webp)")
-
-    content = await file.read()
-    if len(content) > 3 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="Сүрөт өлчөмү 3МБ'дан ашпашы керек")
-
-    # Эски сүрөттү R2'дан өчүр (бар болсо)
-    delete_object(prod.image_url or "")
-
-    key = f"products/{prod_id}{r2_ext_for(mime)}"
-    url = upload_bytes(key, content, mime)
-    prod.image_url = url
+    uploaded = await upload_image_file(
+        file=file,
+        key_prefix=f"products/{prod_id}",
+        max_bytes=3 * 1024 * 1024,
+        old_url=prod.image_url,
+    )
+    prod.image_url = uploaded.url
     db.commit()
-    return {"image_url": url}
+    return {"image_url": uploaded.url}
 
 
 # ── Orders ────────────────────────────────────────────────────────────────────
@@ -628,7 +639,10 @@ def create_local_order(
         distance_km=distance_km,
         price=delivery_price,        # жеткирүү акысы (аралыктан эсептелет)
         items_total=total_price,     # товарлардын суммасы
-        status="PREPARING" if order_source == "local" else "WAITING_COURIER",
+        # Both local-delivery and dine-in start at PREPARING.
+        # Local-delivery: enterprise later marks WAITING_COURIER to expose to couriers.
+        # Dine-in: enterprise marks READY → COMPLETED (no courier).
+        status="PREPARING",
         source=order_source,
         order_type=data.order_type,
     )
@@ -666,7 +680,7 @@ def create_local_order(
         from app.services.web_push import notify_enterprise
         notify_enterprise(
             db,
-            enterprise_id=e.id,
+            enterprise_id=enterprise.id,
             title=title,
             body=body,
             data={"order_id": order.id, "type": "new_order"},
@@ -695,7 +709,7 @@ def update_order_status(
         Order.id == order_id, Order.enterprise_id == enterprise.id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Заказ табылган жок")
-    if order.status in ("COMPLETED", "DELIVERED"):
+    if order.status in ("COMPLETED", "CANCELLED"):
         raise HTTPException(status_code=400, detail="Бүтүп калган заказдын статусун өзгөртүүгө болбойт")
 
     allowed = ALLOWED_DINE_IN_STATUSES if order.order_type == "dine_in" else ALLOWED_DELIVERY_STATUSES
@@ -703,7 +717,12 @@ def update_order_status(
         raise HTTPException(status_code=400,
             detail=f"Жол берилген статустар: {sorted(allowed)}")
 
-    order.status = status
+    apply_status_change(
+        db=db,
+        order=order,
+        new_status=status,
+        actor_user_id=_user.id,
+    )
     if note:
         order.admin_note = note
     db.commit()
@@ -716,8 +735,8 @@ def update_order_status(
 def get_stats(db: Session = Depends(get_db), auth: Tuple = Depends(require_enterprise)):
     _user, e = auth
 
-    # Today's start in local time (matches SQLite func.now() storage)
-    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # Today's start as a UTC instant matching the local (UTC+6) business day.
+    today_start = _local_day_start_utc(0)
 
     def _today_q():
         return db.query(Order).filter(
@@ -797,9 +816,8 @@ def get_reports(
     if days not in (1, 7, 30):
         raise HTTPException(status_code=400, detail="days: 1, 7 же 30 болушу керек")
 
-    # Calendar-day boundaries in local time (matches SQLite func.now() storage)
-    today_local = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    since = today_local - timedelta(days=days - 1)  # days=1 → today 00:00, days=7 → 6 days ago 00:00
+    # Calendar-day boundaries in local time (UTC+6), compared against naive-UTC created_at.
+    since = _local_day_start_utc(days - 1)  # days=1 → today 00:00 local, days=7 → 6 days ago
 
     base_q = db.query(Order).filter(
         Order.enterprise_id == e.id,
@@ -819,14 +837,15 @@ def get_reports(
     local_orders = [o for o in all_orders if o.source in ("local", "dine_in")]
     dine_in_orders = [o for o in all_orders if o.source == "dine_in"]
 
-    # Daily breakdown
+    # Daily breakdown (local calendar days)
+    today_local_date = _local_date(datetime.utcnow())
     daily: dict[str, dict] = {}
     for i in range(days):
-        d = (today_local - timedelta(days=days - 1 - i)).date()
+        d = today_local_date - timedelta(days=days - 1 - i)
         daily[str(d)] = {"date": str(d), "orders": 0, "revenue": 0.0, "cancelled": 0}
 
     for o in all_orders:
-        d = str(o.created_at.date()) if o.created_at else None
+        d = str(_local_date(o.created_at)) if o.created_at else None
         if d and d in daily:
             daily[d]["orders"] += 1
             if o.status in ("COMPLETED", "DELIVERED"):
@@ -863,21 +882,15 @@ async def upload_payment_qr(
 ):
     """Enterprise uploads their payment QR code image."""
     _user, e = auth
-    ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
-    mime = (file.content_type or "").lower()
-    if mime not in _ALLOWED_IMG and ext not in _EXT_MIME:
-        raise HTTPException(status_code=400, detail="Сүрөт файлы гана кабыл алынат")
-    content = await file.read()
-    if len(content) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="Файл өтө чоң (макс 5МБ)")
-    if mime not in _ALLOWED_IMG:
-        mime = _EXT_MIME.get(ext, "image/jpeg")
-    delete_object(e.payment_qr_url or "")
-    key = f"qr/{e.id}{r2_ext_for(mime)}"
-    url = upload_bytes(key, content, mime)
-    e.payment_qr_url = url
+    uploaded = await upload_image_file(
+        file=file,
+        key_prefix=f"qr/{e.id}",
+        max_bytes=5 * 1024 * 1024,
+        old_url=e.payment_qr_url,
+    )
+    e.payment_qr_url = uploaded.url
     db.commit()
-    return {"payment_qr_url": url}
+    return {"payment_qr_url": uploaded.url}
 
 
 @router.delete("/payment-qr")
@@ -1042,7 +1055,6 @@ def change_password(
     if len(body.new_password) < 6:
         raise HTTPException(status_code=400, detail="Жаңы сырсөз кеминде 6 символ болуш керек")
     user.hashed_password = hash_password(body.new_password)
-    user.panel_password = body.new_password  # keep admin-visible plain copy in sync
     db.commit()
     return {"message": "Сырсөз ийгиликтүү өзгөртүлдү"}
 
