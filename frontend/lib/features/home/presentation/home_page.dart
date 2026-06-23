@@ -595,56 +595,68 @@ class _HomePageState extends State<HomePage> {
   // ── Horizontal category chips ────────────────────────────────────────────────
   Widget _buildCategoryChips(dynamic homeState, dynamic user) {
     return SizedBox(
-      height: 118,
+      height: 116,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
         itemCount: _filteredCategories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final category = _filteredCategories[index];
           final selected = !_actionCategories.contains(category.id) &&
               category.id == _selectedCategoryId;
-          // Image + label live in a single coloured container.
+          // A single card holds the image tile + label; selected card fills primary.
           return GestureDetector(
             onTap: () => _onCategoryChipTap(category, user, homeState),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              width: 86,
-              padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              width: 84,
+              height: 104,
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
               decoration: BoxDecoration(
-                color: selected ? AppColors.primarySoft : Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: selected ? AppColors.primary : AppColors.border,
-                  width: selected ? 2 : 1,
-                ),
+                color: selected ? AppColors.primary : Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [
+                  BoxShadow(
+                    color: selected
+                        ? AppColors.primary.withValues(alpha: 0.32)
+                        : Colors.black.withValues(alpha: 0.05),
+                    blurRadius: selected ? 16 : 10,
+                    offset: Offset(0, selected ? 7 : 4),
+                  ),
+                ],
               ),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      category.icon,
-                      width: 48,
-                      height: 48,
-                      fit: BoxFit.cover,
+                  // White tile keeps the photo icon crisp on any card colour.
+                  Container(
+                    width: 52,
+                    height: 52,
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(category.icon, fit: BoxFit.cover),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    category.name,
-                    maxLines: 2,
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      height: 1.15,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      color: selected
-                          ? AppColors.primary
-                          : AppColors.textSecondary,
+                  const SizedBox(height: 7),
+                  Expanded(
+                    child: Text(
+                      category.name,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.1,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.1,
+                        color: selected ? Colors.white : AppColors.textPrimary,
+                      ),
                     ),
                   ),
                 ],
@@ -680,13 +692,46 @@ class _HomePageState extends State<HomePage> {
               child: BannerCarousel(banners: _banners),
             ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Text(
-              selectedName,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  selectedName,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (!_loadingHomeEnterprises && _homeEnterprisesError == null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${_homeEnterprises.length}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           _buildHomeEnterpriseSection(),
@@ -748,82 +793,160 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildHomeEnterpriseCard(Enterprise e) {
     final closed = e.isOpen == false;
+    final prep = e.prepTimeMinutes;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: GestureDetector(
-        onTap: () => _openEnterpriseDirectly(e.id, _selectedCategoryId),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  width: 64,
-                  height: 64,
-                  child: _enterpriseLogo(e),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      e.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    if ((e.address ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        e.address!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _openEnterpriseDirectly(e.id, _selectedCategoryId),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  // Logo with a soft frame; dimmed when the shop is closed.
+                  Opacity(
+                    opacity: closed ? 0.55 : 1,
+                    child: Container(
+                      width: 72,
+                      height: 72,
                       decoration: BoxDecoration(
-                        color: closed
-                            ? const Color(0xFFFEE2E2)
-                            : const Color(0xFFDCFCE7),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(18),
+                        color: AppColors.primarySoft,
                       ),
-                      child: Text(
-                        closed ? '🔴 Жабык' : '🟢 Ачык',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: closed
-                              ? const Color(0xFFDC2626)
-                              : const Color(0xFF16A34A),
-                        ),
-                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: _enterpriseLogo(e),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          e.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        if ((e.address ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Icon(Icons.place_outlined,
+                                  size: 13, color: Colors.grey[400]),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(
+                                  e.address!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 9),
+                        Row(
+                          children: [
+                            _statusPill(closed),
+                            if (prep != null && prep > 0) ...[
+                              const SizedBox(width: 8),
+                              _metaPill(Icons.schedule, '$prep мин'),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primarySoft,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.arrow_forward_ios,
+                        size: 13, color: AppColors.primary),
+                  ),
+                ],
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
-            ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _statusPill(bool closed) {
+    final color = closed ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
+    final bg = closed ? const Color(0xFFFEE2E2) : const Color(0xFFDCFCE7);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            closed ? 'Жабык' : 'Ачык',
+            style: TextStyle(
+                fontSize: 11.5, fontWeight: FontWeight.w700, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metaPill(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: AppColors.textSecondary),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary),
+          ),
+        ],
       ),
     );
   }
@@ -843,7 +966,7 @@ class _HomePageState extends State<HomePage> {
   Widget _enterpriseLogoFallback() {
     return Container(
       color: AppColors.primarySoft,
-      child: const Icon(Icons.storefront, color: AppColors.primary, size: 28),
+      child: const Icon(Icons.storefront, color: AppColors.primary, size: 30),
     );
   }
 
