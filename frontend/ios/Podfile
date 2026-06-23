@@ -28,6 +28,9 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
+  # Required so Swift pods (DKPhotoGallery, FirebaseCoreInternal) can import their
+  # non-modular ObjC dependencies (SDWebImage, GoogleUtilities) as static libraries.
+  use_modular_headers!
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
     inherit! :search_paths

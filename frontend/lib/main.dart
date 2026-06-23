@@ -41,7 +41,13 @@ void main() async {
   await HiveService.initialize();
   if (!kIsWeb) {
     await NotificationsService.initialize();
-    await Firebase.initializeApp();
+    // Firebase config may be missing on a platform (e.g. iOS without
+    // GoogleService-Info.plist). Push won't work, but the app must still run.
+    try {
+      await Firebase.initializeApp();
+    } catch (e) {
+      debugPrint('Firebase init skipped: $e');
+    }
   }
   NotificationNavigator.navigatorKey = _navigatorKey;
   runApp(const BatkenExpressApp());
