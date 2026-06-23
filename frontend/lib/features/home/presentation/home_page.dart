@@ -24,6 +24,7 @@ import 'package:frontend/features/orders/presentation/order_detail_page.dart';
 import 'package:frontend/features/orders/presentation/order_success_page.dart';
 import 'package:frontend/features/profile/data/support_api.dart';
 import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
+import 'package:frontend/features/profile/presentation/topup_page.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'intercity_order_page.dart';
@@ -215,7 +216,10 @@ class _HomePageState extends State<HomePage> {
                               ],
                             ),
                           ),
-                        ),
+                        )
+                      else
+                        // Balance chip for regular users — taps through to top-up
+                        _buildBalanceChip(user.balance),
                   ],
                 ),
               ),
@@ -530,24 +534,65 @@ class _HomePageState extends State<HomePage> {
                                         milliseconds: 120,
                                       ),
                                       curve: Curves.easeOut,
-                                      child: Stack(
-                                        children: [
-                                          Container(
-                                            width: double.infinity,
-                                            decoration: BoxDecoration(
-                                              color: cardColor,
-                                              image: DecorationImage(
-                                                image: AssetImage(
-                                                  category.icon,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(22),
+                                        child: Stack(
+                                          fit: StackFit.passthrough,
+                                          children: [
+                                            Container(
+                                              width: double.infinity,
+                                              height: 155,
+                                              decoration: BoxDecoration(
+                                                color: cardColor,
+                                                image: DecorationImage(
+                                                  image: AssetImage(
+                                                    category.icon,
+                                                  ),
+                                                  fit: BoxFit.cover,
                                                 ),
-                                                fit: BoxFit.fill,
                                               ),
-                                              borderRadius:
-                                                  BorderRadius.circular(22),
                                             ),
-                                            child: SizedBox(height: 155),
-                                          ),
-                                        ],
+                                            // Scrim so the label stays readable on any image
+                                            Positioned.fill(
+                                              child: DecoratedBox(
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    begin: Alignment.topCenter,
+                                                    end: Alignment.bottomCenter,
+                                                    colors: [
+                                                      Colors.transparent,
+                                                      Colors.black.withValues(alpha: 0.55),
+                                                    ],
+                                                    stops: const [0.5, 1.0],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            Positioned(
+                                              left: 12,
+                                              right: 12,
+                                              bottom: 12,
+                                              child: Text(
+                                                category.name,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w800,
+                                                  height: 1.1,
+                                                  shadows: [
+                                                    Shadow(
+                                                      color: Colors.black54,
+                                                      blurRadius: 4,
+                                                      offset: Offset(0, 1),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -575,6 +620,54 @@ class _HomePageState extends State<HomePage> {
       AppColors.accent5,
     ];
     return palette[index % palette.length];
+  }
+
+  Widget _buildBalanceChip(double balance) {
+    final low = balance <= 100;
+    final intBalance = balance.toInt();
+    final formatted = balance == intBalance
+        ? intBalance.toString()
+        : balance.toStringAsFixed(0);
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => TopupPage(token: widget.token)),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: low ? const Color(0xFFFEE2E2) : AppColors.primarySoft,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: low ? const Color(0xFFFCA5A5) : AppColors.primary.withValues(alpha: 0.25),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.account_balance_wallet_outlined,
+              size: 16,
+              color: low ? const Color(0xFFDC2626) : AppColors.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$formatted сом',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: low ? const Color(0xFFDC2626) : AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              Icons.add_circle,
+              size: 16,
+              color: low ? const Color(0xFFDC2626) : AppColors.primary,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -1582,8 +1675,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   Widget _buildEnterpriseCardBackground(Enterprise ent) {
     final logo = ent.logoData;
     if (logo != null && logo.isNotEmpty) {
-      // HTTP URL (Cloudflare R2)
-      if (logo.startsWith('http')) {
+      // Network URL (absolute URL or same-origin proxy URL)
+      if (!logo.startsWith('data:')) {
         return Image.network(
           logo,
           fit: BoxFit.cover,
@@ -1602,11 +1695,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   }
 
   Widget _enterpriseFallbackIcon() => Container(
-        color: AppColors.primarySoft,
-        child: const Center(
-          child: Icon(Icons.store, color: AppColors.primary, size: 48),
-        ),
-      );
+    color: AppColors.primarySoft,
+    child: const Center(
+      child: Icon(Icons.store, color: AppColors.primary, size: 48),
+    ),
+  );
 
   // ── Step bodies ─────────────────────────────────────────────────────────────
 

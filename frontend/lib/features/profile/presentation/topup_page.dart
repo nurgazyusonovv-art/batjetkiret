@@ -1,7 +1,6 @@
 // ignore_for_file: deprecated_member_use
-import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
@@ -19,11 +18,26 @@ class TopupPage extends StatefulWidget {
 }
 
 class _TopupPageState extends State<TopupPage> {
+  static const String _mbankNumber = '+996501889810';
+
   final _amountController = TextEditingController();
   Uint8List? _selectedImageBytes;
   String _selectedImageName = 'screenshot.jpg';
   bool _isLoading = false;
   String? _error;
+
+  Future<void> _copy(String value, String label) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$label көчүрүлдү'),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.primary,
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -182,8 +196,8 @@ class _TopupPageState extends State<TopupPage> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
+              children: [
+                const Text(
                   'Кантип толуктоого болот?',
                   style: TextStyle(
                     fontSize: 13,
@@ -191,10 +205,10 @@ class _TopupPageState extends State<TopupPage> {
                     color: AppColors.primary,
                   ),
                 ),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 6),
+                const Text(
                   '1. Суммасын жазыңыз\n'
-                  '2. +996501889810 номерине MBank аркылуу которуңуз\n'
+                  '2. Төмөнкү номерге MBank аркылуу которуңуз\n'
                   '3. Төлөмдүн скриншотун жүктөңүз\n'
                   '4. «Жөнөтүү» баскычын басыңыз',
                   style: TextStyle(
@@ -203,10 +217,54 @@ class _TopupPageState extends State<TopupPage> {
                     height: 1.6,
                   ),
                 ),
+                const SizedBox(height: 10),
+                _buildMBankNumberRow(),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMBankNumberRow() {
+    return InkWell(
+      onTap: () => _copy(_mbankNumber, 'Номер'),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.account_balance_outlined,
+                size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                '$_mbankNumber  (MBank)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
+            const SizedBox(width: 4),
+            const Text(
+              'Көчүрүү',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
