@@ -38,17 +38,83 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int? _pressedCategoryIndex;
   List<models.Category> _filteredCategories = [];
   List<BannerItem> _banners = [];
+
+  // ── Home browse (horizontal categories → filtered enterprises) ──────────────
+  late String _selectedCategoryId;
+  List<Enterprise> _homeEnterprises = [];
+  bool _loadingHomeEnterprises = false;
+  String? _homeEnterprisesError;
+  int _homeEnterpriseFetchVersion = 0;
+
+  // Categories that are not enterprise-based — tapping them opens a dedicated flow.
+  static const _actionCategories = {'taxi', 'intercity'};
 
   @override
   void initState() {
     super.initState();
     _filteredCategories = models.categories;
+    _selectedCategoryId = models.categories
+        .firstWhere((c) => !_actionCategories.contains(c.id),
+            orElse: () => models.categories.first)
+        .id;
     _fetchBanners();
+    _loadHomeEnterprises(_selectedCategoryId);
     _maybeShowWelcomeBonus();
     _checkAndShowPopup();
+  }
+
+  Future<void> _loadHomeEnterprises(String categoryId) async {
+    final version = ++_homeEnterpriseFetchVersion;
+    setState(() {
+      _loadingHomeEnterprises = true;
+      _homeEnterprisesError = null;
+    });
+    try {
+      final list = await EnterpriseApi().fetchEnterprises(
+        token: widget.token,
+        category: categoryId,
+      );
+      if (!mounted || version != _homeEnterpriseFetchVersion) return;
+      setState(() {
+        _homeEnterprises = list;
+        _loadingHomeEnterprises = false;
+      });
+    } catch (e) {
+      if (!mounted || version != _homeEnterpriseFetchVersion) return;
+      setState(() {
+        _homeEnterprisesError =
+            e.toString().replaceFirst('Exception: ', '');
+        _loadingHomeEnterprises = false;
+      });
+    }
+  }
+
+  void _onCategoryChipTap(models.Category category, dynamic user, dynamic homeState) {
+    // Action categories navigate to their dedicated flow instead of filtering.
+    if (category.id == 'intercity') {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => IntercityOrderPage(
+          token: widget.token,
+          userId: user?.id ?? 0,
+        ),
+      ));
+      return;
+    }
+    if (category.id == 'taxi') {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => OrderCreatePage(
+          token: widget.token,
+          selectedCategory: category,
+          initialFromAddress: user?.address,
+        ),
+      ));
+      return;
+    }
+    if (_selectedCategoryId == category.id) return;
+    setState(() => _selectedCategoryId = category.id);
+    _loadHomeEnterprises(category.id);
   }
 
   Future<void> _maybeShowWelcomeBonus() async {
@@ -291,19 +357,22 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Categories section for users / Waiting orders list for couriers
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    homeState.isCourier ? 'Күтүүдөгү заказдар' : 'Категориялар',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+              // Couriers: list title. Users: horizontal scrollable category chips.
+              if (homeState.isCourier)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Күтүүдөгү заказдар',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-              ),
+                )
+              else
+                _buildCategoryChips(homeState, user),
               if (homeState.isCourier && (user?.balance ?? 0) < 0) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -513,162 +582,7 @@ class _HomePageState extends State<HomePage> {
                                 );
                               },
                             )
-                    : CustomScrollView(
-                        slivers: [
-                          // ── Реклама карусели ──────────────────────────────
-                          if (_banners.isNotEmpty)
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(0, 0, 0, 14),
-                                child: BannerCarousel(banners: _banners),
-                              ),
-                            ),
-
-                          // ── Категориялар ──────────────────────────────────
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            sliver: SliverGrid(
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
-                                    childAspectRatio: 1.15,
-                                  ),
-                              delegate: SliverChildBuilderDelegate((
-                                context,
-                                index,
-                              ) {
-                                final category = _filteredCategories[index];
-                                final cardColor = _categoryColor(index);
-
-                                return TweenAnimationBuilder<double>(
-                                  tween: Tween(begin: 0, end: 1),
-                                  duration: Duration(
-                                    milliseconds: 200 + ((index % 8) * 40),
-                                  ),
-                                  curve: Curves.easeOutCubic,
-                                  builder: (context, value, child) => Opacity(
-                                    opacity: value,
-                                    child: Transform.translate(
-                                      offset: Offset(0, (1 - value) * 14),
-                                      child: child,
-                                    ),
-                                  ),
-                                  child: GestureDetector(
-                                    onTapDown: (_) => setState(
-                                      () => _pressedCategoryIndex = index,
-                                    ),
-                                    onTapCancel: () => setState(
-                                      () => _pressedCategoryIndex = null,
-                                    ),
-                                    onTapUp: (_) => setState(
-                                      () => _pressedCategoryIndex = null,
-                                    ),
-                                    onTap: () {
-                                      if (category.id == 'intercity') {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => IntercityOrderPage(
-                                              token: widget.token,
-                                              userId: user?.id ?? 0,
-                                            ),
-                                          ),
-                                        );
-                                      } else {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (context) => OrderCreatePage(
-                                              token: widget.token,
-                                              selectedCategory: category,
-                                              initialFromAddress:
-                                                  user?.address ??
-                                                  (homeState.selectedLocation !=
-                                                          'адрес киргиз'
-                                                      ? homeState
-                                                            .selectedLocation
-                                                      : null),
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                    child: AnimatedScale(
-                                      scale: _pressedCategoryIndex == index
-                                          ? 0.97
-                                          : 1.0,
-                                      duration: const Duration(
-                                        milliseconds: 120,
-                                      ),
-                                      curve: Curves.easeOut,
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(22),
-                                        child: Stack(
-                                          fit: StackFit.passthrough,
-                                          children: [
-                                            Container(
-                                              width: double.infinity,
-                                              height: 155,
-                                              decoration: BoxDecoration(
-                                                color: cardColor,
-                                                image: DecorationImage(
-                                                  image: AssetImage(
-                                                    category.icon,
-                                                  ),
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              ),
-                                            ),
-                                            // Scrim so the label stays readable on any image
-                                            Positioned.fill(
-                                              child: DecoratedBox(
-                                                decoration: BoxDecoration(
-                                                  gradient: LinearGradient(
-                                                    begin: Alignment.topCenter,
-                                                    end: Alignment.bottomCenter,
-                                                    colors: [
-                                                      Colors.transparent,
-                                                      Colors.black.withValues(alpha: 0.55),
-                                                    ],
-                                                    stops: const [0.5, 1.0],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            Positioned(
-                                              left: 12,
-                                              right: 12,
-                                              bottom: 12,
-                                              child: Text(
-                                                category.name,
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w800,
-                                                  height: 1.1,
-                                                  shadows: [
-                                                    Shadow(
-                                                      color: Colors.black54,
-                                                      blurRadius: 4,
-                                                      offset: Offset(0, 1),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }, childCount: _filteredCategories.length),
-                            ),
-                          ),
-                        ],
-                      ),
+                    : _buildUserBrowse(homeState, user),
               ),
               const SizedBox(height: 16),
             ],
@@ -678,15 +592,256 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Color _categoryColor(int index) {
-    const palette = [
-      AppColors.accent1,
-      AppColors.accent2,
-      AppColors.accent3,
-      AppColors.accent4,
-      AppColors.accent5,
-    ];
-    return palette[index % palette.length];
+  // ── Horizontal category chips ────────────────────────────────────────────────
+  Widget _buildCategoryChips(dynamic homeState, dynamic user) {
+    return SizedBox(
+      height: 96,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _filteredCategories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final category = _filteredCategories[index];
+          final selected = !_actionCategories.contains(category.id) &&
+              category.id == _selectedCategoryId;
+          return GestureDetector(
+            onTap: () => _onCategoryChipTap(category, user, homeState),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: selected ? AppColors.primarySoft : Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: selected ? AppColors.primary : AppColors.border,
+                      width: selected ? 2 : 1,
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(10),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.asset(category.icon, fit: BoxFit.cover),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: 72,
+                  child: Text(
+                    category.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      color: selected
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ── User browse: banner + selected-category enterprises ──────────────────────
+  Widget _buildUserBrowse(dynamic homeState, dynamic user) {
+    final selectedName = _filteredCategories
+        .firstWhere((c) => c.id == _selectedCategoryId,
+            orElse: () => _filteredCategories.first)
+        .name;
+
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: () async {
+        await Future.wait([
+          _fetchBanners(),
+          _loadHomeEnterprises(_selectedCategoryId),
+        ]);
+      },
+      child: ListView(
+        padding: const EdgeInsets.only(top: 8, bottom: 16),
+        children: [
+          if (_banners.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 14),
+              child: BannerCarousel(banners: _banners),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Text(
+              selectedName,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+          _buildHomeEnterpriseSection(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeEnterpriseSection() {
+    if (_loadingHomeEnterprises) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 48),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_homeEnterprisesError != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+        child: Column(
+          children: [
+            Icon(Icons.error_outline, size: 44, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            Text(
+              _homeEnterprisesError!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            AppButton.primary(
+              onPressed: () => _loadHomeEnterprises(_selectedCategoryId),
+              label: 'Кайра жүктөө',
+            ),
+          ],
+        ),
+      );
+    }
+    if (_homeEnterprises.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+        child: Column(
+          children: [
+            Icon(Icons.storefront_outlined, size: 46, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            Text(
+              'Бул категорияда ишкана жок',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600], fontSize: 15),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (final e in _homeEnterprises) _buildHomeEnterpriseCard(e),
+      ],
+    );
+  }
+
+  Widget _buildHomeEnterpriseCard(Enterprise e) {
+    final closed = e.isOpen == false;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: GestureDetector(
+        onTap: () => _openEnterpriseDirectly(e.id, _selectedCategoryId),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: _enterpriseLogo(e),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      e.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    if ((e.address ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        e.address!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: closed
+                            ? const Color(0xFFFEE2E2)
+                            : const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        closed ? '🔴 Жабык' : '🟢 Ачык',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: closed
+                              ? const Color(0xFFDC2626)
+                              : const Color(0xFF16A34A),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _enterpriseLogo(Enterprise e) {
+    final logo = e.logoData;
+    if (logo != null && logo.isNotEmpty && logo.startsWith('http')) {
+      return Image.network(
+        logo,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _enterpriseLogoFallback(),
+      );
+    }
+    return _enterpriseLogoFallback();
+  }
+
+  Widget _enterpriseLogoFallback() {
+    return Container(
+      color: AppColors.primarySoft,
+      child: const Icon(Icons.storefront, color: AppColors.primary, size: 28),
+    );
   }
 
   Widget _buildBalanceChip(double balance) {
