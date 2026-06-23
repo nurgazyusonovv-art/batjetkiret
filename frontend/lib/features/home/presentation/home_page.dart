@@ -1260,6 +1260,13 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   }
 
   void _goToPreviousStep() {
+    // Opened straight into an enterprise's menu from home → back returns home,
+    // not the (skipped) enterprise-selection step.
+    if (widget.initialEnterpriseId != null &&
+        _cubit.state.currentStep == OrderCreateStep.enterpriseMenu) {
+      Navigator.of(context).pop();
+      return;
+    }
     final shouldPop = _cubit.goToPreviousStep();
     if (shouldPop && mounted) Navigator.of(context).pop();
   }
@@ -1721,11 +1728,17 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   Widget _buildEnterpriseInfoCard(Enterprise ent) {
     final isClosed = ent.isOpen == false;
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 9,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1737,13 +1750,15 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Logo
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: _buildEnterpriseCardBackground(ent),
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(16),
                   ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _buildEnterpriseCardBackground(ent),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -2493,14 +2508,28 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Text(
-                      cat.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: AppColors.primary,
-                      ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 9),
+                        Text(
+                          cat.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17,
+                            color: AppColors.textPrimary,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   ...rows,
@@ -3310,15 +3339,23 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _openProductDetail(product),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         child: Ink(
           decoration: BoxDecoration(
             color: qty > 0 ? AppColors.primarySoft : Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: qty > 0 ? AppColors.primary : AppColors.border,
-              width: qty > 0 ? 1.5 : 1,
-            ),
+            borderRadius: BorderRadius.circular(18),
+            border: qty > 0
+                ? Border.all(color: AppColors.primary, width: 1.5)
+                : null,
+            boxShadow: qty > 0
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 9,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3326,7 +3363,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               // Image or placeholder
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(13),
+                  top: Radius.circular(17),
                 ),
                 child: hasImage
                     ? _buildProductImage(product.imageUrl!, height: 120)
