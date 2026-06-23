@@ -3,23 +3,14 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime, timezone
-import os
 
 from app.api.deps import get_db, get_current_user, require_admin
 from app.models.enterprise import Enterprise, VALID_CATEGORIES
 from app.models.user import User
 from app.core.security import hash_password
-from app.services.r2 import upload_bytes, delete_object, ext_for
+from app.services.media_upload import upload_image_file
 
-_ALLOWED_IMG = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 _MAX_LOGO_BYTES = 2 * 1024 * 1024  # 2 MB
-_EXT_MIME = {
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-    ".webp": "image/webp",
-    ".gif": "image/gif",
-}
 
 router = APIRouter(prefix="/enterprises", tags=["Enterprises"])
 
@@ -156,25 +147,15 @@ async def upload_enterprise_logo(
     if e.owner_user_id != current_user.id and not current_user.is_admin and not is_portal_user:
         raise HTTPException(status_code=403, detail="Уруксат жок")
 
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    content_type = file.content_type or _EXT_MIME.get(ext, "")
-    if content_type == "application/octet-stream":
-        content_type = _EXT_MIME.get(ext, content_type)
-    if content_type not in _ALLOWED_IMG:
-        raise HTTPException(status_code=400, detail="Сүрөт форматы туура эмес (JPEG/PNG/WEBP/GIF)")
-
-    data = await file.read()
-    if len(data) > _MAX_LOGO_BYTES:
-        raise HTTPException(status_code=400, detail="Сүрөт өлчөмү 2 МБ дан ашпашы керек")
-
-    # Эски логону R2'дан өчүр (бар болсо)
-    delete_object(e.logo_data or "")
-
-    key = f"logos/{enterprise_id}{ext_for(content_type)}"
-    url = upload_bytes(key, data, content_type)
-    e.logo_data = url
+    uploaded = await upload_image_file(
+        file=file,
+        key_prefix=f"logos/{enterprise_id}",
+        max_bytes=_MAX_LOGO_BYTES,
+        old_url=e.logo_data,
+    )
+    e.logo_data = uploaded.url
     db.commit()
-    return {"logo_data": url}
+    return {"logo_data": uploaded.url}
 
 
 class WorkingHoursUpdate(BaseModel):
@@ -314,6 +295,7 @@ def get_enterprise_menu(
             "name": p.name,
             "description": p.description,
             "price": float(p.price),
+            "stock": p.stock if p.stock is not None else 0,
             "image_url": p.image_url,
         }
 
@@ -349,10 +331,9 @@ def get_enterprise_menu(
             "description": enterprise.description,
             "lat": enterprise.lat,
             "lon": enterprise.lon,
-            # logo_data intentionally omitted — it can be several MB of base64 data
-            # and causes TimeoutException on Flutter web. The mobile/web client
-            # already has logo_data from the enterprise list response.
-            "logo_data": None,
+            "logo_data": enterprise.logo_data
+            if (enterprise.logo_data or "").startswith(("http://", "https://", "/uploads/"))
+            else None,
             "open_time": enterprise.open_time,
             "close_time": enterprise.close_time,
             "is_open": _is_open_now(enterprise.open_time, enterprise.close_time),
@@ -548,7 +529,6 @@ def admin_set_enterprise_credentials(
         # Update existing enterprise user
         if data.password and data.password != UNCHANGED:
             existing.hashed_password = hash_password(data.password)
-            existing.panel_password = data.password
         if data.name:
             existing.name = data.name
         existing.phone = data.phone
@@ -564,7 +544,6 @@ def admin_set_enterprise_credentials(
         phone=data.phone,
         name=data.name or e.name,
         hashed_password=hash_password(data.password),
-        panel_password=data.password if data.password != UNCHANGED else None,
         is_active=True,
         is_courier=False,
         is_admin=False,
@@ -602,5 +581,5 @@ def admin_get_enterprise_credentials(
         "phone": ent_user.phone,
         "name": ent_user.name,
         "is_active": ent_user.is_active,
-        "panel_password": ent_user.panel_password,
+        "has_password": bool(ent_user.hashed_password),
     }

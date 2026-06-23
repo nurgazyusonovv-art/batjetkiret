@@ -14,6 +14,7 @@ class EnterpriseProduct(Base):
     price = Column(Numeric(10, 2), nullable=False)
     is_active = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
+    stock = Column(Integer, nullable=False, default=10)  # units available in stock
     image_url = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

@@ -249,6 +249,19 @@ def create_order(
     db.add(order)
     db.flush()
 
+    # Decrement enterprise product stock for the sold items (floored at 0).
+    if order.enterprise_id and data.items:
+        from app.models.enterprise_product import EnterpriseProduct
+        for item in data.items:
+            if item.quantity <= 0:
+                continue
+            prod = db.query(EnterpriseProduct).filter(
+                EnterpriseProduct.id == item.product_id,
+                EnterpriseProduct.enterprise_id == order.enterprise_id,
+            ).first()
+            if prod is not None:
+                prod.stock = max(0, (prod.stock or 0) - item.quantity)
+
     allow_without_balance = settings.DEBUG or settings.ALLOW_ORDER_WITHOUT_BALANCE
     try:
         charge_platform_fee(

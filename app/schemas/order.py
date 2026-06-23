@@ -1,6 +1,12 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 
+
+class OrderItem(BaseModel):
+    product_id: int
+    quantity: int = 1
+
+
 class OrderCreateRequest(BaseModel):
     category: str = Field(..., min_length=1, max_length=100)
     description: str = Field(..., min_length=1, max_length=500)
@@ -14,6 +20,7 @@ class OrderCreateRequest(BaseModel):
     enterprise_id: Optional[int] = None
     intercity_city_id: Optional[int] = None
     items_total: Optional[float] = None
+    items: Optional[list[OrderItem]] = None  # enterprise menu items (stock tracking)
 
 class OrderResponse(BaseModel):
     id: int

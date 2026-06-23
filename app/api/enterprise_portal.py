@@ -228,6 +228,7 @@ class ProductCreate(BaseModel):
     description: Optional[str] = None
     category_id: Optional[int] = None
     sort_order: int = 0
+    stock: int = 10
     image_url: Optional[str] = None
 
 class ProductUpdate(BaseModel):
@@ -237,6 +238,7 @@ class ProductUpdate(BaseModel):
     category_id: Optional[int] = None
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
+    stock: Optional[int] = None
     image_url: Optional[str] = None
 
 
@@ -246,6 +248,7 @@ def _prod_dict(p: EnterpriseProduct, category_name: Optional[str] = None) -> dic
         "price": float(p.price), "is_active": p.is_active,
         "sort_order": p.sort_order, "category_id": p.category_id,
         "category_name": category_name, "created_at": p.created_at,
+        "stock": p.stock if p.stock is not None else 0,
         "image_url": p.image_url,
     }
 
@@ -295,6 +298,7 @@ def create_product(data: ProductCreate, db: Session = Depends(get_db), auth: Tup
         description=data.description,
         price=Decimal(str(data.price)),
         sort_order=data.sort_order,
+        stock=max(0, data.stock),
         image_url=data.image_url,
     )
     db.add(prod)
@@ -325,6 +329,8 @@ def update_product(prod_id: int, data: ProductUpdate, db: Session = Depends(get_
         prod.sort_order = data.sort_order
     if data.is_active is not None:
         prod.is_active = data.is_active
+    if data.stock is not None:
+        prod.stock = max(0, data.stock)
     if data.category_id is not None:
         if data.category_id == 0:
             prod.category_id = None
@@ -599,6 +605,8 @@ def create_local_order(
         line_total = Decimal(str(prod.price)) * item.quantity
         total_price += line_total
         lines.append(f"{prod.name} x{item.quantity} = {line_total:.0f} сом")
+        # Decrement stock as the item is sold (floored at 0).
+        prod.stock = max(0, (prod.stock or 0) - item.quantity)
 
     description = "\n".join(lines)
     if data.note:

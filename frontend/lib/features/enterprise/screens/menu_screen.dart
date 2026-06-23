@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../core/config.dart';
 import '../services/api_service.dart';
 
 class MenuScreen extends StatefulWidget {
@@ -124,6 +125,37 @@ class _ProductsTabState extends State<_ProductsTab>
     return c?['name'] as String? ?? '';
   }
 
+  static Widget _stockBadge(int? stock) {
+    final s = stock ?? 0;
+    final out = s <= 0;
+    final low = s > 0 && s <= 3;
+    final color = out
+        ? const Color(0xFFDC2626)
+        : low
+            ? const Color(0xFFD97706)
+            : const Color(0xFF6B7280);
+    final bg = out
+        ? const Color(0xFFFEE2E2)
+        : low
+            ? const Color(0xFFFEF3C7)
+            : const Color(0xFFF3F4F6);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        out ? 'Түгөндү' : 'Складда: $s',
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+
   Future<void> _addOrEdit([Map<String, dynamic>? existing]) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -236,12 +268,18 @@ class _ProductsTabState extends State<_ProductsTab>
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  '${(p['price'] as num).toStringAsFixed(0)} сом',
-                                  style: const TextStyle(
-                                    color: Color(0xFF16A34A),
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      '${(p['price'] as num).toStringAsFixed(0)} сом',
+                                      style: const TextStyle(
+                                        color: Color(0xFF16A34A),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _stockBadge((p['stock'] as num?)?.toInt()),
+                                  ],
                                 ),
                                 if (_catName(
                                   p['category_id'] as int?,
@@ -332,7 +370,7 @@ class _ProductsTabState extends State<_ProductsTab>
       }
     }
     return Image.network(
-      url,
+      AppConfig.mediaUrl(url) ?? url,
       width: w,
       height: h,
       fit: BoxFit.cover,
@@ -410,6 +448,7 @@ class _ProductFormState extends State<_ProductForm> {
   final _nameCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
+  final _stockCtrl = TextEditingController(text: '10');
   int? _catId;
   bool _active = true;
   bool _saving = false;
@@ -428,6 +467,7 @@ class _ProductFormState extends State<_ProductForm> {
       _nameCtrl.text = e['name'] as String? ?? '';
       _priceCtrl.text = (e['price'] as num?)?.toStringAsFixed(0) ?? '';
       _descCtrl.text = e['description'] as String? ?? '';
+      _stockCtrl.text = '${(e['stock'] as num?)?.toInt() ?? 10}';
       _catId = e['category_id'] as int?;
       _active = e['is_active'] as bool? ?? true;
       _existingImageUrl = e['image_url'] as String?;
@@ -442,6 +482,7 @@ class _ProductFormState extends State<_ProductForm> {
     _nameCtrl.dispose();
     _priceCtrl.dispose();
     _descCtrl.dispose();
+    _stockCtrl.dispose();
     super.dispose();
   }
 
@@ -479,6 +520,7 @@ class _ProductFormState extends State<_ProductForm> {
             : _descCtrl.text.trim(),
         'category_id': _catId,
         'is_active': _active,
+        'stock': int.tryParse(_stockCtrl.text.trim()) ?? 10,
       };
 
       if (_productId != null) {
@@ -604,7 +646,20 @@ class _ProductFormState extends State<_ProductForm> {
 
             _tf(_nameCtrl, 'Товар аты *'),
             const SizedBox(height: 10),
-            _tf(_priceCtrl, 'Баасы (сом) *', type: TextInputType.number),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _tf(_priceCtrl, 'Баасы (сом) *',
+                      type: TextInputType.number),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _tf(_stockCtrl, 'Складда (даана)',
+                      type: TextInputType.number),
+                ),
+              ],
+            ),
             const SizedBox(height: 10),
             _tf(_descCtrl, 'Сүрөттөмө'),
             const SizedBox(height: 10),

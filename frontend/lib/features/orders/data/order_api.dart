@@ -71,6 +71,7 @@ class OrderApi {
     int? enterpriseId,
     int? intercityCityId,
     double? itemsTotal,
+    List<Map<String, int>>? items,
   }) async {
     try {
       final body = <String, dynamic>{
@@ -88,6 +89,7 @@ class OrderApi {
       if (intercityCityId != null) body['intercity_city_id'] = intercityCityId;
       if (itemsTotal != null && itemsTotal > 0)
         body['items_total'] = itemsTotal;
+      if (items != null && items.isNotEmpty) body['items'] = items;
 
       final response = await http.post(
         Uri.parse('${AppConfig.baseUrl}/orders/'),

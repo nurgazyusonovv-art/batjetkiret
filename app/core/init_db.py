@@ -23,6 +23,7 @@ def _migrate(engine):
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_requested BOOLEAN DEFAULT FALSE",
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_request_reason TEXT",
         "ALTER TABLE enterprise_products ADD COLUMN IF NOT EXISTS image_url TEXT",
+        "ALTER TABLE enterprise_products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT 10",
         "ALTER TABLE ad_popups ADD COLUMN IF NOT EXISTS enterprise_id INTEGER REFERENCES enterprises(id) ON DELETE SET NULL",
         "ALTER TABLE banners ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0",
         "ALTER TABLE banners ADD COLUMN IF NOT EXISTS show_days INTEGER DEFAULT 0",
@@ -33,7 +34,6 @@ def _migrate(engine):
         "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS prep_time_minutes INTEGER",
         "ALTER TABLE notifications ADD COLUMN order_id INTEGER",
         "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS is_open_override BOOLEAN",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS panel_password VARCHAR",
         "CREATE TABLE IF NOT EXISTS push_subscriptions (id SERIAL PRIMARY KEY, enterprise_id INTEGER NOT NULL, subscription_json TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())",
         "CREATE TABLE IF NOT EXISTS user_push_subscriptions (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, subscription_json TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())",
     ]

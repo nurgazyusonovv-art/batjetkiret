@@ -227,6 +227,13 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
       throw Exception('Аралык туура эсептелген жок. Картадан тандап кайра аракет кылыңыз');
     }
 
+    // Structured items (product_id + quantity) so the backend can track stock.
+    final items = <Map<String, int>>[
+      for (final entry in state.selectedItems.entries)
+        if (entry.value > 0)
+          {'product_id': entry.key, 'quantity': entry.value},
+    ];
+
     emit(state.copyWith(isLoading: true));
     try {
       return await _orderApi.createOrder(
@@ -242,6 +249,7 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
         distanceKm: distanceKm,
         enterpriseId: enterpriseId,
         itemsTotal: itemsTotal,
+        items: items.isEmpty ? null : items,
       );
     } finally {
       emit(state.copyWith(isLoading: false));
