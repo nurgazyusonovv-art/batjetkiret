@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../core/services/web_push_service.dart';
+import '../../../../core/services/web_push_service_stub.dart'
+    if (dart.library.html) '../../../../web/web_push_service_web.dart';
 import '../../../../core/token_storage.dart';
 import '../../data/auth_api.dart';
 import 'auth_state.dart';
@@ -48,6 +50,7 @@ class AuthCubit extends Cubit<AuthState> {
     emit(state.copyWith(isLoading: true, clearError: true, clearSuccess: true));
 
     try {
+      final wasRegister = !state.isLogin;
       final token = state.isLogin
           ? await _authApi.login(phone: phone, password: password)
           : await _authApi.register(
@@ -58,6 +61,14 @@ class AuthCubit extends Cubit<AuthState> {
 
       await TokenStorage.saveToken(token);
       WebPushService.subscribeIfNeeded(token);
+
+      // Flag the welcome-bonus celebration to show once on the home screen.
+      if (wasRegister) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('show_welcome_bonus', true);
+        } catch (_) {}
+      }
 
       emit(
         state.copyWith(

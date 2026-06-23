@@ -47,7 +47,74 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _filteredCategories = models.categories;
     _fetchBanners();
+    _maybeShowWelcomeBonus();
     _checkAndShowPopup();
+  }
+
+  Future<void> _maybeShowWelcomeBonus() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('show_welcome_bonus') != true) return;
+    await prefs.remove('show_welcome_bonus');
+    if (!mounted) return;
+    // Wait a beat so the home screen is settled before celebrating.
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🎁', style: TextStyle(fontSize: 56)),
+              const SizedBox(height: 12),
+              const Text(
+                'Кош келиңиз!',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Сизге белек катары 150 сом кошулду. Аны менен биринчи заказыңызды бере аласыз!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Заказ берүүнү баштоо',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _fetchBanners() async {

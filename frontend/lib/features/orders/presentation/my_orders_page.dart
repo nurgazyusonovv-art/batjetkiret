@@ -19,9 +19,12 @@ import 'widgets/advanced_filter_dialog.dart';
 enum OrderFilterStatus { all, pending, active, completed }
 
 class MyOrdersPage extends StatefulWidget {
-  const MyOrdersPage({super.key, required this.token});
+  const MyOrdersPage({super.key, required this.token, this.onCreateOrder});
 
   final String token;
+
+  /// Called when the user taps the empty-state CTA — switches to the Home tab.
+  final VoidCallback? onCreateOrder;
 
   @override
   State<MyOrdersPage> createState() => _MyOrdersPageState();
@@ -523,25 +526,87 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                           child: filteredOrders.isEmpty
                               ? Center(
                                   key: const ValueKey('orders-empty'),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.shopping_bag_outlined,
-                                        size: 48,
-                                        color: Colors.grey[400],
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        state.isCourier
-                                            ? 'Курьер заказдары жок'
-                                            : 'Заказдар жок',
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 16,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 32,
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 96,
+                                          height: 96,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primarySoft,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.receipt_long_outlined,
+                                            size: 46,
+                                            color: AppColors.primary,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(height: 18),
+                                        Text(
+                                          state.isCourier
+                                              ? 'Курьер заказдары жок'
+                                              : 'Азырынча заказыңыз жок',
+                                          style: const TextStyle(
+                                            color: AppColors.textPrimary,
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          state.isCourier
+                                              ? 'Жаңы заказдар бул жерде көрүнөт'
+                                              : 'Биринчи заказыңызды берип көрүңүз — тез жана оңой!',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 14,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                        if (!state.isCourier &&
+                                            widget.onCreateOrder != null) ...[
+                                          const SizedBox(height: 22),
+                                          SizedBox(
+                                            height: 48,
+                                            child: ElevatedButton.icon(
+                                              onPressed: widget.onCreateOrder,
+                                              icon: const Icon(
+                                                Icons.add_rounded,
+                                                size: 20,
+                                              ),
+                                              label: const Text(
+                                                'Заказ берүү',
+                                                style: TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    AppColors.primary,
+                                                foregroundColor: Colors.white,
+                                                elevation: 0,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 28,
+                                                ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
                                   ),
                                 )
                               : ListView.builder(

@@ -12,6 +12,9 @@ class ProfileState {
   final DateTime? courierStatsUpdatedAt;
   final String? courierStatsError;
 
+  /// Sum of top-up requests still awaiting admin approval (сом).
+  final double pendingTopupAmount;
+
   const ProfileState({
     this.user,
     this.isLoading = true,
@@ -23,6 +26,7 @@ class ProfileState {
     this.isCourierStatsLoading = false,
     this.courierStatsUpdatedAt,
     this.courierStatsError,
+    this.pendingTopupAmount = 0,
   });
 
   ProfileState copyWith({
@@ -39,6 +43,7 @@ class ProfileState {
     DateTime? courierStatsUpdatedAt,
     String? courierStatsError,
     bool clearCourierStatsError = false,
+    double? pendingTopupAmount,
   }) {
     return ProfileState(
       user: clearUser ? null : (user ?? this.user),
@@ -53,6 +58,7 @@ class ProfileState {
       courierStatsUpdatedAt:
           courierStatsUpdatedAt ?? this.courierStatsUpdatedAt,
       courierStatsError: clearCourierStatsError ? null : (courierStatsError ?? this.courierStatsError),
+      pendingTopupAmount: pendingTopupAmount ?? this.pendingTopupAmount,
     );
   }
 }

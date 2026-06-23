@@ -61,6 +61,20 @@ class ProfileCubit extends Cubit<ProfileState> {
           ? (ratingData['total_reviews'] as num).toInt()
           : 0;
 
+      // Sum of top-up requests still awaiting admin approval (best-effort).
+      double pendingTopup = 0;
+      try {
+        final topups = await _userApi.getTopupHistory(token);
+        for (final t in topups) {
+          if ((t['status']?.toString().toLowerCase()) == 'pending') {
+            final amt = t['amount'];
+            if (amt is num) pendingTopup += amt.toDouble();
+          }
+        }
+      } catch (_) {
+        pendingTopup = state.pendingTopupAmount; // keep last known on failure
+      }
+
       emit(
         state.copyWith(
           user: user,
@@ -69,6 +83,7 @@ class ProfileCubit extends Cubit<ProfileState> {
           ratingAverage: averageRating,
           ratingTotalReviews: totalReviews,
           unreadNotifications: unreadNotifications,
+          pendingTopupAmount: pendingTopup,
         ),
       );
     } on UnauthorizedException {

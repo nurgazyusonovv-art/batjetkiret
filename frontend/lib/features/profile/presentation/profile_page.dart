@@ -14,6 +14,7 @@ import 'package:frontend/features/profile/presentation/change_password_page.dart
 import 'package:frontend/features/profile/presentation/about_page.dart';
 import '../data/user_api.dart' as user_api_lib;
 import 'package:frontend/features/profile/presentation/topup_page.dart';
+import 'package:frontend/features/profile/presentation/topup_history_page.dart';
 
 import '../data/user_model.dart';
 
@@ -475,6 +476,31 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ],
           ),
+          if (context.watch<ProfileCubit>().state.pendingTopupAmount > 0) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.accent2,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '+${context.watch<ProfileCubit>().state.pendingTopupAmount.toStringAsFixed(0)} сом тастыкталууда',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.accent2,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -696,6 +722,16 @@ class _ProfilePageState extends State<ProfilePage> {
           context,
           MaterialPageRoute(
             builder: (_) => TransactionHistoryPage(token: widget.token),
+          ),
+        ),
+      ),
+      _MenuItem(
+        icon: Icons.account_balance_wallet_outlined,
+        label: 'Топап тарыхы',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TopupHistoryPage(token: widget.token),
           ),
         ),
       ),

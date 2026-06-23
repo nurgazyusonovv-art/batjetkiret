@@ -20,6 +20,7 @@ import 'features/profile/data/user_api.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/cubit/auth_state.dart';
 import 'features/profile/presentation/profile_page.dart';
+import 'features/profile/presentation/contact_admin_page.dart';
 import 'features/profile/presentation/cubit/profile_cubit.dart';
 import 'features/home/presentation/cubit/home_cubit.dart';
 import 'features/onboarding/presentation/onboarding_page.dart';
@@ -290,11 +291,23 @@ class _MainNavigationState extends State<MainNavigation>
     WidgetsBinding.instance.addObserver(this);
     _pages = [
       HomePage(token: widget.token),
-      MyOrdersPage(token: widget.token),
+      MyOrdersPage(
+        token: widget.token,
+        onCreateOrder: () {
+          if (!mounted) return;
+          setState(() {
+            _previousIndex = _currentIndex;
+            _currentIndex = 0;
+          });
+          _refreshForTab(0);
+          _scheduleNextAutoRefresh();
+        },
+      ),
       ProfilePage(
         token: widget.token,
         onLogout: () => context.read<AuthCubit>().logout(),
       ),
+      _SupportTab(token: widget.token),
     ];
 
     FcmService.initialize(widget.token);
@@ -518,6 +531,7 @@ class _MainNavigationState extends State<MainNavigation>
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
+        type: BottomNavigationBarType.fixed,
         onTap: (index) {
           if (index == _currentIndex) return;
           setState(() {
@@ -534,8 +548,35 @@ class _MainNavigationState extends State<MainNavigation>
             label: 'Заказдар',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Профиль'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.support_agent),
+            label: 'Колдоо',
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// Support tab — wraps ContactAdminPage, pulling the current user's id from
+/// ProfileCubit so it can be embedded in the bottom navigation.
+class _SupportTab extends StatelessWidget {
+  const _SupportTab({required this.token});
+
+  final String token;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<ProfileCubit>().state.user;
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return ContactAdminPage(
+      token: token,
+      userId: user.id,
+      startChatFn: () => UserApi().startSupportChat(token),
     );
   }
 }
