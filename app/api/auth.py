@@ -263,7 +263,8 @@ def register(request: Request, data: RegisterRequest, db: Session = Depends(get_
         phone=data.phone,
         name=data.name,
         hashed_password=hash_password(data.password),
-        is_courier=data.is_courier,
+        # Courier role is granted only by an admin — never via self-registration.
+        is_courier=False,
         balance=150,  # Welcome bonus for new users
         unique_id=generate_unique_id(db)  # Generate unique payment reference ID
     )
