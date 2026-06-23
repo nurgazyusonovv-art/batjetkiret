@@ -213,7 +213,8 @@ def approve_topup(
     db: Session = Depends(get_db),
     admin=Depends(require_admin),
 ):
-    req = db.query(TopUpRequest).filter(TopUpRequest.id == topup_id).first()
+    # Row-lock so two concurrent approvals can't both credit the balance.
+    req = db.query(TopUpRequest).filter(TopUpRequest.id == topup_id).with_for_update().first()
 
     if not req or req.status != "PENDING":
         raise HTTPException(status_code=404)
@@ -1718,8 +1719,8 @@ def approve_topup_request(
     current_admin=Depends(require_admin),
 ):
     """Approve a top-up request and credit user's balance"""
-    # Get the request
-    topup_req = db.query(TopUpRequest).filter(TopUpRequest.id == request_id).first()
+    # Row-lock so two concurrent approvals can't both credit the balance.
+    topup_req = db.query(TopUpRequest).filter(TopUpRequest.id == request_id).with_for_update().first()
     if not topup_req:
         raise HTTPException(status_code=404, detail="Top-up request not found")
     

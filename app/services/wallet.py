@@ -10,24 +10,6 @@ def _to_decimal(amount: float | Decimal) -> Decimal:
     return Decimal(str(amount))
 
 
-def transfer(
-    db: Session,
-    from_user: User,
-    to_user: User,
-    amount: float,
-):
-    amount_decimal = _to_decimal(amount)
-
-    if from_user.balance < amount_decimal:
-        raise ValueError("Insufficient balance")
-
-    from_user.balance -= amount_decimal
-    to_user.balance += amount_decimal
-
-    db.add(from_user)
-    db.add(to_user)
-
-
 def topup(db: Session, user: User, amount: float):
     amount_decimal = _to_decimal(amount)
 
@@ -141,6 +123,8 @@ def charge_platform_fee(
 
 
 def payout(db: Session, courier: User, order_id: int, amount: float):
+    """Pay an amount to a courier (e.g. cancellation compensation).
+    Caller is responsible for commit so multi-step admin actions stay atomic."""
     amount_decimal = _to_decimal(amount)
 
     courier.balance += amount_decimal
@@ -152,10 +136,11 @@ def payout(db: Session, courier: User, order_id: int, amount: float):
             type="PAYOUT",
         )
     )
-    db.commit()
 
 
 def refund(db: Session, user: User, order_id: int, amount: float):
+    """Refund an amount to a user (e.g. service fee on a cancelled order).
+    Caller is responsible for commit so multi-step admin actions stay atomic."""
     amount_decimal = _to_decimal(amount)
 
     user.balance += amount_decimal
@@ -167,4 +152,3 @@ def refund(db: Session, user: User, order_id: int, amount: float):
             type="REFUND",
         )
     )
-    db.commit()
