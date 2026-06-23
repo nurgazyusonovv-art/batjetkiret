@@ -129,6 +129,8 @@ class FcmService {
         return 'topup_status';
       case 'order_status':
         return 'order_status';
+      case 'SUPPORT':
+        return 'support_chat';
       default:
         return 'batken_messages';
     }

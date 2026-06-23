@@ -177,7 +177,7 @@ def support_chats(
         last_msg = (
             db.query(Message)
             .filter(Message.chat_id == c.id)
-            .order_by(Message.created_at.desc())
+            .order_by(Message.id.desc())  # stable: id is monotonic, created_at can tie
             .first()
         )
 

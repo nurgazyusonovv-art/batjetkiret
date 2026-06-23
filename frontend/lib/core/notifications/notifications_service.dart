@@ -68,6 +68,14 @@ class NotificationsService {
       playSound: true,
       enableVibration: true,
     );
+    const supportChannel = AndroidNotificationChannel(
+      'support_chat',
+      'Колдоо кызматы',
+      description: 'Колдоо кызматынан жооп',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+    );
 
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
@@ -75,6 +83,7 @@ class NotificationsService {
     await androidPlugin?.createNotificationChannel(messagesChannel);
     await androidPlugin?.createNotificationChannel(topupChannel);
     await androidPlugin?.createNotificationChannel(orderChannel);
+    await androidPlugin?.createNotificationChannel(supportChannel);
 
     // Request iOS permissions
     await _plugin
@@ -125,6 +134,8 @@ class NotificationsService {
         return 'Топап статусу';
       case 'order_status':
         return 'Заказ статусу';
+      case 'support_chat':
+        return 'Колдоо кызматы';
       default:
         return 'Билдирүүлөр';
     }
@@ -164,6 +175,8 @@ class NotificationsService {
         return 'topup_status';
       case 'order_status':
         return 'order_status';
+      case 'SUPPORT':
+        return 'support_chat';
       default:
         return 'batken_messages';
     }

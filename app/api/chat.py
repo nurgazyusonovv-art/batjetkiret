@@ -436,7 +436,7 @@ def get_chat_messages(
     messages = (
         db.query(Message)
         .filter(Message.chat_id == chat.id)
-        .order_by(Message.created_at)
+        .order_by(Message.id)  # stable: id is monotonic, created_at can tie within a second
         .all()
     )
 
