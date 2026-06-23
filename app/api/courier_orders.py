@@ -32,6 +32,19 @@ ACTIVE_COURIER_STATUSES = (
 )
 
 
+def _local_day_start_utc(days_ago: int = 0) -> datetime:
+    """Naive-UTC instant matching local (UTC+6) midnight `days_ago` days back.
+
+    Transaction.created_at is stored as naive UTC; to bucket by the local business
+    day we shift to local time, take the day boundary, then convert back to UTC.
+    """
+    import os
+    tz_offset = int(os.getenv("TZ_OFFSET_HOURS", "6"))
+    local_now = datetime.utcnow() + timedelta(hours=tz_offset)
+    local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_ago)
+    return local_midnight - timedelta(hours=tz_offset)
+
+
 def _get_service_fee(db) -> Decimal:
     row = db.query(Setting).filter(Setting.key == "courier_service_fee").first()
     if row:
@@ -231,9 +244,11 @@ def accept_order(
             ),
         )
 
+    # Row-lock so two couriers can't accept the same order concurrently.
     order = (
         db.query(Order)
         .filter(Order.id == order_id)
+        .with_for_update()
         .first()
     )
     if not order:
@@ -325,6 +340,35 @@ def cancel_courier_order(
         "penalty": float(penalty_amount),
     }
 
+def _complete_courier_order(db: Session, courier: User, order_id: int) -> dict:
+    """Idempotently complete a courier's order and charge the service fee once.
+
+    Guards against double-charge if the completion endpoint is hit twice
+    (retry / double-tap): if the order is already COMPLETED, returns without
+    re-charging; if CANCELLED, rejects.
+    """
+    # Row-lock to serialize concurrent completion attempts.
+    order = db.query(Order).filter(Order.id == order_id).with_for_update().first()
+    if not order or order.courier_id != courier.id:
+        raise HTTPException(status_code=404)
+
+    if order.status == "COMPLETED":
+        return {"message": "Order already completed"}
+    if order.status == "CANCELLED":
+        raise HTTPException(status_code=400, detail="Заказ жокко чыгарылган")
+
+    apply_status_change(
+        db=db,
+        order=order,
+        new_status="COMPLETED",
+        actor_user_id=courier.id,
+    )
+    # Do not add order price to courier balance on completion.
+    _charge_courier_service_fee(db, courier, order.id)
+    db.commit()
+    return {"message": "Order completed"}
+
+
 @router.post("/{order_id}/deliver")
 def deliver_order(
     order_id: int,
@@ -333,23 +377,7 @@ def deliver_order(
 ):
     if not current_user.is_courier:
         raise HTTPException(status_code=403)
-
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order or order.courier_id != current_user.id:
-        raise HTTPException(status_code=404)
-
-    apply_status_change(
-        db=db,
-        order=order,
-        new_status="COMPLETED",
-        actor_user_id=current_user.id,
-    )
-    # Do not add order price to courier balance on completion.
-    _charge_courier_service_fee(db, current_user, order.id)
-
-    db.commit()
-
-    return {"message": "Order completed"}
+    return _complete_courier_order(db, current_user, order_id)
 
 @router.post("/{order_id}/start")
 def start_delivery(
@@ -383,21 +411,7 @@ def mark_delivered(
     """Courier marks order as delivered and immediately completes it."""
     if not current_user.is_courier:
         raise HTTPException(status_code=403)
-
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order or order.courier_id != current_user.id:
-        raise HTTPException(status_code=404)
-
-    apply_status_change(
-        db=db,
-        order=order,
-        new_status="COMPLETED",
-        actor_user_id=current_user.id,
-    )
-    _charge_courier_service_fee(db, current_user, order.id)
-    db.commit()
-
-    return {"message": "Order completed"}
+    return _complete_courier_order(db, current_user, order_id)
 
 
 @router.post("/{order_id}/complete")
@@ -409,42 +423,7 @@ def complete_order(
     """Kept for backwards compatibility — same as /delivered."""
     if not current_user.is_courier:
         raise HTTPException(status_code=403)
-
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order or order.courier_id != current_user.id:
-        raise HTTPException(status_code=404)
-
-    apply_status_change(
-        db=db,
-        order=order,
-        new_status="COMPLETED",
-        actor_user_id=current_user.id,
-    )
-    _charge_courier_service_fee(db, current_user, order.id)
-    db.commit()
-
-    return {"message": "Order completed"}
-
-@router.post("/{order_id}/cancel")
-def cancel_order(
-    order_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order or order.user_id != current_user.id:
-        raise HTTPException(status_code=404)
-
-    apply_status_change(
-        db=db,
-        order=order,
-        new_status="CANCELLED",
-        actor_user_id=current_user.id,
-    )
-    db.commit()
-
-    return {"message": "Order cancelled"}
-
+    return _complete_courier_order(db, current_user, order_id)
 
 @router.get("/stats")
 @limiter.limit("30/minute")
@@ -489,8 +468,8 @@ def courier_statistics(
     # Fees are stored as negative, convert to positive for display
     total_fees = abs(total_fees)
 
-    # Today's stats (from midnight)
-    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # Today's stats — local (UTC+6) midnight as a UTC instant matching created_at storage
+    today_start = _local_day_start_utc(0)
     
     # Today completed orders (tracked by SERVICE_FEE_COURIER transaction time).
     today_completed_order_ids = (
