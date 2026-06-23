@@ -17,7 +17,7 @@ from app.models.user import User
 from app.models.transaction import Transaction
 from app.models.topup import TopUpRequest
 from app.models.user_rating import UserRating
-from app.services.wallet import refund, payout, release_hold
+from app.services.wallet import refund, payout, release_hold, settle_hold
 from app.models.notification import Notification
 from app.models.order_status_log import OrderStatusLog
 from datetime import datetime, timedelta
@@ -919,15 +919,41 @@ def all_users(
 
     return result
 
+
+def _ensure_not_last_admin(db: Session, target_user_id: int) -> None:
+    """Block an action that would leave the system with no active admin."""
+    remaining = (
+        db.query(func.count(User.id))
+        .filter(
+            User.is_admin == True,  # noqa: E712
+            User.is_active == True,  # noqa: E712
+            User.id != target_user_id,
+        )
+        .scalar()
+        or 0
+    )
+    if remaining == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Бул акыркы администратор — бул аракетти аткарууга болбойт",
+        )
+
+
 @router.post("/users/{user_id}/block")
 def block_user(
     user_id: int,
     db: Session = Depends(get_db),
     admin=Depends(require_admin),
 ):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Өзүңүздү бөгөттөй албайсыз")
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404)
+
+    if user.is_admin:
+        _ensure_not_last_admin(db, user_id)
 
     user.is_active = False
     db.commit()
@@ -1025,9 +1051,17 @@ def update_user(
         user.name = payload.name
 
     if payload.is_active is not None:
+        if payload.is_active is False:
+            if user_id == admin.id:
+                raise HTTPException(status_code=400, detail="Өзүңүздү бөгөттөй албайсыз")
+            if user.is_admin:
+                _ensure_not_last_admin(db, user_id)
         user.is_active = payload.is_active
 
     if payload.role is not None:
+        # Demoting an admin away from the admin role — keep at least one admin.
+        if user.is_admin and payload.role != "admin":
+            _ensure_not_last_admin(db, user_id)
         if payload.role == "admin":
             user.is_admin = True
             user.is_courier = False
@@ -1067,6 +1101,9 @@ def delete_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404)
+
+    if user.is_admin:
+        _ensure_not_last_admin(db, user_id)
 
     # Orders created by this user must be deleted because user_id is non-nullable.
     owned_order_ids = [row[0] for row in db.query(Order.id).filter(Order.user_id == user_id).all()]
@@ -1201,6 +1238,9 @@ def remove_admin(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404)
+
+    # Don't allow removing the last admin (covers self-removal too).
+    _ensure_not_last_admin(db, user_id)
 
     user.is_admin = False
     db.commit()
@@ -1441,6 +1481,16 @@ def force_status(
         actor_user_id=admin.id,
         enforce_transition=False,
     )
+
+    # Keep the courier's reserved fee consistent with the forced status.
+    if order.courier_id:
+        courier = db.query(User).filter(User.id == order.courier_id).first()
+        if courier:
+            if new_status == "COMPLETED":
+                settle_hold(db, courier, order.id)     # finalize the reserved fee
+            elif new_status == "CANCELLED":
+                release_hold(db, courier, order.id)    # give the reserved fee back
+
     order.admin_note = note
     db.commit()
 
