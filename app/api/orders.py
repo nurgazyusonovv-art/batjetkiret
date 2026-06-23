@@ -21,7 +21,7 @@ from app.schemas.order import OrderCreateRequest, OrderResponse
 from app.core.config import settings
 from app.services.pricing import calculate_price
 from app.api.admin import get_delivery_pricing, get_taxi_pricing, get_user_service_fee
-from app.services.wallet import charge_platform_fee
+from app.services.wallet import charge_platform_fee, refund
 from app.services.order_status import apply_status_change
 from app.services import fcm as fcm_service
 
@@ -582,6 +582,38 @@ class CancelRequestBody(BaseModel):
     reason: str = ""
 
 
+def _refund_user_service_fee(db: Session, order: Order) -> None:
+    """Refund the SERVICE_FEE_USER charged at order creation, once.
+
+    Only refunds if the fee was actually charged (a SERVICE_FEE_USER transaction
+    exists) and hasn't already been refunded for this order."""
+    fee_tx = (
+        db.query(Transaction)
+        .filter(
+            Transaction.order_id == order.id,
+            Transaction.user_id == order.user_id,
+            Transaction.type == "SERVICE_FEE_USER",
+        )
+        .first()
+    )
+    if fee_tx is None:
+        return
+    already = (
+        db.query(Transaction)
+        .filter(
+            Transaction.order_id == order.id,
+            Transaction.user_id == order.user_id,
+            Transaction.type == "REFUND",
+        )
+        .first()
+    )
+    if already is not None:
+        return
+    user = db.query(User).filter(User.id == order.user_id).first()
+    if user is not None:
+        refund(db, user, order.id, float(-fee_tx.amount))  # fee_tx.amount is negative
+
+
 @router.post("/{order_id}/cancel")
 def cancel_order(
     order_id: int,
@@ -595,7 +627,7 @@ def cancel_order(
     if order.user_id != current_user.id:
         raise HTTPException(status_code=403)
 
-    # WAITING_COURIER — direct cancel
+    # WAITING_COURIER — direct cancel (no courier engaged yet → refund the service fee)
     if order.status == "WAITING_COURIER":
         apply_status_change(
             db=db,
@@ -603,6 +635,7 @@ def cancel_order(
             new_status="CANCELLED",
             actor_user_id=current_user.id,
         )
+        _refund_user_service_fee(db, order)
         db.commit()
         return {"message": "Order cancelled", "type": "direct"}
 

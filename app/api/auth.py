@@ -296,6 +296,11 @@ def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
         )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Каттоо эсебиңиз бөгөттөлгөн. Администратор менен байланышыңыз.",
+        )
 
     token = create_access_token(user.id)
     return {
@@ -323,6 +328,9 @@ def change_password(
     """User changes their own password"""
     if not verify_password(old_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect password")
+
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Жаңы сырсөз кеминде 6 символ болуш керек")
 
     current_user.hashed_password = hash_password(new_password)
     db.commit()
