@@ -614,7 +614,9 @@ class _NotificationCard extends StatelessWidget {
       },
       onDismissed: (_) => onDelete(),
       child: InkWell(
-        onTap: canOpenChat ? onTap : null,
+        // Always tappable: tapping marks the notification read (and opens the
+        // chat/order if one is linked). Non-chat notifications still get read.
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
