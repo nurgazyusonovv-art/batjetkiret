@@ -583,6 +583,7 @@ class _SupportTab extends StatelessWidget {
       token: token,
       userId: user.id,
       startChatFn: () => UserApi().startSupportChat(token),
+      showBackButton: false,
     );
   }
 }

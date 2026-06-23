@@ -11,11 +11,15 @@ class ContactAdminPage extends StatefulWidget {
   final int userId;
   final Future<int> Function() startChatFn;
 
+  /// Whether to show the AppBar back button. False when embedded as a bottom-nav tab.
+  final bool showBackButton;
+
   const ContactAdminPage({
     super.key,
     required this.token,
     required this.userId,
     required this.startChatFn,
+    this.showBackButton = true,
   });
 
   @override
@@ -91,10 +95,14 @@ class _ContactAdminPageState extends State<ContactAdminPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, size: 20, color: AppColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
+        leading: widget.showBackButton
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios,
+                    size: 20, color: AppColors.textPrimary),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: const Text(
           'Администраторго жазуу',
           style: TextStyle(
