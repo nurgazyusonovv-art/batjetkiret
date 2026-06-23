@@ -595,57 +595,60 @@ class _HomePageState extends State<HomePage> {
   // ── Horizontal category chips ────────────────────────────────────────────────
   Widget _buildCategoryChips(dynamic homeState, dynamic user) {
     return SizedBox(
-      height: 96,
+      height: 118,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: _filteredCategories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final category = _filteredCategories[index];
           final selected = !_actionCategories.contains(category.id) &&
               category.id == _selectedCategoryId;
+          // Image + label live in a single coloured container.
           return GestureDetector(
             onTap: () => _onCategoryChipTap(category, user, homeState),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: selected ? AppColors.primarySoft : Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: selected ? AppColors.primary : AppColors.border,
-                      width: selected ? 2 : 1,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 86,
+              padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primarySoft : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: selected ? AppColors.primary : AppColors.border,
+                  width: selected ? 2 : 1,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      category.icon,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
                     ),
                   ),
-                  padding: const EdgeInsets.all(10),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.asset(category.icon, fit: BoxFit.cover),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  width: 72,
-                  child: Text(
+                  const SizedBox(height: 6),
+                  Text(
                     category.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
                     textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 11,
+                      height: 1.15,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       color: selected
                           ? AppColors.primary
                           : AppColors.textSecondary,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
