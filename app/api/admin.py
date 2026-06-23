@@ -1260,7 +1260,13 @@ def send_notification_to_order(
     db.add(notif)
     db.commit()
 
-    fcm_service.send_push_to_user(user, title=notif.title, body=payload.message)
+    # Include order_id so tapping the push opens the related order.
+    fcm_service.send_push_to_user(
+        user,
+        title=notif.title,
+        body=payload.message,
+        data={"order_id": str(order_id), "type": "order_status"},
+    )
 
     return {"ok": True}
 
