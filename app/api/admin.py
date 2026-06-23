@@ -17,7 +17,7 @@ from app.models.user import User
 from app.models.transaction import Transaction
 from app.models.topup import TopUpRequest
 from app.models.user_rating import UserRating
-from app.services.wallet import refund, payout
+from app.services.wallet import refund, payout, release_hold
 from app.models.notification import Notification
 from app.models.order_status_log import OrderStatusLog
 from datetime import datetime, timedelta
@@ -1364,9 +1364,13 @@ def force_cancel_order(
         user = db.query(User).filter(User.id == order.user_id).first()
         refund(db, user, order.id, USER_ORDER_SERVICE_FEE)
 
-    if payout_courier and order.courier_id:
+    if order.courier_id:
         courier = db.query(User).filter(User.id == order.courier_id).first()
-        payout(db, courier, order.id, COURIER_ORDER_SERVICE_FEE)
+        if courier:
+            # Return the reserved service fee held at acceptance.
+            release_hold(db, courier, order.id)
+            if payout_courier:
+                payout(db, courier, order.id, COURIER_ORDER_SERVICE_FEE)
 
     apply_status_change(
         db=db,
@@ -1933,7 +1937,7 @@ SETTING_DEFAULTS = {
     "taxi_price_per_km":      ("30",  "Такси: 1 км үчүн баа (сом)"),
     "taxi_extra_after_km":    ("4",   "Таксиде кошумча акы баштала турган аралык (км)"),
     "taxi_extra_price_per_km": ("0",  "Таксиде чек аралыктан ашкан ар бир км үчүн кошумча баа (сом)"),
-    "android_latest_version_code": ("27", "Android тиркемесинин Play Marketтеги акыркы versionCode"),
+    "android_latest_version_code": ("32", "Android тиркемесинин Play Marketтеги акыркы versionCode"),
     "android_update_required": ("false", "Жаңы версияны милдеттүү жүктөтүү (true/false)"),
     "play_market_url": ("https://play.google.com/store/apps/details?id=kg.batkenexpress.app", "Тиркеменин Play Market шилтемеси"),
     "rating_dialog_enabled": ("true", "Play Market баалоо диалогун көрсөтүү (true/false)"),
@@ -2183,11 +2187,14 @@ def approve_cancel_request(
         if user:
             refund(db, user, order.id, user_refund_amt)
 
-    # Payout courier compensation for accepted but cancelled order
-    if order.courier_id and courier_payout_amt > 0:
+    # Courier: give back the reserved service fee (held at acceptance), plus any
+    # compensation payout. Releasing the hold keeps the courier whole for the fee.
+    if order.courier_id:
         courier = db.query(User).filter(User.id == order.courier_id).first()
         if courier:
-            payout(db, courier, order.id, courier_payout_amt)
+            release_hold(db, courier, order.id)
+            if courier_payout_amt > 0:
+                payout(db, courier, order.id, courier_payout_amt)
 
     apply_status_change(db=db, order=order, new_status="CANCELLED", actor_user_id=admin.id)
     order.cancel_requested = False
@@ -2376,5 +2383,3 @@ def fcm_debug(db: Session = Depends(get_db), admin=Depends(require_admin)):
         "fcm_initialized": fcm_service.is_initialized(),
         "admins": results,
     }
-
-

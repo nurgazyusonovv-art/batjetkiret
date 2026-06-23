@@ -12,7 +12,7 @@ from app.models.enterprise import Enterprise
 from app.models.user import User
 from app.models.chat import ChatRoom
 from app.models.transaction import Transaction
-from app.services.wallet import charge_platform_fee
+from app.services.wallet import charge_platform_fee, hold_amount, settle_hold, release_hold, _open_hold
 from app.services.order_status import apply_status_change
 from app.core.limiter import limiter
 from app.models.setting import Setting
@@ -228,10 +228,12 @@ def accept_order(
     if not current_user.is_courier:
         raise HTTPException(status_code=403, detail="Not a courier")
 
-    if (current_user.balance or Decimal("0")) < Decimal("0"):
+    # Reserve the service fee at acceptance — balance must cover it up front.
+    fee = _get_service_fee(db)
+    if (current_user.balance or Decimal("0")) < fee:
         raise HTTPException(
             status_code=400,
-            detail="Балансыңыз терс. Заказ кабыл алуу үчүн алгач балансыңызды толуктаңыз",
+            detail=f"Заказ кабыл алуу үчүн балансыңызда {fee} сом болушу керек",
         )
 
     active_order = _active_courier_order(db, current_user.id)
@@ -283,6 +285,17 @@ def accept_order(
         )
         db.add(chat)
 
+    # Reserve (hold) the courier service fee now. If a hold already exists for this
+    # order (re-accept of own order), skip. Rolls back with the rest on failure.
+    if _open_hold(db, current_user.id, order.id) is None:
+        try:
+            hold_amount(db, current_user, order.id, float(fee))
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Заказ кабыл алуу үчүн балансыңызда {fee} сом болушу керек",
+            )
+
     db.commit()
 
     return {
@@ -314,6 +327,10 @@ def cancel_courier_order(
             detail="Заказды алгандан кийин гана баш тарта аласыз",
         )
 
+    # Release the reserved service fee first (order not completed), so the freed
+    # balance can cover the penalty. On any error below, the whole tx rolls back.
+    release_hold(db, current_user, order.id)
+
     # Пенальти: DB'дан окуп, балансынан кармоо
     penalty_amount = get_courier_cancel_penalty(db)
     if current_user.balance < penalty_amount:
@@ -323,6 +340,13 @@ def cancel_courier_order(
         )
 
     current_user.balance -= penalty_amount
+    if penalty_amount > 0:
+        db.add(Transaction(
+            user_id=current_user.id,
+            order_id=order.id,
+            amount=-penalty_amount,
+            type="CANCEL_PENALTY",
+        ))
 
     # Статусту WAITING_COURIER кайтаруу
     apply_status_change(
@@ -363,8 +387,10 @@ def _complete_courier_order(db: Session, courier: User, order_id: int) -> dict:
         new_status="COMPLETED",
         actor_user_id=courier.id,
     )
-    # Do not add order price to courier balance on completion.
-    _charge_courier_service_fee(db, courier, order.id)
+    # Service fee was reserved (HOLD) at acceptance — just finalize it.
+    # Legacy orders accepted before reservation existed have no hold → charge now.
+    if not settle_hold(db, courier, order.id):
+        _charge_courier_service_fee(db, courier, order.id)
     db.commit()
     return {"message": "Order completed"}
 

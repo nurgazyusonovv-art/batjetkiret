@@ -12,6 +12,8 @@ class Transaction(Base):
 
     amount = Column(Numeric(10, 2), nullable=False)
     type = Column(String, nullable=False)
-    # TOPUP | HOLD | RELEASE | PAYOUT | SERVICE_FEE_USER | SERVICE_FEE_COURIER
+    # TOPUP | HOLD | RELEASE | RELEASED | REFUND | PAYOUT | SERVICE_FEE_USER | SERVICE_FEE_COURIER
+    # HOLD     — reserved amount (negative); becomes SERVICE_FEE_* on settle, or RELEASED on release
+    # RELEASE  — give-back entry (positive) created when a HOLD is released
 
     created_at = Column(DateTime, server_default=func.now())
