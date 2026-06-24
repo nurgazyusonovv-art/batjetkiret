@@ -376,32 +376,38 @@ class _MainNavigationState extends State<MainNavigation>
     if (!mounted || !_isAppInForeground || widget.token.isEmpty) return;
     try {
       final notifications = await _userApi.getNotifications(widget.token);
+      if (notifications.isEmpty) return;
+
+      final maxId = notifications.map((n) => n.id).reduce(max);
+      final firstRun = _lastSeenNotificationId == 0;
       final newUnread = notifications
           .where((n) => !n.isRead && n.id > _lastSeenNotificationId)
           .toList();
 
-      if (newUnread.isNotEmpty) {
-        // Update baseline to max id seen
-        _lastSeenNotificationId = notifications.map((n) => n.id).reduce(max);
+      // Always advance the baseline so the same notification is never shown twice.
+      _lastSeenNotificationId = maxId;
 
-        for (final n in newUnread) {
-          // System notification with sound + chatId payload for tap navigation
-          await NotificationsService.showNotification(
-            n.id,
-            n.title,
-            n.message,
-            chatId: n.chatId,
-          );
-          // In-app overlay banner
-          NotificationsService.addNotification({
-            'title': n.title,
-            'body': n.message,
-            'type': 'info',
-          });
-        }
-      } else if (_lastSeenNotificationId == 0 && notifications.isNotEmpty) {
-        // First run — set baseline without showing notifications
-        _lastSeenNotificationId = notifications.map((n) => n.id).reduce(max);
+      // First run (cold start / resume): anything already here was delivered by the
+      // push channel while the app was closed — set the baseline only, show nothing.
+      if (firstRun) return;
+
+      // On mobile, FCM already shows pushes (foreground + background), so polling
+      // must NOT re-show them — that caused triple notifications. Polling only
+      // surfaces in-app banners on web, where there is no foreground FCM.
+      if (!kIsWeb) return;
+
+      for (final n in newUnread) {
+        await NotificationsService.showNotification(
+          n.id,
+          n.title,
+          n.message,
+          chatId: n.chatId,
+        );
+        NotificationsService.addNotification({
+          'title': n.title,
+          'body': n.message,
+          'type': 'info',
+        }, withSound: false);
       }
     } catch (_) {}
   }
