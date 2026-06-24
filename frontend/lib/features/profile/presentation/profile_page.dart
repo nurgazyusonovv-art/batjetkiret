@@ -12,6 +12,7 @@ import 'package:frontend/features/profile/presentation/transaction_history_page.
 import 'package:frontend/features/profile/presentation/contact_admin_page.dart';
 import 'package:frontend/features/profile/presentation/change_password_page.dart';
 import 'package:frontend/features/profile/presentation/about_page.dart';
+import 'package:frontend/features/profile/presentation/how_to_order_page.dart';
 import '../data/user_api.dart' as user_api_lib;
 import 'package:frontend/features/profile/presentation/topup_page.dart';
 import 'package:frontend/features/profile/presentation/topup_history_page.dart';
@@ -715,6 +716,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildMenuSection(User user) {
     final items = [
+      _MenuItem(
+        icon: Icons.help_outline,
+        label: 'Кантип заказ берем?',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const HowToOrderPage()),
+        ),
+      ),
       _MenuItem(
         icon: Icons.receipt_long_outlined,
         label: 'Транзакциялардын тарыхы',
