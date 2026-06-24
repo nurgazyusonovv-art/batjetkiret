@@ -43,37 +43,45 @@ class NotificationsService {
       },
     );
 
-    // Android notification channels
+    // Custom notification sound (android/app/src/main/res/raw/notification_tone.mp3).
+    // Channel ids are suffixed _v2 because Android caches a channel's sound at
+    // creation time and ignores later changes — a new id forces the new sound.
+    const sound = RawResourceAndroidNotificationSound('notification_tone');
+
     const messagesChannel = AndroidNotificationChannel(
-      'batken_messages',
+      'batken_messages_v2',
       'Билдирүүлөр',
       description: 'Жаңы билдирүүлөр жана чат хабарлары',
       importance: Importance.max,
       playSound: true,
+      sound: sound,
       enableVibration: true,
     );
     const topupChannel = AndroidNotificationChannel(
-      'topup_status',
+      'topup_status_v2',
       'Топап статусу',
       description: 'Топап тастыкталды же четке кагылды',
       importance: Importance.max,
       playSound: true,
+      sound: sound,
       enableVibration: true,
     );
     const orderChannel = AndroidNotificationChannel(
-      'order_status',
+      'order_status_v2',
       'Заказ статусу',
       description: 'Заказыңыздын статусу өзгөрдү',
       importance: Importance.max,
       playSound: true,
+      sound: sound,
       enableVibration: true,
     );
     const supportChannel = AndroidNotificationChannel(
-      'support_chat',
+      'support_chat_v2',
       'Колдоо кызматы',
       description: 'Колдоо кызматынан жооп',
       importance: Importance.max,
       playSound: true,
+      sound: sound,
       enableVibration: true,
     );
 
@@ -99,7 +107,7 @@ class NotificationsService {
     String body, {
     int? chatId,
     int? orderId,
-    String channelId = 'batken_messages',
+    String channelId = 'batken_messages_v2',
   }) async {
     if (!_initialized) return;
 
@@ -116,6 +124,7 @@ class NotificationsService {
       importance: Importance.max,
       priority: Priority.max,
       playSound: true,
+      sound: const RawResourceAndroidNotificationSound('notification_tone'),
       enableVibration: true,
       vibrationPattern: Int64List.fromList([0, 250, 100, 250]),
     );
@@ -130,11 +139,11 @@ class NotificationsService {
 
   static String _channelName(String channelId) {
     switch (channelId) {
-      case 'topup_status':
+      case 'topup_status_v2':
         return 'Топап статусу';
-      case 'order_status':
+      case 'order_status_v2':
         return 'Заказ статусу';
-      case 'support_chat':
+      case 'support_chat_v2':
         return 'Колдоо кызматы';
       default:
         return 'Билдирүүлөр';
@@ -172,13 +181,13 @@ class NotificationsService {
     switch (type) {
       case 'topup_approved':
       case 'topup_rejected':
-        return 'topup_status';
+        return 'topup_status_v2';
       case 'order_status':
-        return 'order_status';
+        return 'order_status_v2';
       case 'SUPPORT':
-        return 'support_chat';
+        return 'support_chat_v2';
       default:
-        return 'batken_messages';
+        return 'batken_messages_v2';
     }
   }
 

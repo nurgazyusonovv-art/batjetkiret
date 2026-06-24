@@ -166,7 +166,7 @@ def _create_notifications(db: Session, chat: ChatRoom, sender_id: int) -> None:
                     title="💬 Колдоо кызматы",
                     body="Жаңы жооп бар",
                     data={"chat_id": str(chat.id), "type": "SUPPORT"},
-                    channel_id="support_chat",
+                    channel_id="support_chat_v2",
                     include_notification=True,
                 ) if user and user.fcm_token else None
         else:
@@ -185,7 +185,7 @@ def _create_notifications(db: Session, chat: ChatRoom, sender_id: int) -> None:
                         title="💬 Колдоо чаты",
                         body=f"{sender_name}: Жаңы билдирүү",
                         data={"chat_id": str(chat.id), "type": "SUPPORT"},
-                        channel_id="support_chat",
+                        channel_id="support_chat_v2",
                     )
 
 

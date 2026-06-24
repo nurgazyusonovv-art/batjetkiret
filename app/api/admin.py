@@ -261,7 +261,7 @@ def approve_topup(
             token=user.fcm_token,
             title="✅ Топап тастыкталды",
             body=f"{int(approved_amount)} сом кошулду. Баланс: {int(float(user.balance))} сом",
-            channel_id="topup_status",
+            channel_id="topup_status_v2",
             include_notification=True,
         )
 
@@ -299,7 +299,7 @@ def reject_topup(
             token=user.fcm_token,
             title="❌ Топап четке кагылды",
             body=f"{int(float(req.amount))} сом. Себеп: {note}",
-            channel_id="topup_status",
+            channel_id="topup_status_v2",
             include_notification=True,
         )
 
@@ -1864,7 +1864,7 @@ def approve_topup_request(
             token=user.fcm_token,
             title="✅ Топап тастыкталды",
             body=f"{int(float(topup_req.amount))} сом балансыңызга кошулду. Жаңы баланс: {int(float(user.balance))} сом",
-            channel_id="topup_status",
+            channel_id="topup_status_v2",
             include_notification=True,
         )
 
@@ -1921,7 +1921,7 @@ def reject_topup_request(
             token=user.fcm_token,
             title="❌ Топап четке кагылды",
             body=f"{int(float(topup_req.amount))} сом. Себеп: {admin_note}",
-            channel_id="topup_status",
+            channel_id="topup_status_v2",
             include_notification=True,
         )
 

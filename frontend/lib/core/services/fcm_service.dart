@@ -126,13 +126,13 @@ class FcmService {
     switch (type) {
       case 'topup_approved':
       case 'topup_rejected':
-        return 'topup_status';
+        return 'topup_status_v2';
       case 'order_status':
-        return 'order_status';
+        return 'order_status_v2';
       case 'SUPPORT':
-        return 'support_chat';
+        return 'support_chat_v2';
       default:
-        return 'batken_messages';
+        return 'batken_messages_v2';
     }
   }
 

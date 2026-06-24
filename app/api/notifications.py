@@ -148,7 +148,7 @@ def send_support_message(
                 title=full_title,
                 body=message,
                 data={"type": "support_message"},
-                channel_id="batken_messages",
+                channel_id="batken_messages_v2",
                 include_notification=False,
             )
     db.commit()
