@@ -13,8 +13,12 @@ RUN mkdir -p uploads/screenshots
 
 EXPOSE 8000
 
-CMD gunicorn app.main:app \
+# Run migrations, but never let a migration failure block the app from starting
+# (the schema is already in place; a failed migration must not take the API down).
+CMD (alembic upgrade head || echo "⚠️  alembic upgrade failed — starting app anyway"); \
+    gunicorn app.main:app \
         --worker-class uvicorn.workers.UvicornWorker \
         --bind 0.0.0.0:${PORT:-8000} \
-        --workers 2 \
-        --timeout 120
+        --workers ${WEB_CONCURRENCY:-1} \
+        --timeout 120 \
+        --keep-alive 75
