@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
-from sqlalchemy.pool import NullPool
 from app.core.config import settings
 
 db_url = settings.DATABASE_URL
@@ -16,7 +15,11 @@ else:
     engine = create_engine(
         db_url,
         echo=settings.DEBUG,
-        poolclass=NullPool,
+        pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_MAX_OVERFLOW,
+        pool_timeout=settings.DB_POOL_TIMEOUT_SECONDS,
+        pool_recycle=settings.DB_POOL_RECYCLE_SECONDS,
+        pool_pre_ping=True,
         connect_args={
             "connect_timeout": 10,
             "keepalives": 1,

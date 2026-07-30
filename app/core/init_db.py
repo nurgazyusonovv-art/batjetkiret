@@ -26,6 +26,7 @@ def _migrate(engine):
         "ALTER TABLE enterprise_products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT 10",
         "ALTER TABLE ad_popups ADD COLUMN IF NOT EXISTS enterprise_id INTEGER REFERENCES enterprises(id) ON DELETE SET NULL",
         "ALTER TABLE banners ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0",
+        "ALTER TABLE advertisements ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0",
         "ALTER TABLE banners ADD COLUMN IF NOT EXISTS show_days INTEGER DEFAULT 0",
         "ALTER TABLE banners ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
         "ALTER TABLE enterprises ADD COLUMN IF NOT EXISTS logo_data TEXT",

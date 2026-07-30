@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from typing import Literal
@@ -30,6 +30,8 @@ from app.models.enterprise import Enterprise
 from app.services.order_status import apply_status_change
 from app.core.security import hash_password
 from app.services import fcm as fcm_service
+from app.services.courier_notifications import notify_online_couriers_about_order
+from app.services.pricing import calculate_price
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 logger = logging.getLogger(__name__)
@@ -92,6 +94,21 @@ class NotificationCreate(BaseModel):
     title: str
     message: str
     order_id: int | None = None
+
+
+class AdminCreateOrderRequest(BaseModel):
+    user_id: int
+    category: Literal["delivery", "taxi"] = "delivery"
+    description: str = Field(..., min_length=1, max_length=500)
+    from_address: str = Field(..., min_length=1, max_length=255)
+    to_address: str = Field(..., min_length=1, max_length=255)
+    distance_km: float = Field(..., ge=0, le=10000)
+    price: float | None = Field(default=None, ge=0)
+    from_latitude: float | None = Field(default=None, ge=-90, le=90)
+    from_longitude: float | None = Field(default=None, ge=-180, le=180)
+    to_latitude: float | None = Field(default=None, ge=-90, le=90)
+    to_longitude: float | None = Field(default=None, ge=-180, le=180)
+    admin_note: str | None = Field(default=None, max_length=500)
 
 def _generate_unique_user_id(db: Session) -> str:
     """Generate a unique reference id in BJ000123 format."""
@@ -442,6 +459,112 @@ def clear_all_notifications(
     deleted = db.query(Notification).delete(synchronize_session=False)
     db.commit()
     return {"deleted": deleted}
+
+
+@router.post("/orders")
+def admin_create_order(
+    data: AdminCreateOrderRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    customer = db.query(User).filter(User.id == data.user_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Колдонуучу табылган жок")
+    if not customer.is_active:
+        raise HTTPException(status_code=400, detail="Бул колдонуучунун аккаунту бөгөттөлгөн")
+    if customer.is_admin or customer.is_courier or customer.is_enterprise:
+        raise HTTPException(status_code=400, detail="Заказ кадимки колдонуучу үчүн гана түзүлөт")
+
+    description = data.description.strip()
+    from_address = data.from_address.strip()
+    to_address = data.to_address.strip()
+    if not description or not from_address or not to_address:
+        raise HTTPException(status_code=400, detail="Даректер жана заказдын түшүндүрмөсү толтурулушу керек")
+
+    if data.price is None:
+        pricing = get_taxi_pricing(db) if data.category == "taxi" else get_delivery_pricing(db)
+        price = calculate_price(data.distance_km, *pricing)
+    else:
+        price = data.price
+
+    admin_note = f"Админ #{admin.id} түздү"
+    if data.admin_note and data.admin_note.strip():
+        admin_note += f". {data.admin_note.strip()}"
+
+    order = Order(
+        user_id=customer.id,
+        category=data.category,
+        description=description,
+        from_address=from_address,
+        to_address=to_address,
+        from_latitude=data.from_latitude,
+        from_longitude=data.from_longitude,
+        to_latitude=data.to_latitude,
+        to_longitude=data.to_longitude,
+        distance_km=data.distance_km,
+        price=round(float(price), 2),
+        user_commission=0,
+        courier_commission=COURIER_ORDER_SERVICE_FEE,
+        status="WAITING_COURIER",
+        source="admin",
+        order_type="delivery",
+        admin_note=admin_note,
+    )
+    db.add(order)
+    db.flush()
+    db.add(
+        OrderStatusLog(
+            order_id=order.id,
+            actor_user_id=admin.id,
+            from_status=None,
+            to_status="WAITING_COURIER",
+        )
+    )
+    db.add(
+        Notification(
+            user_id=customer.id,
+            title="Сиз үчүн заказ түзүлдү",
+            message=f"Заказ #{order.id}: {order.from_address} → {order.to_address}",
+            order_id=order.id,
+        )
+    )
+    db.commit()
+    db.refresh(order)
+
+    push_data = {"order_id": str(order.id), "type": "order_status"}
+    try:
+        fcm_service.send_push_to_user(
+            customer,
+            title="Сиз үчүн заказ түзүлдү",
+            body=f"Заказ #{order.id}: {order.from_address} → {order.to_address}",
+            data=push_data,
+        )
+    except Exception:
+        logger.exception("Failed to notify user_id=%s about admin order", customer.id)
+
+    try:
+        from app.services.web_push import notify_user
+
+        notify_user(
+            db,
+            user_id=customer.id,
+            title="Сиз үчүн заказ түзүлдү",
+            body=f"Заказ #{order.id}: {order.from_address} → {order.to_address}",
+            data=push_data,
+        )
+    except Exception:
+        logger.exception("Failed to send web push for admin order_id=%s", order.id)
+
+    try:
+        notify_online_couriers_about_order(db, order)
+    except Exception:
+        logger.exception("Failed to notify couriers about admin order_id=%s", order.id)
+
+    return {
+        "id": order.id,
+        "price": float(order.price),
+        "status": order.status,
+    }
 
 
 @router.get("/orders")
@@ -2046,6 +2169,8 @@ SETTING_DEFAULTS = {
     "rating_dialog_enabled": ("true", "Play Market баалоо диалогун көрсөтүү (true/false)"),
     "rating_prompt_min_launches": ("3", "Баалоо диалогу көрсөтүлгөнгө чейинки минималдуу кирүү саны"),
     "rating_prompt_cooldown_days": ("14", "Баалоо диалогун кайра көрсөтүү аралыгы (күн)"),
+    "advertisement_price": ("50", "Колдонуучу жарнама жарыялаганда алынуучу баа (сом)"),
+    "advertisement_default_duration_days": ("7", "Жарнаманын демейки активдүү мөөнөтү (күн)"),
     "contact_telegram":       ("",    "Администратордун Telegram username (@жок)"),
     "contact_whatsapp":       ("",    "Администратордун WhatsApp номери (996XXXXXXXXX)"),
 }
@@ -2070,6 +2195,8 @@ PUBLIC_SETTING_KEYS = {
     "rating_dialog_enabled",
     "rating_prompt_min_launches",
     "rating_prompt_cooldown_days",
+    "advertisement_price",
+    "advertisement_default_duration_days",
 }
 
 

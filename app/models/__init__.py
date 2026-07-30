@@ -17,6 +17,7 @@ from app.models.order_payment import OrderPayment
 from app.models.setting import Setting
 from app.models.banner import Banner
 from app.models.ad_popup import AdPopup
+from app.models.advertisement import Advertisement
 from app.models.push_subscription import PushSubscription
 from app.models.user_push_subscription import UserPushSubscription
 from app.models.chat_clear import ChatClear
@@ -41,6 +42,7 @@ __all__ = [
     "Setting",
     "Banner",
     "AdPopup",
+    "Advertisement",
     "PushSubscription",
     "UserPushSubscription",
     "ChatClear",

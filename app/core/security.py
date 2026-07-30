@@ -15,7 +15,9 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return pwd_context.verify(password, hashed)
 
-def create_access_token(user_id: int, days: int = 365) -> str:
+def create_access_token(user_id: int, days: int | None = None) -> str:
+    if days is None:
+        days = settings.ACCESS_TOKEN_EXPIRE_DAYS
     payload = {
         "sub": str(user_id),
         "exp": datetime.utcnow() + timedelta(days=days),

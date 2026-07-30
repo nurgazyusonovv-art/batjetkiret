@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, lazyload
 from sqlalchemy import func, or_
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -16,7 +16,8 @@ from app.services.wallet import charge_platform_fee, hold_amount, settle_hold, r
 from app.services.order_status import apply_status_change
 from app.core.limiter import limiter
 from app.models.setting import Setting
-from app.api.admin import get_courier_cancel_penalty
+from app.api.admin import get_courier_cancel_penalty, get_delivery_pricing, get_taxi_pricing
+from app.services.pricing import calculate_price
 
 router = APIRouter(prefix="/courier/orders", tags=["Courier Orders"])
 
@@ -30,6 +31,51 @@ ACTIVE_COURIER_STATUSES = (
     "IN_TRANSIT",
     "DELIVERED",
 )
+
+
+class ExternalQuoteRequest(BaseModel):
+    order_type: str
+    distance_km: float
+
+
+@router.post("/external-quote")
+def external_order_quote(
+    body: ExternalQuoteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Quote courier's off-platform delivery/taxi work using backend tariffs."""
+    if not current_user.is_courier:
+        raise HTTPException(status_code=403, detail="Not a courier")
+
+    order_type = body.order_type.strip().lower()
+    if order_type not in {"delivery", "taxi"}:
+        raise HTTPException(status_code=400, detail="order_type must be delivery or taxi")
+
+    distance_km = max(0.0, float(body.distance_km or 0))
+    if order_type == "taxi":
+        base, per_km, extra_after_km, extra_per_km = get_taxi_pricing(db)
+    else:
+        base, per_km, extra_after_km, extra_per_km = get_delivery_pricing(db)
+
+    total = calculate_price(
+        distance_km=distance_km,
+        base_price=base,
+        price_per_km=per_km,
+        extra_after_km=extra_after_km,
+        extra_price_per_km=extra_per_km,
+    )
+    extra_km = max(0.0, distance_km - extra_after_km)
+    return {
+        "order_type": order_type,
+        "distance_km": round(distance_km, 3),
+        "base_price": base,
+        "price_per_km": per_km,
+        "extra_after_km": extra_after_km,
+        "extra_price_per_km": extra_per_km,
+        "extra_km": round(extra_km, 3),
+        "total_price": round(total, 2),
+    }
 
 
 def _local_day_start_utc(days_ago: int = 0) -> datetime:
@@ -249,6 +295,7 @@ def accept_order(
     # Row-lock so two couriers can't accept the same order concurrently.
     order = (
         db.query(Order)
+        .options(lazyload(Order.user), lazyload(Order.courier))
         .filter(Order.id == order_id)
         .with_for_update()
         .first()
@@ -372,7 +419,13 @@ def _complete_courier_order(db: Session, courier: User, order_id: int) -> dict:
     re-charging; if CANCELLED, rejects.
     """
     # Row-lock to serialize concurrent completion attempts.
-    order = db.query(Order).filter(Order.id == order_id).with_for_update().first()
+    order = (
+        db.query(Order)
+        .options(lazyload(Order.user), lazyload(Order.courier))
+        .filter(Order.id == order_id)
+        .with_for_update()
+        .first()
+    )
     if not order or order.courier_id != courier.id:
         raise HTTPException(status_code=404)
 

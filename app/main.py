@@ -5,6 +5,7 @@ import logging
 import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
@@ -22,18 +23,35 @@ from app.api import enterprise_portal
 from app.api import intercity
 from app.api import banners
 from app.api import ad_popup
-from app.core.init_db import init_db
+from app.api import media
+from app.api import advertisements
 
 configure_logging(level=settings.LOG_LEVEL, json_logs=settings.LOG_JSON)
 logger = logging.getLogger("app.request")
 
+# Error tracking (no-op when SENTRY_DSN is unset or sentry-sdk is missing).
+if settings.SENTRY_DSN:
+    try:
+        import sentry_sdk
+
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+            environment="production" if not settings.DEBUG else "development",
+        )
+        logger.info("Sentry initialized")
+    except Exception as exc:  # pragma: no cover - optional dependency
+        logger.warning("Sentry init skipped: %s", exc)
+
 app = FastAPI(title="BATKEN EXPRESS API")
 app.state.limiter = limiter
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
-@app.on_event("startup")
-def startup_init_db():
-    init_db()  # runs in background daemon thread — does not block the event loop
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 
 # Custom exception handler for rate limit exceeded
 @app.exception_handler(RateLimitExceeded)
@@ -120,6 +138,8 @@ app.include_router(enterprise_portal.router)
 app.include_router(intercity.router)
 app.include_router(banners.router)
 app.include_router(ad_popup.router)
+app.include_router(media.router)
+app.include_router(advertisements.router)
 
 app.include_router(chat.router)
 

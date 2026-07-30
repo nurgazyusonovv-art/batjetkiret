@@ -725,6 +725,7 @@ def update_order_status(
         raise HTTPException(status_code=400,
             detail=f"Жол берилген статустар: {sorted(allowed)}")
 
+    previous_status = order.status
     apply_status_change(
         db=db,
         order=order,
@@ -734,6 +735,17 @@ def update_order_status(
     if note:
         order.admin_note = note
     db.commit()
+    if (
+        order.order_type != "dine_in"
+        and previous_status not in {"WAITING_COURIER", "ACCEPTED", "READY"}
+        and status in {"WAITING_COURIER", "ACCEPTED", "READY"}
+    ):
+        try:
+            from app.services.courier_notifications import notify_online_couriers_about_order
+
+            notify_online_couriers_about_order(db, order)
+        except Exception:
+            pass
     return {"message": "Статус жаңыланды", "status": status}
 
 
@@ -1003,6 +1015,7 @@ def confirm_payment(
     ).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Төлөм табылган жок")
+    was_confirmed = payment.status == "confirmed"
     payment.status = "confirmed"
     payment.note = body.note
     # Accept the order
@@ -1016,6 +1029,13 @@ def confirm_payment(
             enforce_transition=False,
         )
     db.commit()
+    if order and not was_confirmed:
+        try:
+            from app.services.courier_notifications import notify_online_couriers_about_order
+
+            notify_online_couriers_about_order(db, order)
+        except Exception:
+            pass
     return _payment_dict(payment)
 
 

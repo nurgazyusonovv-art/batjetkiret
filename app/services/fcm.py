@@ -13,6 +13,56 @@ logger = logging.getLogger("app.fcm")
 _initialized = False
 _messaging = None
 
+USER_NOTIFICATION_CHANNELS = {
+    "messages": ("batken_messages_v3", "message_tone"),
+    "order_status": ("order_status_v3", "order_tone"),
+    "topup": ("topup_status_v3", "topup_tone"),
+    "support": ("support_chat_v3", "support_tone"),
+    "urgent": ("urgent_orders_v3", "urgent_tone"),
+}
+
+LEGACY_CHANNEL_ALIASES = {
+    "batken_messages": "batken_messages_v3",
+    "batken_messages_v2": "batken_messages_v3",
+    "order_status": "order_status_v3",
+    "order_status_v2": "order_status_v3",
+    "topup_requests": "topup_status_v3",
+    "topup_status": "topup_status_v3",
+    "topup_status_v2": "topup_status_v3",
+    "support_chat": "support_chat_v3",
+    "support_chat_v2": "support_chat_v3",
+    "urgent_orders": "urgent_orders_v3",
+    "urgent_orders_v2": "urgent_orders_v3",
+}
+
+CHANNEL_SOUNDS = {
+    channel_id: sound
+    for channel_id, sound in USER_NOTIFICATION_CHANNELS.values()
+}
+
+
+def _channel_for_type(notification_type: str | None) -> str:
+    normalized = (notification_type or "").lower()
+    if normalized in {"order_status", "delivery_status"}:
+        return USER_NOTIFICATION_CHANNELS["order_status"][0]
+    if normalized in {"topup", "topup_approved", "topup_rejected"}:
+        return USER_NOTIFICATION_CHANNELS["topup"][0]
+    if normalized in {"support", "support_chat", "support_message"}:
+        return USER_NOTIFICATION_CHANNELS["support"][0]
+    if normalized in {"new_order", "cancel_request", "cancel_requests"}:
+        return USER_NOTIFICATION_CHANNELS["urgent"][0]
+    return USER_NOTIFICATION_CHANNELS["messages"][0]
+
+
+def _resolve_channel(channel_id: str | None, data: dict | None) -> str:
+    if channel_id:
+        return LEGACY_CHANNEL_ALIASES.get(channel_id, channel_id)
+    return _channel_for_type((data or {}).get("type"))
+
+
+def _sound_for_channel(channel_id: str) -> str:
+    return CHANNEL_SOUNDS.get(channel_id, "default")
+
 
 def _init():
     global _initialized, _messaging
@@ -58,7 +108,7 @@ def send_push(
     title: str,
     body: str,
     data: dict | None = None,
-    channel_id: str = "batken_messages",
+    channel_id: str | None = None,
     include_notification: bool = False,
 ) -> bool:
     """Send a push notification to a single FCM token. Returns True on success.
@@ -71,24 +121,39 @@ def send_push(
         return False
 
     try:
-        all_data = {"title": title, "body": body, "channel_id": channel_id}
-        all_data.update({k: str(v) for k, v in (data or {}).items()})
+        resolved_channel_id = _resolve_channel(channel_id, data)
+        sound = _sound_for_channel(resolved_channel_id)
+        all_data = {k: str(v) for k, v in (data or {}).items()}
+        all_data.update(
+            {
+                "title": title,
+                "body": body,
+                "channel_id": resolved_channel_id,
+                "sound": sound,
+            }
+        )
         message = _messaging.Message(
-            notification=_messaging.Notification(title=title, body=body) if include_notification else None,
+            notification=_messaging.Notification(title=title, body=body)
+            if include_notification
+            else None,
             data=all_data,
             token=token,
             android=_messaging.AndroidConfig(
                 priority="high",
                 notification=_messaging.AndroidNotification(
-                    sound="default",
-                    channel_id=channel_id,
-                ) if include_notification else None,
+                    sound=sound,
+                    channel_id=resolved_channel_id,
+                )
+                if include_notification
+                else None,
             ),
             apns=_messaging.APNSConfig(
                 payload=_messaging.APNSPayload(
-                    aps=_messaging.Aps(sound="default"),
+                    aps=_messaging.Aps(sound=sound),
                 ),
-            ) if include_notification else None,
+            )
+            if include_notification
+            else None,
         )
         _messaging.send(message)
         return True
@@ -97,11 +162,24 @@ def send_push(
         return False
 
 
-def send_push_to_user(user, title: str, body: str, data: dict | None = None) -> bool:
+def send_push_to_user(
+    user,
+    title: str,
+    body: str,
+    data: dict | None = None,
+    channel_id: str | None = None,
+) -> bool:
     """Send push if the user has an FCM token."""
     if user is None or not getattr(user, "fcm_token", None):
         return False
-    return send_push(user.fcm_token, title, body, data, include_notification=True)
+    return send_push(
+        user.fcm_token,
+        title,
+        body,
+        data,
+        channel_id=channel_id,
+        include_notification=True,
+    )
 
 
 def is_initialized() -> bool:

@@ -24,6 +24,7 @@ from app.api.admin import get_delivery_pricing, get_taxi_pricing, get_user_servi
 from app.services.wallet import charge_platform_fee, refund
 from app.services.order_status import apply_status_change
 from app.services import fcm as fcm_service
+from app.services.courier_notifications import notify_online_couriers_about_order
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
@@ -281,6 +282,14 @@ def create_order(
 
     db.commit()
     db.refresh(order)
+
+    # Regular orders are available to couriers immediately. Enterprise orders
+    # are announced after payment/status confirmation below.
+    if not order.enterprise_id:
+        try:
+            notify_online_couriers_about_order(db, order)
+        except Exception:
+            pass  # Notification delivery must never roll back a created order.
 
     # Notify enterprise portal users about the new online order
     if order.enterprise_id:

@@ -14,6 +14,7 @@ class PasswordReset(Base):
     expires_at = Column(DateTime, nullable=False)
 
     resend_count = Column(Integer, default=0)
+    attempt_count = Column(Integer, nullable=False, server_default="0", default=0)
     last_sent_at = Column(DateTime, nullable=False)
 
     created_at = Column(DateTime, server_default=func.now())

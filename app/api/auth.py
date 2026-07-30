@@ -54,6 +54,40 @@ def _mask_phone(phone: str) -> str:
         return "***"
     return f"***{phone[-4:]}"
 
+MAX_RESET_ATTEMPTS = 5
+
+
+def _consume_reset_code(db: Session, user_id: int, code: str) -> PasswordReset:
+    """Verify a reset code for a user, enforcing an attempt limit to block
+    brute-force. Raises HTTPException on any failure; returns the valid record."""
+    reset = (
+        db.query(PasswordReset)
+        .filter(
+            PasswordReset.user_id == user_id,
+            PasswordReset.is_used == False,  # noqa: E712
+        )
+        .order_by(PasswordReset.created_at.desc())
+        .first()
+    )
+
+    if not reset or reset.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+
+    if (reset.attempt_count or 0) >= MAX_RESET_ATTEMPTS:
+        reset.is_used = True
+        db.commit()
+        raise HTTPException(status_code=400, detail="Too many attempts. Request a new code.")
+
+    if reset.code != code:
+        reset.attempt_count = (reset.attempt_count or 0) + 1
+        if reset.attempt_count >= MAX_RESET_ATTEMPTS:
+            reset.is_used = True
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+
+    return reset
+
+
 @router.post("/reset-password")
 @limiter.limit("10/minute")
 def reset_password(
@@ -63,23 +97,12 @@ def reset_password(
     new_password: str,
     db: Session = Depends(get_db),
 ):
-    user = db.query(User).filter(User.phone == phone).first()
+    variants = _normalize_phone_variants(phone)
+    user = db.query(User).filter(User.phone.in_(variants)).first()
     if not user:
         raise HTTPException(status_code=400)
 
-    reset = (
-        db.query(PasswordReset)
-        .filter(
-            PasswordReset.user_id == user.id,
-            PasswordReset.code == code,
-            PasswordReset.is_used == False,
-        )
-        .order_by(PasswordReset.created_at.desc())
-        .first()
-    )
-
-    if not reset or reset.expires_at < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    reset = _consume_reset_code(db, user.id, code)
 
     user.hashed_password = hash_password(new_password)
     reset.is_used = True
@@ -113,7 +136,7 @@ def forgot_password(request: Request, phone: str, db: Session = Depends(get_db))
 
     if last_reset:
         # ⏱ cooldown
-        if (now - last_reset.last_sent_at).seconds < 60:
+        if (now - last_reset.last_sent_at).total_seconds() < 60:
             raise HTTPException(
                 status_code=400,
                 detail="Please wait before requesting a new code",
@@ -176,7 +199,8 @@ def _notify_admins_new_reset(db: Session, user, code: str):
 
 
 @router.post("/admin-reset-request")
-def admin_reset_request(unique_id: str, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def admin_reset_request(request: Request, unique_id: str, db: Session = Depends(get_db)):
     """User enters their unique_id (BJ000123) — system generates code and notifies admins."""
     user = db.query(User).filter(User.unique_id == unique_id).first()
     if not user:
@@ -219,24 +243,14 @@ def admin_reset_request(unique_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/admin-reset-confirm")
-def admin_reset_confirm(unique_id: str, code: str, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def admin_reset_confirm(request: Request, unique_id: str, code: str, db: Session = Depends(get_db)):
     """Verify code, generate new random password, return it."""
     user = db.query(User).filter(User.unique_id == unique_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Колдонуучу табылган жок")
 
-    reset = (
-        db.query(PasswordReset)
-        .filter(
-            PasswordReset.user_id == user.id,
-            PasswordReset.code == code,
-            PasswordReset.is_used == False,
-        )
-        .order_by(PasswordReset.created_at.desc())
-        .first()
-    )
-    if not reset or reset.expires_at < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Код туура эмес же мөөнөтү өткөн")
+    reset = _consume_reset_code(db, user.id, code)
 
     # Generate new readable password: 4 letters + 4 digits
     letters = ''.join(secrets.choice(string.ascii_lowercase) for _ in range(4))

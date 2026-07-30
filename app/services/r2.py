@@ -1,21 +1,39 @@
 """Cloudflare R2 object storage helpers."""
 import mimetypes
+
 import boto3
 from botocore.config import Config
+from fastapi import HTTPException
 
-R2_ACCESS_KEY = "dd3e6acf2fe48209abcc98e27c0afbcb"
-R2_SECRET_KEY = "5c0efbe07b59feae5a5ebdb007034ea6ae340a988adfebb731d591a9ae09d5f5"
-R2_ENDPOINT   = "https://90f676223297515e8526b77b1dc26aff.r2.cloudflarestorage.com"
-R2_BUCKET     = "batjetkiret-media"
-PUBLIC_BASE   = "https://pub-a3151ae89aa0437f833a8e4e4c80288e.r2.dev"
+from app.core.config import settings
+
+
+def _require_r2_settings() -> None:
+    missing = [
+        name
+        for name, value in {
+            "R2_ACCESS_KEY": settings.R2_ACCESS_KEY,
+            "R2_SECRET_KEY": settings.R2_SECRET_KEY,
+            "R2_ENDPOINT": settings.R2_ENDPOINT,
+            "R2_BUCKET": settings.R2_BUCKET,
+            "R2_PUBLIC_BASE": settings.R2_PUBLIC_BASE,
+        }.items()
+        if not value
+    ]
+    if missing:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Media storage is not configured: {', '.join(missing)}",
+        )
 
 
 def _client():
+    _require_r2_settings()
     return boto3.client(
         "s3",
-        endpoint_url=R2_ENDPOINT,
-        aws_access_key_id=R2_ACCESS_KEY,
-        aws_secret_access_key=R2_SECRET_KEY,
+        endpoint_url=settings.R2_ENDPOINT,
+        aws_access_key_id=settings.R2_ACCESS_KEY,
+        aws_secret_access_key=settings.R2_SECRET_KEY,
         config=Config(signature_version="s3v4"),
         region_name="auto",
     )
@@ -24,21 +42,22 @@ def _client():
 def upload_bytes(key: str, data: bytes, content_type: str) -> str:
     """Upload raw bytes to R2 and return the public URL."""
     _client().put_object(
-        Bucket=R2_BUCKET,
+        Bucket=settings.R2_BUCKET,
         Key=key,
         Body=data,
         ContentType=content_type,
     )
-    return f"{PUBLIC_BASE}/{key}"
+    return f"{settings.R2_PUBLIC_BASE.rstrip('/')}/{key}"
 
 
 def delete_object(url: str) -> None:
     """Delete an object from R2 by its public URL (best-effort)."""
-    if not url or not url.startswith(PUBLIC_BASE):
+    public_base = settings.R2_PUBLIC_BASE.rstrip("/")
+    if not url or not public_base or not url.startswith(public_base):
         return
-    key = url[len(PUBLIC_BASE) + 1:]
+    key = url[len(public_base) + 1:]
     try:
-        _client().delete_object(Bucket=R2_BUCKET, Key=key)
+        _client().delete_object(Bucket=settings.R2_BUCKET, Key=key)
     except Exception:
         pass
 
