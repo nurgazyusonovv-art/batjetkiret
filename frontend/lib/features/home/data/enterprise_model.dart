@@ -1,3 +1,5 @@
+import '../../../core/config.dart';
+
 class Enterprise {
   final int id;
   final String name;
@@ -30,20 +32,20 @@ class Enterprise {
   });
 
   Enterprise withLogoData(String? logoData) => Enterprise(
-        id: id,
-        name: name,
-        category: category,
-        address: address,
-        description: description,
-        phone: phone,
-        lat: lat,
-        lon: lon,
-        logoData: logoData,
-        openTime: openTime,
-        closeTime: closeTime,
-        isOpen: isOpen,
-        prepTimeMinutes: prepTimeMinutes,
-      );
+    id: id,
+    name: name,
+    category: category,
+    address: address,
+    description: description,
+    phone: phone,
+    lat: lat,
+    lon: lon,
+    logoData: logoData,
+    openTime: openTime,
+    closeTime: closeTime,
+    isOpen: isOpen,
+    prepTimeMinutes: prepTimeMinutes,
+  );
 
   factory Enterprise.fromJson(Map<String, dynamic> json) {
     return Enterprise(
@@ -55,7 +57,7 @@ class Enterprise {
       phone: json['phone'] as String?,
       lat: (json['lat'] as num?)?.toDouble(),
       lon: (json['lon'] as num?)?.toDouble(),
-      logoData: json['logo_data'] as String?,
+      logoData: AppConfig.mediaUrl(json['logo_data'] as String?),
       openTime: json['open_time'] as String?,
       closeTime: json['close_time'] as String?,
       isOpen: json['is_open'] as bool?,
@@ -87,7 +89,7 @@ class EnterpriseMenuProduct {
       name: json['name'] as String,
       description: json['description'] as String?,
       price: (json['price'] as num).toDouble(),
-      imageUrl: json['image_url'] as String?,
+      imageUrl: AppConfig.mediaUrl(json['image_url'] as String?),
     );
   }
 }
@@ -124,9 +126,13 @@ class EnterpriseMenu {
   factory EnterpriseMenu.fromJson(Map<String, dynamic> json) {
     final rawCats = json['menu'] as List<dynamic>? ?? [];
     return EnterpriseMenu(
-      enterprise: Enterprise.fromJson(json['enterprise'] as Map<String, dynamic>),
+      enterprise: Enterprise.fromJson(
+        json['enterprise'] as Map<String, dynamic>,
+      ),
       categories: rawCats
-          .map((c) => EnterpriseMenuCategory.fromJson(c as Map<String, dynamic>))
+          .map(
+            (c) => EnterpriseMenuCategory.fromJson(c as Map<String, dynamic>),
+          )
           .toList(),
     );
   }

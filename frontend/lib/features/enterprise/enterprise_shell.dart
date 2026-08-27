@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/services/app_market_prompt_service.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/orders_screen.dart';
 import 'screens/create_order_screen.dart';
@@ -20,17 +21,29 @@ class EnterpriseShell extends StatefulWidget {
 
 class _EnterpriseShellState extends State<EnterpriseShell> {
   int _tab = 0;
+  int? _paymentFocusOrderId;
 
   @override
   void initState() {
     super.initState();
     NotificationService.init();
     FcmService.init();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      AppMarketPromptService.checkAndShow(context);
+    });
   }
 
   Future<void> _logout() async {
     await AuthService.deleteToken();
     widget.onLogout();
+  }
+
+  void _goToPaymentForOrder(int orderId) {
+    setState(() {
+      _paymentFocusOrderId = orderId;
+      _tab = 3;
+    });
   }
 
   @override
@@ -40,9 +53,9 @@ class _EnterpriseShellState extends State<EnterpriseShell> {
         index: _tab,
         children: [
           DashboardScreen(onGoToOrders: () => setState(() => _tab = 1)),
-          const OrdersScreen(),
+          OrdersScreen(onGoToPaymentForOrder: _goToPaymentForOrder),
           const CreateOrderScreen(),
-          const PaymentsScreen(),
+          PaymentsScreen(focusOrderId: _paymentFocusOrderId),
           const MenuScreen(),
           ProfileScreen(onLogout: _logout),
         ],
@@ -53,8 +66,10 @@ class _EnterpriseShellState extends State<EnterpriseShell> {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF16A34A),
         unselectedItemColor: const Color(0xFF9CA3AF),
-        selectedLabelStyle:
-            const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 11,
+        ),
         unselectedLabelStyle: const TextStyle(fontSize: 11),
         items: const [
           BottomNavigationBarItem(

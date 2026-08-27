@@ -63,7 +63,9 @@ class UserApi {
     final data = _decode(response.body);
     if (response.statusCode == 200) return;
     _checkAuth(response);
-    throw Exception(_extractError(data, fallback: 'Failed to activate courier mode'));
+    throw Exception(
+      _extractError(data, fallback: 'Failed to activate courier mode'),
+    );
   }
 
   Future<void> removeCourier(String token) async {
@@ -78,7 +80,9 @@ class UserApi {
     final data = _decode(response.body);
     if (response.statusCode == 200) return;
     _checkAuth(response);
-    throw Exception(_extractError(data, fallback: 'Failed to deactivate courier mode'));
+    throw Exception(
+      _extractError(data, fallback: 'Failed to deactivate courier mode'),
+    );
   }
 
   Future<User> updateProfile(
@@ -87,12 +91,22 @@ class UserApi {
     String? phone,
     String? address,
     bool? isOnline,
+    String? courierTransport,
+    String? courierVehiclePlate,
+    String? courierVehicleBrand,
+    String? courierVehicleColor,
   }) async {
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
     if (phone != null) body['phone'] = phone;
     if (address != null) body['address'] = address;
     if (isOnline != null) body['is_online'] = isOnline;
+    if (courierTransport != null) {
+      body['courier_transport'] = courierTransport;
+      body['courier_vehicle_plate'] = courierVehiclePlate;
+      body['courier_vehicle_brand'] = courierVehicleBrand;
+      body['courier_vehicle_color'] = courierVehicleColor;
+    }
 
     final response = await http.put(
       Uri.parse('${AppConfig.baseUrl}/users/me'),
@@ -122,7 +136,9 @@ class UserApi {
       final data = _decode(response.body);
       if (response.statusCode == 200) return data;
       _checkAuth(response);
-      throw Exception(_extractError(data, fallback: 'Рейтингти алуу ишке ашпады'));
+      throw Exception(
+        _extractError(data, fallback: 'Рейтингти алуу ишке ашпады'),
+      );
     } on UnauthorizedException {
       rethrow;
     } on SocketException {
@@ -147,7 +163,9 @@ class UserApi {
       final data = _decode(response.body);
       if (response.statusCode == 200) return data;
       _checkAuth(response);
-      throw Exception(_extractError(data, fallback: 'Рейтингти алуу ишке ашпады'));
+      throw Exception(
+        _extractError(data, fallback: 'Рейтингти алуу ишке ашпады'),
+      );
     } on UnauthorizedException {
       rethrow;
     } on SocketException {
@@ -206,7 +224,9 @@ class UserApi {
 
       final data = _decode(response.body);
       _checkAuth(response);
-      throw Exception(_extractError(data, fallback: 'Билдирмелерди жүктөөдө ката кетти'));
+      throw Exception(
+        _extractError(data, fallback: 'Билдирмелерди жүктөөдө ката кетти'),
+      );
     } on UnauthorizedException {
       rethrow;
     } on SocketException {
@@ -254,7 +274,9 @@ class UserApi {
     if (response.statusCode == 200) return;
     _checkAuth(response);
     final data = _decode(response.body);
-    throw Exception(_extractError(data, fallback: 'Билдирмени белгилөөдө ката кетти'));
+    throw Exception(
+      _extractError(data, fallback: 'Билдирмени белгилөөдө ката кетти'),
+    );
   }
 
   Future<void> updateLocation(String token, double lat, double lon) async {
@@ -287,7 +309,9 @@ class UserApi {
 
       final data = _decode(response.body);
       _checkAuth(response);
-      throw Exception(_extractError(data, fallback: 'Балансты толуктоодо ката кетти'));
+      throw Exception(
+        _extractError(data, fallback: 'Балансты толуктоодо ката кетти'),
+      );
     } on UnauthorizedException {
       rethrow;
     } on SocketException {
@@ -319,7 +343,9 @@ class UserApi {
 
       final data = _decode(response.body);
       _checkAuth(response);
-      throw Exception(_extractError(data, fallback: 'Транзакцияларды жүктөөдө ката кетти'));
+      throw Exception(
+        _extractError(data, fallback: 'Транзакцияларды жүктөөдө ката кетти'),
+      );
     } on UnauthorizedException {
       rethrow;
     } on SocketException {
@@ -328,6 +354,26 @@ class UserApi {
       throw Exception(AppConfig.networkErrorMessage);
     } on FormatException {
       throw Exception('Сервер жообу туура эмес форматта келди');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTopupHistory(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConfig.baseUrl}/topup/my'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final raw = jsonDecode(response.body);
+        if (raw is List) return raw.whereType<Map<String, dynamic>>().toList();
+        return [];
+      }
+      _checkAuth(response);
+      throw Exception('Топап тарыхы жүктөлгөн жок');
+    } on UnauthorizedException {
+      rethrow;
+    } on SocketException {
+      throw Exception(AppConfig.networkErrorMessage);
     }
   }
 
@@ -343,6 +389,20 @@ class UserApi {
     if (response.statusCode == 200) return (data['chat_id'] as num).toInt();
     _checkAuth(response);
     throw Exception(_extractError(data, fallback: 'Чат ачылбады'));
+  }
+
+  Future<void> deleteAccount(String token) async {
+    final response = await http.delete(
+      Uri.parse('${AppConfig.baseUrl}/users/me'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    if (response.statusCode == 200) return;
+    _checkAuth(response);
+    final data = _decode(response.body);
+    throw Exception(_extractError(data, fallback: 'Аккаунтту өчүрүү ишке ашкан жок'));
   }
 
   Map<String, dynamic> _decode(String body) {

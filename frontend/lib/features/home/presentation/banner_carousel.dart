@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../data/banner_model.dart';
 import '../data/banner_api.dart';
+import '../../../core/config.dart';
 import '../../../core/theme/app_colors.dart';
 import 'banner_detail_page.dart';
 
@@ -57,9 +58,9 @@ class _BannerCarouselState extends State<BannerCarousel> {
   }
 
   void _onTap(BannerItem b) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => BannerDetailPage(banner: b)),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => BannerDetailPage(banner: b)));
   }
 
   @override
@@ -120,7 +121,9 @@ class _BannerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasImage = banner.imageData != null && banner.imageData!.isNotEmpty;
-    final hasText = (banner.title?.isNotEmpty ?? false) || (banner.subtitle?.isNotEmpty ?? false);
+    final hasText =
+        (banner.title?.isNotEmpty ?? false) ||
+        (banner.subtitle?.isNotEmpty ?? false);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
@@ -146,7 +149,10 @@ class _BannerCard extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.55)],
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.55),
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -171,7 +177,12 @@ class _BannerCard extends StatelessWidget {
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         shadows: hasImage
-                            ? [const Shadow(color: Colors.black45, blurRadius: 4)]
+                            ? [
+                                const Shadow(
+                                  color: Colors.black45,
+                                  blurRadius: 4,
+                                ),
+                              ]
                             : null,
                       ),
                       maxLines: 2,
@@ -182,10 +193,17 @@ class _BannerCard extends StatelessWidget {
                     Text(
                       banner.subtitle!,
                       style: TextStyle(
-                        color: hasImage ? Colors.white70 : Colors.white.withValues(alpha: 0.85),
+                        color: hasImage
+                            ? Colors.white70
+                            : Colors.white.withValues(alpha: 0.85),
                         fontSize: 12,
                         shadows: hasImage
-                            ? [const Shadow(color: Colors.black45, blurRadius: 3)]
+                            ? [
+                                const Shadow(
+                                  color: Colors.black45,
+                                  blurRadius: 3,
+                                ),
+                              ]
                             : null,
                       ),
                       maxLines: 1,
@@ -207,7 +225,11 @@ class _BannerCard extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.north_east, color: Colors.white, size: 14),
+                child: const Icon(
+                  Icons.north_east,
+                  color: Colors.white,
+                  size: 14,
+                ),
               ),
             ),
         ],
@@ -225,17 +247,20 @@ class _BannerCard extends StatelessWidget {
         } catch (_) {}
       }
     }
-    return Image.network(imageData, fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _gradient());
+    return Image.network(
+      AppConfig.mediaUrl(imageData) ?? imageData,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _gradient(),
+    );
   }
 
   Widget _gradient() => Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.primary, Color(0xFFE53935)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-      );
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        colors: [AppColors.primary, Color(0xFFE53935)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+    ),
+  );
 }

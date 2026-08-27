@@ -19,14 +19,17 @@ import 'package:frontend/features/home/presentation/cubit/home_cubit.dart';
 import 'package:frontend/features/home/presentation/cubit/order_create_cubit.dart';
 import 'package:frontend/features/home/presentation/cubit/order_create_state.dart';
 import 'package:frontend/features/orders/presentation/cubit/orders_cubit.dart';
+import 'package:frontend/features/orders/data/order_api.dart';
 import 'package:frontend/features/home/presentation/order_payment_sheet.dart';
 import 'package:frontend/features/orders/presentation/order_detail_page.dart';
+import 'package:frontend/features/orders/presentation/external_trip_tracker_page.dart';
 import 'package:frontend/features/orders/presentation/order_success_page.dart';
 import 'package:frontend/features/profile/data/support_api.dart';
 import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:frontend/features/profile/presentation/topup_page.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/features/auth/presentation/auth_page.dart';
 import 'intercity_order_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -51,6 +54,7 @@ class _HomePageState extends State<HomePage> {
   final _homeSearchController = TextEditingController();
   String _homeSearch = '';
   LatLng? _homeUserLocation;
+  bool _updatingCourierOnlineStatus = false;
 
   // Categories that are not enterprise-based — they show a dedicated action card.
   static const _actionCategories = {'taxi', 'intercity'};
@@ -60,8 +64,10 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _filteredCategories = models.categories;
     _selectedCategoryId = models.categories
-        .firstWhere((c) => !_actionCategories.contains(c.id),
-            orElse: () => models.categories.first)
+        .firstWhere(
+          (c) => !_actionCategories.contains(c.id),
+          orElse: () => models.categories.first,
+        )
         .id;
     _homeSearchController.addListener(
       () => setState(() => _homeSearch = _homeSearchController.text.trim()),
@@ -85,13 +91,19 @@ class _HomePageState extends State<HomePage> {
         desiredAccuracy: LocationAccuracy.low,
       );
       if (!mounted) return;
-      setState(() => _homeUserLocation =
-          LatLng(latitude: pos.latitude, longitude: pos.longitude));
+      setState(
+        () => _homeUserLocation = LatLng(
+          latitude: pos.latitude,
+          longitude: pos.longitude,
+        ),
+      );
     } catch (_) {}
   }
 
   double? _enterpriseDistanceKm(Enterprise e) {
-    if (_homeUserLocation == null || e.lat == null || e.lon == null) return null;
+    if (_homeUserLocation == null || e.lat == null || e.lon == null) {
+      return null;
+    }
     return DistanceCalculator.calculateDistance(
       from: _homeUserLocation!,
       to: LatLng(latitude: e.lat!, longitude: e.lon!),
@@ -105,9 +117,11 @@ class _HomePageState extends State<HomePage> {
     if (_homeSearch.isEmpty) return _homeEnterprises;
     final q = _homeSearch.toLowerCase();
     return _homeEnterprises
-        .where((e) =>
-            e.name.toLowerCase().contains(q) ||
-            (e.address ?? '').toLowerCase().contains(q))
+        .where(
+          (e) =>
+              e.name.toLowerCase().contains(q) ||
+              (e.address ?? '').toLowerCase().contains(q),
+        )
         .toList();
   }
 
@@ -130,8 +144,7 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (!mounted || version != _homeEnterpriseFetchVersion) return;
       setState(() {
-        _homeEnterprisesError =
-            e.toString().replaceFirst('Exception: ', '');
+        _homeEnterprisesError = e.toString().replaceFirst('Exception: ', '');
         _loadingHomeEnterprises = false;
       });
     }
@@ -273,6 +286,26 @@ class _HomePageState extends State<HomePage> {
   Future<void> _acceptOrder(order) async {
     try {
       await context.read<HomeCubit>().acceptOrder(widget.token, order.id);
+      if (order.isAdminExternal && mounted) {
+        final type = order.orderType == 'taxi'
+            ? ExternalTripType.taxi
+            : ExternalTripType.delivery;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ExternalTripTrackerPage(
+              token: widget.token,
+              tripType: type,
+              orderId: order.id,
+              customerPhone: order.customerPhone ?? order.userPhone,
+              fromAddress: order.fromAddress,
+              toAddress: order.toAddress,
+            ),
+          ),
+        );
+        if (mounted) {
+          await context.read<HomeCubit>().loadCourierHomeData(widget.token);
+        }
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -282,6 +315,203 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     }
+  }
+
+  Future<void> _setCourierOnlineStatus(bool isOnline) async {
+    if (_updatingCourierOnlineStatus) return;
+    setState(() => _updatingCourierOnlineStatus = true);
+    try {
+      await context.read<ProfileCubit>().toggleOnlineStatus(
+        widget.token,
+        isOnline,
+      );
+      if (!mounted) return;
+      await context.read<HomeCubit>().refreshAvailableOrders(widget.token);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _updatingCourierOnlineStatus = false);
+      }
+    }
+  }
+
+  Future<void> _openExternalTripSheet() async {
+    final activeType = await ExternalTripTrackerPage.activeTripType();
+    final activeOrderId = await ExternalTripTrackerPage.activeOrderId();
+    if (!mounted) return;
+    if (activeType != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ExternalTripTrackerPage(
+            token: widget.token,
+            tripType: activeType,
+            orderId: activeOrderId,
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final courierOrders = await OrderApi().getCourierOrders(widget.token);
+      for (final order in courierOrders) {
+        if (order.isAdminExternal &&
+            const {
+              'accepted',
+              'picked_up',
+              'in_transit',
+            }.contains(order.status)) {
+          final type = order.orderType == 'taxi'
+              ? ExternalTripType.taxi
+              : ExternalTripType.delivery;
+          if (!mounted) return;
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ExternalTripTrackerPage(
+                token: widget.token,
+                tripType: type,
+                orderId: order.id,
+                customerPhone: order.customerPhone ?? order.userPhone,
+                fromAddress: order.fromAddress,
+                toAddress: order.toAddress,
+              ),
+            ),
+          );
+          return;
+        }
+      }
+    } catch (_) {
+      // The regular selector remains usable when active-order lookup is offline.
+    }
+
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Системадан тышкары заказ',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Түрүн тандаңыз. Километр GPS менен эсептелип, төлөм backend тарифтери боюнча чыгат.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _externalTripOption(
+                  sheetCtx,
+                  ExternalTripType.delivery,
+                  'Товар же документ жеткирүү үчүн',
+                ),
+                const SizedBox(height: 10),
+                _externalTripOption(
+                  sheetCtx,
+                  ExternalTripType.taxi,
+                  'Жүргүнчү ташуу үчүн',
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _externalTripOption(
+    BuildContext sheetCtx,
+    ExternalTripType type,
+    String subtitle,
+  ) {
+    return Material(
+      color: const Color(0xFFF9FAFB),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.of(sheetCtx).pop();
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  ExternalTripTrackerPage(token: widget.token, tripType: type),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: AppColors.primarySoft,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(type.icon, color: AppColors.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      type.label,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(fontSize: 12.5, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   IconData _categoryIconFor(dynamic category) {
@@ -332,62 +562,55 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ],
                     ),
-                    // Show location for regular users, online/offline toggle for couriers
+                    // Show balance for users and an availability switch for couriers.
                     if (user != null)
                       if (user.isCourier)
-                        // Online/Offline toggle for couriers
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
+                            horizontal: 8,
+                            vertical: 4,
                           ),
                           decoration: BoxDecoration(
                             color: user.isOnline
                                 ? Colors.green.shade50
                                 : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: user.isOnline
                                   ? Colors.green.shade300
                                   : Colors.grey.shade300,
                             ),
                           ),
-                          child: GestureDetector(
-                            onTap: () async {
-                              final profileCubit = context.read<ProfileCubit>();
-                              final homeCubit = context.read<HomeCubit>();
-                              await profileCubit.toggleOnlineStatus(
-                                widget.token,
-                                !user.isOnline,
-                              );
-                              // Refresh available orders after status change
-                              if (mounted) {
-                                homeCubit.refreshAvailableOrders(widget.token);
-                              }
-                            },
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.circle,
-                                  size: 10,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                user.isOnline ? 'Онлайн' : 'Офлайн',
+                                style: TextStyle(
+                                  fontSize: 12,
                                   color: user.isOnline
-                                      ? Colors.green
-                                      : Colors.grey,
+                                      ? Colors.green.shade700
+                                      : Colors.grey.shade700,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  user.isOnline ? 'Онлайнда' : 'Офлайнда',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: user.isOnline
-                                        ? Colors.green.shade700
-                                        : Colors.grey.shade700,
-                                    fontWeight: FontWeight.w500,
+                              ),
+                              const SizedBox(width: 4),
+                              SizedBox(
+                                width: 42,
+                                height: 32,
+                                child: FittedBox(
+                                  fit: BoxFit.contain,
+                                  child: Switch.adaptive(
+                                    value: user.isOnline,
+                                    onChanged: _updatingCourierOnlineStatus
+                                        ? null
+                                        : _setCourierOnlineStatus,
+                                    activeTrackColor: Colors.green,
+                                    activeThumbColor: Colors.white,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         )
                       else
@@ -401,14 +624,18 @@ class _HomePageState extends State<HomePage> {
               if (homeState.isCourier)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Күтүүдөгү заказдар',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Күтүүдөгү заказдар',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 10),
+                      _buildExternalTripButton(),
+                    ],
                   ),
                 )
               else ...[
@@ -537,7 +764,9 @@ class _HomePageState extends State<HomePage> {
                                           const SizedBox(width: 10),
                                           Expanded(
                                             child: Text(
-                                              order.categoryName,
+                                              order.isAdminExternal
+                                                  ? 'Системадан тышкары заказ'
+                                                  : order.categoryName,
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.w700,
                                                 color: AppColors.textPrimary,
@@ -546,10 +775,13 @@ class _HomePageState extends State<HomePage> {
                                             ),
                                           ),
                                           Text(
-                                            '${(order.estimatedPrice ?? 0).toStringAsFixed(0)} сом',
+                                            order.isAdminExternal
+                                                ? 'Жолдон эсептелет'
+                                                : '${(order.estimatedPrice ?? 0).toStringAsFixed(0)} сом',
                                             style: const TextStyle(
                                               color: AppColors.primary,
                                               fontWeight: FontWeight.w700,
+                                              fontSize: 12,
                                             ),
                                           ),
                                         ],
@@ -630,6 +862,27 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 16),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExternalTripButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: OutlinedButton.icon(
+        onPressed: _openExternalTripSheet,
+        icon: const Icon(Icons.route_rounded),
+        label: const Text('Системадан тышкары заказ эсептөө'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: BorderSide(color: AppColors.primary.withValues(alpha: 0.45)),
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
         ),
       ),
     );
@@ -797,8 +1050,11 @@ class _HomePageState extends State<HomePage> {
       selected: false,
       onTap: _openCategoriesSheet,
       label: 'Баары',
-      imageTile: const Icon(Icons.grid_view_rounded,
-          color: AppColors.primary, size: 26),
+      imageTile: const Icon(
+        Icons.grid_view_rounded,
+        color: AppColors.primary,
+        size: 26,
+      ),
     );
   }
 
@@ -856,7 +1112,9 @@ class _HomePageState extends State<HomePage> {
                                 borderRadius: BorderRadius.circular(16),
                                 border: c.id == _selectedCategoryId
                                     ? Border.all(
-                                        color: AppColors.primary, width: 2)
+                                        color: AppColors.primary,
+                                        width: 2,
+                                      )
                                     : null,
                               ),
                               child: ClipRRect(
@@ -893,8 +1151,9 @@ class _HomePageState extends State<HomePage> {
   // ── User browse: banner + selected-category enterprises ──────────────────────
   Widget _buildUserBrowse(dynamic homeState, dynamic user) {
     final selectedCategory = _filteredCategories.firstWhere(
-        (c) => c.id == _selectedCategoryId,
-        orElse: () => _filteredCategories.first);
+      (c) => c.id == _selectedCategoryId,
+      orElse: () => _filteredCategories.first,
+    );
     final isAction = _actionCategories.contains(selectedCategory.id);
     final visible = _visibleHomeEnterprises;
 
@@ -942,7 +1201,9 @@ class _HomePageState extends State<HomePage> {
                     _homeEnterprisesError == null)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primarySoft,
                       borderRadius: BorderRadius.circular(20),
@@ -1030,20 +1291,24 @@ class _HomePageState extends State<HomePage> {
                 child: ElevatedButton(
                   onPressed: () {
                     if (isTaxi) {
-                      Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => OrderCreatePage(
-                          token: widget.token,
-                          selectedCategory: category,
-                          initialFromAddress: user?.address,
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => OrderCreatePage(
+                            token: widget.token,
+                            selectedCategory: category,
+                            initialFromAddress: user?.address,
+                          ),
                         ),
-                      ));
+                      );
                     } else {
-                      Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => IntercityOrderPage(
-                          token: widget.token,
-                          userId: user?.id ?? 0,
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => IntercityOrderPage(
+                            token: widget.token,
+                            userId: user?.id ?? 0,
+                          ),
                         ),
-                      ));
+                      );
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -1057,7 +1322,9 @@ class _HomePageState extends State<HomePage> {
                   child: Text(
                     isTaxi ? 'Такси заказ кылуу' : 'Заказ берүү',
                     style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w700),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -1102,8 +1369,11 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
         child: Column(
           children: [
-            Icon(searching ? Icons.search_off : Icons.storefront_outlined,
-                size: 46, color: Colors.grey[400]),
+            Icon(
+              searching ? Icons.search_off : Icons.storefront_outlined,
+              size: 46,
+              color: Colors.grey[400],
+            ),
             const SizedBox(height: 12),
             Text(
               searching
@@ -1117,9 +1387,7 @@ class _HomePageState extends State<HomePage> {
       );
     }
     return Column(
-      children: [
-        for (final e in visible) _buildHomeEnterpriseCard(e),
-      ],
+      children: [for (final e in visible) _buildHomeEnterpriseCard(e)],
     );
   }
 
@@ -1184,8 +1452,11 @@ class _HomePageState extends State<HomePage> {
                           const SizedBox(height: 3),
                           Row(
                             children: [
-                              Icon(Icons.place_outlined,
-                                  size: 13, color: Colors.grey[400]),
+                              Icon(
+                                Icons.place_outlined,
+                                size: 13,
+                                color: Colors.grey[400],
+                              ),
                               const SizedBox(width: 3),
                               Expanded(
                                 child: Text(
@@ -1201,19 +1472,20 @@ class _HomePageState extends State<HomePage> {
                             ],
                           ),
                         ],
-                        const SizedBox(height: 9),
-                        Row(
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             _statusPill(closed),
-                            if (prep != null && prep > 0) ...[
-                              const SizedBox(width: 8),
+                            if (prep != null && prep > 0)
                               _metaPill(Icons.schedule, '$prep мин'),
-                            ],
-                            if (_enterpriseDistanceKm(e) != null) ...[
-                              const SizedBox(width: 8),
-                              _metaPill(Icons.near_me_outlined,
-                                  _formatDistance(_enterpriseDistanceKm(e)!)),
-                            ],
+                            if (_enterpriseDistanceKm(e) != null)
+                              _metaPill(
+                                Icons.near_me_outlined,
+                                _formatDistance(_enterpriseDistanceKm(e)!),
+                              ),
                           ],
                         ),
                       ],
@@ -1232,9 +1504,11 @@ class _HomePageState extends State<HomePage> {
     final color = closed ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
     final bg = closed ? const Color(0xFFFEE2E2) : const Color(0xFFDCFCE7);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3.5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1243,11 +1517,14 @@ class _HomePageState extends State<HomePage> {
             height: 6,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 4),
           Text(
             closed ? 'Жабык' : 'Ачык',
             style: TextStyle(
-                fontSize: 11.5, fontWeight: FontWeight.w700, color: color),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -1256,7 +1533,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _metaPill(IconData icon, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3.5),
       decoration: BoxDecoration(
         color: const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(20),
@@ -1264,14 +1541,15 @@ class _HomePageState extends State<HomePage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: AppColors.textSecondary),
-          const SizedBox(width: 4),
+          Icon(icon, size: 11.5, color: AppColors.textSecondary),
+          const SizedBox(width: 3.5),
           Text(
             label,
             style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),
@@ -1304,16 +1582,18 @@ class _HomePageState extends State<HomePage> {
         ? intBalance.toString()
         : balance.toStringAsFixed(0);
     return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => TopupPage(token: widget.token)),
-      ),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => TopupPage(token: widget.token))),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: low ? const Color(0xFFFEE2E2) : AppColors.primarySoft,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: low ? const Color(0xFFFCA5A5) : AppColors.primary.withValues(alpha: 0.25),
+            color: low
+                ? const Color(0xFFFCA5A5)
+                : AppColors.primary.withValues(alpha: 0.25),
           ),
         ),
         child: Row(
@@ -1768,6 +2048,39 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   }
 
   Future<void> _createOrder() async {
+    if (widget.token.isEmpty) {
+      final shouldLogin = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Кирүү талап кылынат', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: const Text('Буйрутманы тастыктоо үчүн аккаунтуңузга кириңиз же катталыңыз.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Жокко чыгаруу', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Кирүү / Катталуу'),
+            ),
+          ],
+        ),
+      );
+      if (shouldLogin == true && mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AuthPage()),
+        );
+      }
+      return;
+    }
+
     final description = _buildDescription();
     if (description.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2857,13 +3170,17 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                           ),
                         ),
                         const SizedBox(width: 9),
-                        Text(
-                          cat.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 17,
-                            color: AppColors.textPrimary,
-                            letterSpacing: -0.3,
+                        Expanded(
+                          child: Text(
+                            cat.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 17,
+                              color: AppColors.textPrimary,
+                              letterSpacing: -0.3,
+                            ),
                           ),
                         ),
                       ],

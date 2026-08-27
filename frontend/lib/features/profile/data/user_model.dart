@@ -8,6 +8,10 @@ class User {
   final String? address;
   final bool isOnline;
   final String uniqueId;
+  final String courierTransport;
+  final String? courierVehiclePlate;
+  final String? courierVehicleBrand;
+  final String? courierVehicleColor;
 
   User({
     required this.id,
@@ -19,7 +23,27 @@ class User {
     this.address,
     this.isOnline = false,
     required this.uniqueId,
+    this.courierTransport = 'walking',
+    this.courierVehiclePlate,
+    this.courierVehicleBrand,
+    this.courierVehicleColor,
   });
+
+  bool get courierUsesCar =>
+      courierTransport == 'car' || courierTransport == 'cargo';
+
+  String get courierTransportLabel {
+    switch (courierTransport) {
+      case 'car':
+        return 'Жеңил автоунаа';
+      case 'cargo':
+        return 'Жүк ташуучу автоунаа';
+      case 'scooter':
+        return 'Скутер';
+      default:
+        return 'Жөө';
+    }
+  }
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
@@ -32,6 +56,10 @@ class User {
       address: json['address'],
       isOnline: json['is_online'] ?? false,
       uniqueId: json['unique_id'] ?? '',
+      courierTransport: (json['courier_transport'] ?? 'walking').toString(),
+      courierVehiclePlate: json['courier_vehicle_plate']?.toString(),
+      courierVehicleBrand: json['courier_vehicle_brand']?.toString(),
+      courierVehicleColor: json['courier_vehicle_color']?.toString(),
     );
   }
 }

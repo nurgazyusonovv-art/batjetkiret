@@ -2,10 +2,12 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:frontend/core/config.dart';
 import 'package:frontend/core/theme/app_colors.dart';
@@ -29,6 +31,7 @@ class OrderPaymentSheet extends StatefulWidget {
 }
 
 class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
+  final _imagePicker = ImagePicker();
   String? _paymentQrUrl;
 
   // Use bytes + filename instead of dart:io File (web-compatible)
@@ -48,7 +51,9 @@ class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
   Future<void> _loadQr() async {
     try {
       final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}/enterprises/${widget.enterpriseId}/payment-qr'),
+        Uri.parse(
+          '${AppConfig.baseUrl}/enterprises/${widget.enterpriseId}/payment-qr',
+        ),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
       if (response.statusCode == 200) {
@@ -64,31 +69,138 @@ class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
   }
 
   Future<void> _pickScreenshot() async {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+    final useFileManager =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
+      type: useFileManager ? FileType.any : FileType.image,
       withData: true,
+      allowMultiple: false,
     );
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;
     if (file.bytes == null) return;
+    _setScreenshot(file.bytes!, file.name);
+  }
+
+  Future<void> _takeScreenshotPhoto() async {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (image == null) return;
+      final bytes = await image.readAsBytes();
+      _setScreenshot(bytes, image.name.isNotEmpty ? image.name : 'camera.jpg');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Камера ачылган жок. Уруксатты текшериңиз.';
+      });
+    }
+  }
+
+  void _setScreenshot(Uint8List bytes, String name) {
+    if (!_isSupportedScreenshot(name, bytes)) {
+      setState(() {
+        _error = 'JPG, PNG, WEBP же GIF сүрөтүн тандаңыз';
+      });
+      return;
+    }
     setState(() {
-      _screenshotBytes = file.bytes!;
-      _screenshotName = file.name.isNotEmpty ? file.name : 'screenshot.jpg';
+      _screenshotBytes = bytes;
+      _screenshotName = name.isNotEmpty ? name : 'screenshot.jpg';
       _error = null;
     });
   }
 
-  void _showImageSourceSheet() => _pickScreenshot();
+  bool _isSupportedScreenshot(String name, Uint8List bytes) {
+    final lower = name.toLowerCase();
+    final validExtension =
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.gif');
+    if (bytes.length < 12) return validExtension;
+
+    final isJpeg = bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF;
+    final isPng =
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47;
+    final isGif = bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46;
+    final isWebp =
+        bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50;
+    return validExtension || isJpeg || isPng || isGif || isWebp;
+  }
+
+  void _showImageSourceSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0E0E0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Скриншотту тандаңыз',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                if (!kIsWeb)
+                  ListTile(
+                    leading: const Icon(Icons.photo_camera_outlined),
+                    title: const Text('Камера'),
+                    onTap: _takeScreenshotPhoto,
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.folder_open_outlined),
+                  title: const Text('Файл тандоо'),
+                  onTap: _pickScreenshot,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Future<String?> _uploadScreenshot(Uint8List bytes, String filename) async {
     final uri = Uri.parse('${AppConfig.baseUrl}/topup/upload-screenshot');
     final request = http.MultipartRequest('POST', uri)
       ..headers['Authorization'] = 'Bearer ${widget.token}'
-      ..files.add(http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: filename,
-      ));
+      ..files.add(
+        http.MultipartFile.fromBytes('file', bytes, filename: filename),
+      );
 
     final streamed = await request.send();
     final body = await streamed.stream.bytesToString();
@@ -110,7 +222,10 @@ class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
       _error = null;
     });
     try {
-      final screenshotUrl = await _uploadScreenshot(_screenshotBytes!, _screenshotName);
+      final screenshotUrl = await _uploadScreenshot(
+        _screenshotBytes!,
+        _screenshotName,
+      );
       if (screenshotUrl == null) throw Exception('URL алынган жок');
 
       final response = await http.post(
@@ -263,23 +378,60 @@ class _OrderPaymentSheetState extends State<OrderPaymentSheet> {
     );
   }
 
-  Widget _buildQrImage(String dataUrl) {
-    try {
-      final comma = dataUrl.indexOf(',');
-      final bytes = base64Decode(comma >= 0 ? dataUrl.substring(comma + 1) : dataUrl);
-      return Center(
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFE0E0E0)),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.all(8),
-          child: Image.memory(bytes, width: 200, height: 200, fit: BoxFit.contain),
-        ),
+  Widget _buildQrImage(String source) {
+    Widget image;
+    if (source.startsWith('http://') ||
+        source.startsWith('https://') ||
+        source.startsWith('/')) {
+      final url = AppConfig.mediaUrl(source) ?? source;
+      image = Image.network(
+        url,
+        width: 200,
+        height: 200,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => _buildQrFallback(),
       );
-    } catch (_) {
-      return const SizedBox.shrink();
+    } else {
+      try {
+        final comma = source.indexOf(',');
+        final bytes = base64Decode(
+          comma >= 0 ? source.substring(comma + 1) : source,
+        );
+        image = Image.memory(
+          bytes,
+          width: 200,
+          height: 200,
+          fit: BoxFit.contain,
+        );
+      } catch (_) {
+        image = _buildQrFallback();
+      }
     }
+
+    return Center(
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE0E0E0)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.all(8),
+        child: image,
+      ),
+    );
+  }
+
+  Widget _buildQrFallback() {
+    return const SizedBox(
+      width: 200,
+      height: 200,
+      child: Center(
+        child: Text(
+          'QR код жүктөлгөн жок',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey),
+        ),
+      ),
+    );
   }
 
   Widget _buildScreenshotPicker() {

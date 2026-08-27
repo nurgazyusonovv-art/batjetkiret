@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../auth/presentation/auth_page.dart';
 import '../data/order_api.dart';
 import '../data/order_model.dart';
 import 'cubit/orders_cubit.dart';
@@ -316,6 +317,76 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
         }
       },
       builder: (context, state) {
+        if (widget.token.isEmpty) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            appBar: AppBar(
+              backgroundColor: AppColors.background,
+              elevation: 0,
+              title: const Text(
+                'Заказдарым',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+            ),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.shopping_bag_outlined,
+                        size: 40,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Заказдарыңызды көрүү үчүн кириңиз',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Буйрутмаларыңыздын абалын көзөмөлдөө жана таржымалын көрүү үчүн аккаунтуңузга кириңиз.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    AppButton.primary(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AuthPage()),
+                        );
+                      },
+                      label: 'Кирүү / Катталуу',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
         final filteredOrders = _filteredOrders(state);
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -766,18 +837,20 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                       ),
                     ],
                   ),
-                  Row(
-                    children: [
-                      if (order.cancelRequested) ...[
-                        _buildCancelRequestedBadge(),
-                        const SizedBox(width: 8),
+                  Flexible(
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        if (order.cancelRequested)
+                          _buildCancelRequestedBadge(),
+                        if (unreadCount > 0)
+                          _buildUnreadChatBadge(unreadCount),
+                        _buildStatusBadgeModern(order.status),
                       ],
-                      if (unreadCount > 0) ...[
-                        _buildUnreadChatBadge(unreadCount),
-                        const SizedBox(width: 8),
-                      ],
-                      _buildStatusBadgeModern(order.status),
-                    ],
+                    ),
                   ),
                 ],
               ),

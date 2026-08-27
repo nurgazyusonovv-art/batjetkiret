@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../data/banner_model.dart';
+import '../../../core/config.dart';
 import '../../../core/theme/app_colors.dart';
 
 class BannerDetailPage extends StatefulWidget {
@@ -24,11 +25,14 @@ class _BannerDetailPageState extends State<BannerDetailPage>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 420));
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
     _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
-            begin: const Offset(0, 0.18), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      begin: const Offset(0, 0.18),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _ctrl.forward();
   }
 
@@ -47,158 +51,128 @@ class _BannerDetailPageState extends State<BannerDetailPage>
     final hasSubtitle = b.subtitle?.isNotEmpty ?? false;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      value: SystemUiOverlayStyle.dark,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0D0D0D),
-        extendBodyBehindAppBar: true,
+        backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF111827),
           elevation: 0,
-          automaticallyImplyLeading: false,
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 16, top: 8),
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.15), width: 1),
-                  ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 20),
-                ),
-              ),
-            ),
-          ],
+          title: const Text(
+            'Жарнама',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+          ),
         ),
-        body: Stack(
-          children: [
-            // ── Full-screen background image ──────────────────────────
-            Positioned.fill(
-              child: hasImage
-                  ? _buildImage(b.imageData!)
-                  : Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF1A1A2E), AppColors.primary],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.campaign,
-                            color: Colors.white24, size: 100),
-                      ),
-                    ),
-            ),
-
-            // ── Gradient overlay bottom ───────────────────────────────
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: const [0.35, 0.65, 1.0],
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.55),
-                      Colors.black.withValues(alpha: 0.92),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // ── Bottom content card ───────────────────────────────────
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: FadeTransition(
-                opacity: _fadeAnim,
-                child: SlideTransition(
-                  position: _slideAnim,
-                  child: SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Ad badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.9),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'ЖАРНАМА',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.2,
+        body: FadeTransition(
+          opacity: _fadeAnim,
+          child: SlideTransition(
+            position: _slideAnim,
+            child: SafeArea(
+              top: false,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 10,
+                      child: hasImage
+                          ? _buildImage(b.imageData!)
+                          : Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Color(0xFF1A1A2E),
+                                    AppColors.primary,
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
                               ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.campaign,
+                                  color: Colors.white70,
+                                  size: 80,
+                                ),
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primarySoft,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'ЖАРНАМА',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
                             ),
                           ),
-                          const SizedBox(height: 12),
-
-                          // Title
-                          if (hasTitle) ...[
-                            Text(
-                              b.title!,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 26,
-                                fontWeight: FontWeight.w900,
-                                height: 1.2,
-                                shadows: [
-                                  Shadow(
-                                      color: Colors.black54,
-                                      blurRadius: 8,
-                                      offset: Offset(0, 2))
-                                ],
-                              ),
+                        ),
+                        if (hasTitle) ...[
+                          const SizedBox(height: 14),
+                          Text(
+                            b.title!,
+                            style: const TextStyle(
+                              color: Color(0xFF111827),
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              height: 1.18,
                             ),
-                            const SizedBox(height: 10),
-                          ],
-
-                          // Subtitle
-                          if (hasSubtitle) ...[
-                            Text(
-                              b.subtitle!,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.82),
-                                fontSize: 15,
-                                height: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                          ] else
-                            const SizedBox(height: 24),
-
-                          // Link button
-                          if (hasLink)
-                            _LinkButton(url: b.linkUrl!)
-                          else
-                            // Close button if no link
-                            _CloseButton(onTap: () => Navigator.of(context).pop()),
+                          ),
                         ],
-                      ),
+                        if (hasSubtitle) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            b.subtitle!,
+                            style: const TextStyle(
+                              color: Color(0xFF4B5563),
+                              fontSize: 15,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 22),
+                        if (hasLink)
+                          _LinkButton(url: b.linkUrl!)
+                        else
+                          _CloseButton(
+                            onTap: () => Navigator.of(context).pop(),
+                          ),
+                      ],
                     ),
                   ),
-                ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -210,13 +184,17 @@ class _BannerDetailPageState extends State<BannerDetailPage>
       if (idx != -1) {
         try {
           final bytes = base64Decode(imageData.substring(idx + 1));
-          return Image.memory(bytes,
-              fit: BoxFit.cover, width: double.infinity, height: double.infinity);
+          return Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          );
         } catch (_) {}
       }
     }
     return Image.network(
-      imageData,
+      AppConfig.mediaUrl(imageData) ?? imageData,
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,
@@ -258,9 +236,9 @@ class _LinkButtonState extends State<_LinkButton> {
       child: ElevatedButton(
         onPressed: _loading ? null : _open,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: const Color(0xFF0D0D0D),
-          disabledBackgroundColor: Colors.white60,
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -272,7 +250,10 @@ class _LinkButtonState extends State<_LinkButton> {
                 width: 22,
                 height: 22,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2.5, color: Colors.black54))
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
+              )
             : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -305,13 +286,16 @@ class _CloseButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.4), width: 1.5),
+          foregroundColor: const Color(0xFF111827),
+          side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16)),
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
-        child: const Text('Жабуу',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        child: const Text(
+          'Жабуу',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
       ),
     );
   }

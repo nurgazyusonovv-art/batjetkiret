@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb, debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
@@ -11,7 +14,9 @@ import 'notification_navigator.dart';
 /// Must be a top-level function.
 @pragma('vm:entry-point')
 Future<void> firebaseBackgroundMessageHandler(RemoteMessage message) async {
-  // Background messages are automatically shown by Firebase on Android.
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp();
+  }
 }
 
 int? _chatIdFromMessage(RemoteMessage message) {
@@ -37,9 +42,14 @@ String _bodyFromMessage(RemoteMessage message) {
 class FcmService {
   static const _tokenKey = 'fcm_device_token';
   static bool _initialized = false;
+  static final StreamController<int?> _newOrderController =
+      StreamController<int?>.broadcast();
+
+  static Stream<int?> get onNewOrder => _newOrderController.stream;
 
   static Future<void> initialize(String authToken) async {
     if (kIsWeb) return;
+    if (Firebase.apps.isEmpty) return;
     if (_initialized) {
       await _syncTokenToBackend(authToken);
       return;
@@ -49,7 +59,16 @@ class FcmService {
     final messaging = FirebaseMessaging.instance;
 
     // Request permission (iOS + Android 13+)
-    await messaging.requestPermission(
+    final permission = await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    if (permission.authorizationStatus == AuthorizationStatus.denied) {
+      debugPrint('FCM permission denied by user');
+      return;
+    }
+    await messaging.setForegroundNotificationPresentationOptions(
       alert: true,
       badge: true,
       sound: true,
@@ -93,6 +112,11 @@ class FcmService {
       final chatId = _chatIdFromMessage(message);
       final orderId = _orderIdFromMessage(message);
       final type = message.data['type'] ?? 'info';
+      final channelId = message.data['channel_id'] ?? _channelForType(type);
+
+      if (type.toString().toLowerCase() == 'new_order') {
+        _newOrderController.add(orderId);
+      }
 
       // Show system notification with sound (handles chat payload for tap nav)
       NotificationsService.showNotification(
@@ -101,7 +125,7 @@ class FcmService {
         body,
         chatId: chatId,
         orderId: orderId,
-        channelId: _channelForType(type),
+        channelId: channelId,
       );
 
       // In-app overlay banner (without duplicate sound — sound comes from showNotification above)
@@ -123,35 +147,61 @@ class FcmService {
   }
 
   static String _channelForType(String type) {
-    switch (type) {
+    switch (type.toLowerCase()) {
       case 'topup_approved':
       case 'topup_rejected':
-        return 'topup_status_v2';
+      case 'topup':
+        return NotificationsService.topupStatusChannelId;
       case 'order_status':
-        return 'order_status_v2';
-      case 'SUPPORT':
-        return 'support_chat_v2';
+      case 'delivery_status':
+        return NotificationsService.orderStatusChannelId;
+      case 'support':
+      case 'support_chat':
+      case 'support_message':
+        return NotificationsService.supportChatChannelId;
+      case 'new_order':
+      case 'cancel_request':
+      case 'cancel_requests':
+        return NotificationsService.urgentOrdersChannelId;
       default:
-        return 'batken_messages_v2';
+        return NotificationsService.messagesChannelId;
     }
   }
 
   static Future<void> _syncTokenToBackend(String authToken) async {
     try {
       final messaging = FirebaseMessaging.instance;
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        final apnsReady = await _waitForApnsToken(messaging);
+        if (!apnsReady) {
+          debugPrint('FCM token sync deferred: APNs token is not ready');
+          return;
+        }
+      }
       final token = await messaging.getToken();
       if (token == null) return;
 
-      final prefs = await SharedPreferences.getInstance();
-      final lastSent = prefs.getString(_tokenKey);
-      if (lastSent == token) return;
-
+      // Always sync on login. One device may sign in with another account while
+      // Firebase keeps the same token, so a device-only cache is not sufficient.
       await _sendTokenToBackend(authToken, token);
-    } catch (_) {}
+    } catch (error) {
+      debugPrint('FCM token sync failed: $error');
+    }
+  }
+
+  static Future<bool> _waitForApnsToken(FirebaseMessaging messaging) async {
+    for (var attempt = 0; attempt < 20; attempt++) {
+      final token = await messaging.getAPNSToken();
+      if (token != null && token.isNotEmpty) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    return false;
   }
 
   static Future<void> _sendTokenToBackend(
-      String authToken, String fcmToken) async {
+    String authToken,
+    String fcmToken,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('${AppConfig.baseUrl}/users/me/fcm-token'),
@@ -165,6 +215,8 @@ class FcmService {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_tokenKey, fcmToken);
       }
-    } catch (_) {}
+    } catch (error) {
+      debugPrint('FCM token backend sync failed: $error');
+    }
   }
 }

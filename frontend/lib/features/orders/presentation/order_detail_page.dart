@@ -16,6 +16,7 @@ import '../data/order_model.dart';
 import '../../profile/data/user_api.dart';
 import '../../home/presentation/order_payment_sheet.dart';
 import 'order_chat_page.dart';
+import 'external_trip_tracker_page.dart';
 import 'cubit/order_detail_cubit.dart';
 import 'cubit/order_detail_state.dart';
 
@@ -563,7 +564,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       ),
                     ),
 
-
                   // ── Info block ────────────────────────────────────────
                   Container(
                     decoration: BoxDecoration(
@@ -576,7 +576,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                         _buildInfoRow(
                           icon: Icons.shopping_bag_outlined,
                           label: 'Категория',
-                          value: currentOrder.categoryName,
+                          value: currentOrder.isAdminExternal
+                              ? 'Системадан тышкары заказ'
+                              : currentOrder.categoryName,
                           color: accentColor,
                           isFirst: true,
                         ),
@@ -585,7 +587,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                           icon: Icons.route,
                           label: 'Аралык',
                           value:
-                              '${currentOrder.distance.toStringAsFixed(1)} км',
+                              currentOrder.isAdminExternal &&
+                                  currentOrder.status != 'completed'
+                              ? 'Жолдон эсептелет'
+                              : '${currentOrder.distance.toStringAsFixed(1)} км',
                           color: accentColor,
                         ),
                         if (currentOrder.estimatedPrice != null) ...[
@@ -594,7 +599,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                             icon: Icons.local_shipping_outlined,
                             label: 'Жеткирүү баасы',
                             value:
-                                '${currentOrder.estimatedPrice?.round()} сом',
+                                currentOrder.isAdminExternal &&
+                                    currentOrder.status != 'completed'
+                                ? 'Жолдон эсептелет'
+                                : '${currentOrder.estimatedPrice?.round()} сом',
                             color: accentColor,
                             isLast: true,
                           ),
@@ -985,8 +993,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   ],
                   // Courier info section (for users only)
                   if (!widget.isCourier &&
-                      currentOrder.courierName != null &&
-                      currentOrder.status != 'completed') ...[
+                      currentOrder.courierName != null) ...[
                     Text(
                       'Курьер',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -1092,6 +1099,89 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                               ],
                             ),
                           ],
+                          const SizedBox(height: 12),
+                          Divider(color: AppColors.border),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(13),
+                                  color: accentColor.withAlpha(38),
+                                ),
+                                child: Icon(
+                                  _courierTransportIcon(
+                                    currentOrder.courierTransport,
+                                  ),
+                                  size: 21,
+                                  color: accentColor,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Жеткирүү транспорту',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      currentOrder.courierTransportLabel,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    if (currentOrder.courierVehicleBrand !=
+                                            null &&
+                                        currentOrder.courierVehicleBrand!
+                                            .trim()
+                                            .isNotEmpty) ...[
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        currentOrder.courierVehicleColor !=
+                                                    null &&
+                                                currentOrder
+                                                    .courierVehicleColor!
+                                                    .trim()
+                                                    .isNotEmpty
+                                            ? '${currentOrder.courierVehicleBrand} · ${currentOrder.courierVehicleColor}'
+                                            : currentOrder.courierVehicleBrand!,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                    if (currentOrder.courierVehiclePlate !=
+                                            null &&
+                                        currentOrder.courierVehiclePlate!
+                                            .trim()
+                                            .isNotEmpty) ...[
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Номери: ${currentOrder.courierVehiclePlate}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                           // Contact buttons: WhatsApp, Call, Chat
                           if (currentOrder.courierId != null &&
                               currentOrder.status != 'completed') ...[
@@ -1517,7 +1607,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             child: AppButton.primary(
               onPressed: isUpdatingStatus ? null : _startDelivery,
               isLoading: isUpdatingStatus,
-              label: 'Жеткирүүнү баштоо',
+              label: currentOrder.isAdminExternal
+                  ? 'Эсептөөнү баштоо'
+                  : 'Жеткирүүнү баштоо',
             ),
           ),
           Padding(
@@ -1561,9 +1653,15 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: AppButton.primary(
-              onPressed: isUpdatingStatus ? null : _markDelivered,
+              onPressed: isUpdatingStatus
+                  ? null
+                  : currentOrder.isAdminExternal
+                  ? _openExternalTracker
+                  : _markDelivered,
               isLoading: isUpdatingStatus,
-              label: 'Заказды аяктоо',
+              label: currentOrder.isAdminExternal
+                  ? 'Эсептөөнү улантуу'
+                  : 'Заказды аяктоо',
             ),
           ),
         if (isCompleted)
@@ -1576,11 +1674,50 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Future<void> _acceptOrder() async {
-    await _updateOrderStatus('accept');
+    final accepted = await _updateOrderStatus('accept');
+    if (!accepted || !mounted || !widget.order.isAdminExternal) return;
+    final type = widget.order.orderType == 'taxi'
+        ? ExternalTripType.taxi
+        : ExternalTripType.delivery;
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ExternalTripTrackerPage(
+          token: widget.token!,
+          tripType: type,
+          orderId: widget.order.id,
+          customerPhone: widget.order.customerPhone ?? widget.order.userPhone,
+          fromAddress: widget.order.fromAddress,
+          toAddress: widget.order.toAddress,
+        ),
+      ),
+    );
   }
 
   Future<void> _startDelivery() async {
+    if (widget.order.isAdminExternal) {
+      await _openExternalTracker();
+      return;
+    }
     await _updateOrderStatus('start');
+  }
+
+  Future<void> _openExternalTracker() async {
+    final order = _detailCubit.state.currentOrder;
+    final type = order.orderType == 'taxi'
+        ? ExternalTripType.taxi
+        : ExternalTripType.delivery;
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ExternalTripTrackerPage(
+          token: widget.token!,
+          tripType: type,
+          orderId: order.id,
+          customerPhone: order.customerPhone ?? order.userPhone,
+          fromAddress: order.fromAddress,
+          toAddress: order.toAddress,
+        ),
+      ),
+    );
   }
 
   Future<void> _markDelivered() async {
@@ -1604,7 +1741,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
-  Future<void> _updateOrderStatus(String action) async {
+  Future<bool> _updateOrderStatus(String action) async {
     try {
       switch (action) {
         case 'accept':
@@ -1614,22 +1751,28 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           await _detailCubit.startDelivery(widget.token);
           break;
       }
+      final cubitError = _detailCubit.state.error;
+      if (cubitError != null && cubitError.isNotEmpty) {
+        throw Exception(cubitError);
+      }
 
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_getStatusUpdateMessage(action)),
           backgroundColor: AppColors.accent4,
         ),
       );
+      return true;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error.toString().replaceFirst('Exception: ', '')),
           backgroundColor: AppColors.accent5,
         ),
       );
+      return false;
     }
   }
 
@@ -1889,6 +2032,19 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         ],
       ),
     );
+  }
+
+  IconData _courierTransportIcon(String transport) {
+    switch (transport) {
+      case 'car':
+        return Icons.directions_car_filled_rounded;
+      case 'cargo':
+        return Icons.local_shipping_rounded;
+      case 'scooter':
+        return Icons.electric_scooter_rounded;
+      default:
+        return Icons.directions_walk_rounded;
+    }
   }
 
   Widget _buildInfoDivider() {

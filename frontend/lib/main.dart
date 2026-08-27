@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:frontend/features/home/presentation/home_page.dart';
+import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:math';
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_colors.dart';
+import 'core/widgets/app_button.dart';
 import 'core/config.dart';
 import 'core/storage/hive_service.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -19,6 +22,7 @@ import 'features/auth/presentation/auth_page.dart';
 import 'features/profile/data/user_api.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/cubit/auth_state.dart';
+import 'features/advertisements/presentation/advertisements_page.dart';
 import 'features/profile/presentation/profile_page.dart';
 import 'features/profile/presentation/contact_admin_page.dart';
 import 'features/profile/presentation/cubit/profile_cubit.dart';
@@ -30,6 +34,7 @@ import 'features/splash/presentation/splash_screen.dart';
 import 'features/role_selection/presentation/role_selection_page.dart';
 import 'features/enterprise/enterprise_shell.dart';
 import 'features/enterprise/screens/login_screen.dart' as ent;
+import 'features/enterprise/services/api_service.dart' as ent_api;
 import 'features/enterprise/services/auth_service.dart' as ent_auth;
 import 'core/auth_event_bus.dart';
 
@@ -139,6 +144,7 @@ class _AppStartFlowState extends State<_AppStartFlow> {
   bool _isSplashDone = false;
   bool? _isOnboardingSeen;
   String? _role; // 'user' | 'courier' | 'enterprise' | null
+  bool _isGuest = false;
   bool _entLoggedIn = false;
 
   @override
@@ -158,12 +164,26 @@ class _AppStartFlowState extends State<_AppStartFlow> {
       ent_auth.AuthService.getToken(),
     ]);
     final entToken = results[1] as String?;
+    var entLoggedIn = entToken != null && entToken.isNotEmpty;
+
+    if (entLoggedIn) {
+      try {
+        await ent_api.ApiService.getMe();
+      } on DioException catch (error) {
+        final statusCode = error.response?.statusCode;
+        if (statusCode == 401 || statusCode == 403) {
+          await ent_auth.AuthService.deleteToken();
+          entLoggedIn = false;
+        }
+      }
+    }
 
     if (!mounted) return;
     setState(() {
       _isOnboardingSeen = seen;
       _role = role;
-      _entLoggedIn = entToken != null && entToken.isNotEmpty;
+      _isGuest = (role == 'user');
+      _entLoggedIn = entLoggedIn;
       _isSplashDone = true;
     });
   }
@@ -193,7 +213,10 @@ class _AppStartFlowState extends State<_AppStartFlow> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_roleKey);
     if (!mounted) return;
-    setState(() => _role = null);
+    setState(() {
+      _role = null;
+      _isGuest = false;
+    });
   }
 
   Future<void> _selectRole(AppRole role) async {
@@ -205,7 +228,10 @@ class _AppStartFlowState extends State<_AppStartFlow> {
         : 'user';
     await prefs.setString(_roleKey, key);
     if (!mounted) return;
-    setState(() => _role = key);
+    setState(() {
+      _role = key;
+      _isGuest = (role == AppRole.user);
+    });
   }
 
   void _onEnterpriseLogin() {
@@ -257,7 +283,19 @@ class _AppStartFlowState extends State<_AppStartFlow> {
       return MainNavigation(token: widget.authState.token!);
     }
 
-    return const AuthPage();
+    // Customer guest browsing mode
+    if (_role == 'user' || _isGuest) {
+      return const MainNavigation(token: '');
+    }
+
+    return AuthPage(
+      onContinueAsGuest: () {
+        setState(() {
+          _role = 'user';
+          _isGuest = true;
+        });
+      },
+    );
   }
 }
 
@@ -277,6 +315,7 @@ class _MainNavigationState extends State<MainNavigation>
   late final List<Widget> _pages;
   Timer? _autoRefreshTimer;
   Timer? _notificationPollTimer;
+  StreamSubscription<int?>? _newOrderSubscription;
   bool _isAppInForeground = true;
   bool _isRefreshing = false;
   int _consecutiveRefreshErrors = 0;
@@ -297,6 +336,7 @@ class _MainNavigationState extends State<MainNavigation>
     WidgetsBinding.instance.addObserver(this);
     _pages = [
       HomePage(token: widget.token),
+      AdvertisementsPage(token: widget.token),
       MyOrdersPage(
         token: widget.token,
         onCreateOrder: () {
@@ -317,6 +357,10 @@ class _MainNavigationState extends State<MainNavigation>
     ];
 
     FcmService.initialize(widget.token);
+    _newOrderSubscription = FcmService.onNewOrder.listen((_) {
+      if (!mounted) return;
+      context.read<HomeCubit>().refreshAvailableOrders(widget.token);
+    });
 
     // Set auth context for notification tap navigation
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -348,6 +392,7 @@ class _MainNavigationState extends State<MainNavigation>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _isAppInForeground = true;
+      FcmService.initialize(widget.token);
       _refreshForTab(_currentIndex);
       _scheduleNextAutoRefresh();
       _startNotificationPolling();
@@ -416,6 +461,7 @@ class _MainNavigationState extends State<MainNavigation>
   void dispose() {
     _autoRefreshTimer?.cancel();
     _notificationPollTimer?.cancel();
+    _newOrderSubscription?.cancel();
     NotificationNavigator.clear();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -429,7 +475,7 @@ class _MainNavigationState extends State<MainNavigation>
           : _homeIdleInterval;
     }
 
-    if (_currentIndex == 1) {
+    if (_currentIndex == 2) {
       final ordersState = context.read<OrdersCubit>().state;
       final hasActiveOrders = ordersState.orders.any(
         (order) =>
@@ -490,6 +536,11 @@ class _MainNavigationState extends State<MainNavigation>
       }
 
       if (tabIndex == 1) {
+        _consecutiveRefreshErrors = 0;
+        return;
+      }
+
+      if (tabIndex == 2) {
         await ordersCubit.loadOrders(widget.token, silent: silent);
         final hasError = ordersCubit.state.error != null;
         _consecutiveRefreshErrors = hasError
@@ -498,7 +549,7 @@ class _MainNavigationState extends State<MainNavigation>
         return;
       }
 
-      if (tabIndex == 2) {
+      if (tabIndex == 3) {
         await profileCubit.loadUser(widget.token, silent: silent);
         if (profileCubit.state.user?.isCourier == true) {
           await profileCubit.loadCourierStats(widget.token, silent: true);
@@ -555,6 +606,7 @@ class _MainNavigationState extends State<MainNavigation>
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Башкы бет'),
+          BottomNavigationBarItem(icon: Icon(Icons.campaign), label: 'Жарнама'),
           BottomNavigationBarItem(
             icon: Icon(Icons.shopping_bag),
             label: 'Заказдар',
@@ -579,11 +631,79 @@ class _SupportTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (token.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.background,
+          elevation: 0,
+          title: const Text(
+            'Колдоо кызматы',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
+          automaticallyImplyLeading: false,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.support_agent,
+                    size: 40,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Администратор менен байланышуу',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Суроо берүү жана колдоо кызматына жазуу үчүн кириңиз же катталыңыз.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                AppButton.primary(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AuthPage()),
+                    );
+                  },
+                  label: 'Кирүү / Катталуу',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     final user = context.watch<ProfileCubit>().state.user;
     if (user == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return ContactAdminPage(
       token: token,

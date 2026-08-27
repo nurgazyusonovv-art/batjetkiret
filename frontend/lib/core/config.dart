@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 
 class AppConfig {
+  static const String productionBaseUrl =
+      'https://batjetkiret-production.up.railway.app';
+
   // You can override with: flutter run --dart-define=API_BASE_URL=http://192.168.x.x:8000
   static const String _envBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://batjetkiret-production.up.railway.app',
+    defaultValue: '',
   );
 
   // Refresh interval configuration (seconds)
@@ -54,11 +57,32 @@ class AppConfig {
 
   static String get baseUrl {
     if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
-    // Android emulator: localhost = emulator itself, 10.0.2.2 = host machine
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:8000';
+    if (kIsWeb) return '/api';
+    // Default to production for both release and debug builds on real devices.
+    // Override with --dart-define=API_BASE_URL=http://10.0.2.2:8000 for emulator.
+    return productionBaseUrl;
+  }
+
+  static String? mediaUrl(String? value) {
+    final raw = value?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('data:')) {
+      return raw;
     }
-    return 'http://localhost:8000';
+    if (kIsWeb && raw.startsWith('/api/')) {
+      return raw;
+    }
+    if (!kIsWeb && raw.startsWith('/api/media/proxy')) {
+      return '$productionBaseUrl${raw.replaceFirst('/api', '')}';
+    }
+    if (raw.startsWith('https://') && raw.contains('.r2.dev/')) {
+      final encoded = Uri.encodeComponent(raw);
+      if (kIsWeb) return '/api/media/proxy?url=$encoded';
+      return '$productionBaseUrl/media/proxy?url=$encoded';
+    }
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    if (raw.startsWith('/')) return '$productionBaseUrl$raw';
+    return '$productionBaseUrl/$raw';
   }
 
   static Duration get homeActiveInterval {

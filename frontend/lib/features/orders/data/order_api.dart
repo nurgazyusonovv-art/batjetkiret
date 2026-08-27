@@ -21,6 +21,86 @@ class OrderApi {
     return e.toString();
   }
 
+  Future<Map<String, dynamic>> quoteExternalTrip({
+    required String token,
+    required String orderType,
+    required double distanceKm,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConfig.baseUrl}/courier/orders/external-quote'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'order_type': orderType, 'distance_km': distanceKm}),
+      );
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) return decoded;
+        throw Exception('Сервер жообу туура эмес форматта келди');
+      }
+
+      if (response.statusCode == 401) {
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
+      }
+
+      final dynamic decoded = jsonDecode(response.body);
+      final detail = decoded is Map<String, dynamic> ? decoded['detail'] : null;
+      throw Exception(detail is String ? detail : 'Бааны эсептөөдө ката кетти');
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Сервер жообу туура эмес форматта келди');
+      }
+      if (e is SocketException || e is http.ClientException) {
+        throw Exception(_getNetworkErrorMessage(e));
+      }
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> completeExternalOrder({
+    required String token,
+    required int orderId,
+    required double distanceKm,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+          '${AppConfig.baseUrl}/courier/orders/$orderId/complete-external',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'distance_km': distanceKm}),
+      );
+
+      final dynamic decoded = jsonDecode(response.body);
+      if (response.statusCode == 200 && decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (response.statusCode == 401) {
+        AuthEventBus.instance.fireUnauthorized();
+        throw const UnauthorizedException();
+      }
+      final detail = decoded is Map<String, dynamic> ? decoded['detail'] : null;
+      throw Exception(
+        detail is String ? detail : 'Сырткы заказды аяктоодо ката кетти',
+      );
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Сервер жообу туура эмес форматта келди');
+      }
+      if (e is SocketException || e is http.ClientException) {
+        throw Exception(_getNetworkErrorMessage(e));
+      }
+      rethrow;
+    }
+  }
+
   Future<bool> isCourier(String token) async {
     try {
       final response = await http.get(
@@ -778,10 +858,7 @@ class OrderApi {
   }
 
   /// Clear the chat for the current user only ("hide for me").
-  Future<void> clearChat({
-    required String token,
-    required int chatId,
-  }) async {
+  Future<void> clearChat({required String token, required int chatId}) async {
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/chat/$chatId/clear'),
       headers: {

@@ -16,6 +16,7 @@ import 'package:frontend/features/profile/presentation/how_to_order_page.dart';
 import '../data/user_api.dart' as user_api_lib;
 import 'package:frontend/features/profile/presentation/topup_page.dart';
 import 'package:frontend/features/profile/presentation/topup_history_page.dart';
+import 'package:frontend/features/advertisements/presentation/advertisements_page.dart';
 
 import '../data/user_model.dart';
 
@@ -63,6 +64,73 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildContent(BuildContext context) {
+    if (widget.token.isEmpty) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF4F6F8),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          title: const Text(
+            'Профиль',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.person_outline,
+                    size: 44,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Сиз конок катары кирдиңиз',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Буйрутма берүү, тарыхты көрүү жана аккаунтту башкаруу үчүн кириңиз же катталыңыз.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                AppButton.primary(
+                  onPressed: widget.onLogout,
+                  label: 'Кирүү / Катталуу',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final profileState = context.watch<ProfileCubit>().state;
     final User? user = profileState.user;
 
@@ -86,15 +154,23 @@ class _ProfilePageState extends State<ProfilePage> {
             alignment: Alignment.center,
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: AppColors.textPrimary,
+                ),
                 onPressed: () async {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => NotificationsPage(token: widget.token, userId: user?.id ?? 0),
+                      builder: (_) => NotificationsPage(
+                        token: widget.token,
+                        userId: user?.id ?? 0,
+                      ),
                     ),
                   );
-                  if (mounted) _profileCubit.loadUser(widget.token, silent: true);
+                  if (mounted) {
+                    _profileCubit.loadUser(widget.token, silent: true);
+                  }
                 },
               ),
               if (profileState.unreadNotifications > 0)
@@ -108,7 +184,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 1.5),
                     ),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
                     child: Text(
                       profileState.unreadNotifications > 99
                           ? '99+'
@@ -125,7 +204,10 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppColors.textPrimary),
+            icon: const Icon(
+              Icons.settings_outlined,
+              color: AppColors.textPrimary,
+            ),
             onPressed: _showEditBottomSheet,
           ),
         ],
@@ -133,40 +215,46 @@ class _ProfilePageState extends State<ProfilePage> {
       body: profileState.isLoading
           ? const Center(child: CircularProgressIndicator())
           : profileState.error != null
-              ? _buildError(profileState.error!)
-              : user != null
-                  ? SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          if (user.balance <= 100) ...[
-                            _buildLowBalanceBanner(user),
-                            const SizedBox(height: 12),
-                          ],
-                          if (!user.isCourier && !_courierBannerDismissed) ...[
-                            _buildCourierRecruitBanner(),
-                            const SizedBox(height: 12),
-                          ],
-                          _buildProfileCard(
-                            user,
-                            ratingAverage: profileState.ratingAverage,
-                            ratingTotal: profileState.ratingTotalReviews,
-                          ),
-                          const SizedBox(height: 14),
-                          _buildBalanceCard(user),
-                          const SizedBox(height: 14),
-                          if (user.isCourier) ...[
-                            _buildStatsSection(profileState),
-                            const SizedBox(height: 14),
-                          ],
-                          _buildMenuSection(user),
-                          const SizedBox(height: 14),
-                          _buildLogoutButton(),
-                          const SizedBox(height: 24),
-                        ],
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+          ? _buildError(profileState.error!)
+          : user != null
+          ? SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  if (user.balance <= 100) ...[
+                    _buildLowBalanceBanner(user),
+                    const SizedBox(height: 12),
+                  ],
+                  if (!user.isCourier && !_courierBannerDismissed) ...[
+                    _buildCourierRecruitBanner(),
+                    const SizedBox(height: 12),
+                  ],
+                  _buildProfileCard(
+                    user,
+                    ratingAverage: profileState.ratingAverage,
+                    ratingTotal: profileState.ratingTotalReviews,
+                  ),
+                  const SizedBox(height: 14),
+                  if (user.isCourier) ...[
+                    _buildTransportCard(user),
+                    const SizedBox(height: 14),
+                  ],
+                  _buildBalanceCard(user),
+                  const SizedBox(height: 14),
+                  if (user.isCourier) ...[
+                    _buildStatsSection(profileState),
+                    const SizedBox(height: 14),
+                  ],
+                  _buildMenuSection(user),
+                  const SizedBox(height: 14),
+                  _buildLogoutButton(),
+                  const SizedBox(height: 12),
+                  _buildDeleteAccountButton(),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            )
+          : const SizedBox.shrink(),
     );
   }
 
@@ -297,8 +385,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // ── Profile card ────────────────────────────────────────────────────────────
 
-  Widget _buildProfileCard(User user,
-      {double ratingAverage = 0, int ratingTotal = 0}) {
+  Widget _buildProfileCard(
+    User user, {
+    double ratingAverage = 0,
+    int ratingTotal = 0,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
@@ -374,12 +465,14 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 20),
+                const Icon(
+                  Icons.star_rounded,
+                  color: Color(0xFFFFB300),
+                  size: 20,
+                ),
                 const SizedBox(width: 6),
                 Text(
-                  ratingTotal > 0
-                      ? ratingAverage.toStringAsFixed(1)
-                      : '—',
+                  ratingTotal > 0 ? ratingAverage.toStringAsFixed(1) : '—',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -388,9 +481,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  ratingTotal > 0
-                      ? '$ratingTotal баалоо'
-                      : 'Баалоо жок',
+                  ratingTotal > 0 ? '$ratingTotal баалоо' : 'Баалоо жок',
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF9E7C00),
@@ -403,6 +494,466 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
+  }
+
+  Widget _buildTransportCard(User user) {
+    final plate = user.courierVehiclePlate?.trim();
+    final brand = user.courierVehicleBrand?.trim();
+    final color = user.courierVehicleColor?.trim();
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: () => _showTransportBottomSheet(user),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  _transportIcon(user.courierTransport),
+                  color: AppColors.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Жеткирүү транспорту',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      user.courierTransportLabel,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    if (plate != null && plate.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Мамлекеттик номер: $plate',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    if (brand != null && brand.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        color != null && color.isNotEmpty
+                            ? '$brand · $color'
+                            : brand,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _transportIcon(String transport) {
+    switch (transport) {
+      case 'car':
+        return Icons.directions_car_filled_rounded;
+      case 'cargo':
+        return Icons.local_shipping_rounded;
+      case 'scooter':
+        return Icons.electric_scooter_rounded;
+      default:
+        return Icons.directions_walk_rounded;
+    }
+  }
+
+  Future<void> _showTransportBottomSheet(User user) async {
+    var selected = user.courierTransport;
+    var error = '';
+    var saving = false;
+    final plateController = TextEditingController(
+      text: user.courierVehiclePlate ?? '',
+    );
+    final brandController = TextEditingController(
+      text: user.courierVehicleBrand ?? '',
+    );
+    final colorController = TextEditingController(
+      text: user.courierVehicleColor ?? '',
+    );
+    const options = [
+      ('walking', 'Жөө', 'Транспортсуз'),
+      ('car', 'Жеңил автоунаа', 'Ыкчам жеткирүү'),
+      ('cargo', 'Жүк ташуучу', 'Чоң жүктөр үчүн'),
+      ('scooter', 'Скутер', 'Шаар ичинде'),
+    ];
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          final requiresPlate = selected == 'car' || selected == 'cargo';
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+            ),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0E0E0),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Жеткирүү транспорту',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Кардар заказ учурунда сиздин транспортту көрөт',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 10,
+                              mainAxisSpacing: 10,
+                              childAspectRatio: 1.48,
+                            ),
+                        itemCount: options.length,
+                        itemBuilder: (_, index) {
+                          final option = options[index];
+                          final active = selected == option.$1;
+                          return InkWell(
+                            onTap: saving
+                                ? null
+                                : () => setSheetState(() {
+                                    selected = option.$1;
+                                    error = '';
+                                  }),
+                            borderRadius: BorderRadius.circular(14),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              padding: const EdgeInsets.all(13),
+                              decoration: BoxDecoration(
+                                color: active
+                                    ? AppColors.primary.withOpacity(0.08)
+                                    : const Color(0xFFF7F8FA),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: active
+                                      ? AppColors.primary
+                                      : AppColors.border,
+                                  width: active ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _transportIcon(option.$1),
+                                    size: 25,
+                                    color: active
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    option.$2,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    option.$3,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      if (requiresPlate) ...[
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: plateController,
+                          enabled: !saving,
+                          textCapitalization: TextCapitalization.characters,
+                          maxLength: 32,
+                          decoration: InputDecoration(
+                            labelText: 'Мамлекеттик номер',
+                            hintText: 'Мисалы: 01 KG 123 ABC',
+                            counterText: '',
+                            prefixIcon: const Icon(
+                              Icons.pin_outlined,
+                              size: 20,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFF4F6F8),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: AppColors.primary,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: brandController,
+                          enabled: !saving,
+                          textCapitalization: TextCapitalization.words,
+                          maxLength: 64,
+                          decoration: InputDecoration(
+                            labelText: 'Автоунаанын маркасы',
+                            hintText: 'Мисалы: Toyota Camry',
+                            counterText: '',
+                            prefixIcon: const Icon(
+                              Icons.directions_car_outlined,
+                              size: 20,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFF4F6F8),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: AppColors.primary,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: colorController,
+                          enabled: !saving,
+                          textCapitalization: TextCapitalization.words,
+                          maxLength: 64,
+                          decoration: InputDecoration(
+                            labelText: 'Автоунаанын түсү',
+                            hintText: 'Мисалы: Ак',
+                            counterText: '',
+                            prefixIcon: const Icon(
+                              Icons.palette_outlined,
+                              size: 20,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFF4F6F8),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: AppColors.primary,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (error.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          error,
+                          style: const TextStyle(
+                            color: AppColors.danger,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: saving
+                              ? null
+                              : () async {
+                                  final plate = plateController.text.trim();
+                                  final brand = brandController.text.trim();
+                                  final color = colorController.text.trim();
+                                  if (requiresPlate && plate.isEmpty) {
+                                    setSheetState(() {
+                                      error =
+                                          'Автоунаанын мамлекеттик номерин жазыңыз';
+                                    });
+                                    return;
+                                  }
+                                  if (requiresPlate && brand.isEmpty) {
+                                    setSheetState(() {
+                                      error = 'Автоунаанын маркасын жазыңыз';
+                                    });
+                                    return;
+                                  }
+                                  if (requiresPlate && color.isEmpty) {
+                                    setSheetState(() {
+                                      error = 'Автоунаанын түсүн жазыңыз';
+                                    });
+                                    return;
+                                  }
+                                  setSheetState(() {
+                                    saving = true;
+                                    error = '';
+                                  });
+                                  try {
+                                    await _profileCubit.updateProfile(
+                                      widget.token,
+                                      courierTransport: selected,
+                                      courierVehiclePlate: requiresPlate
+                                          ? plate
+                                          : null,
+                                      courierVehicleBrand: requiresPlate
+                                          ? brand
+                                          : null,
+                                      courierVehicleColor: requiresPlate
+                                          ? color
+                                          : null,
+                                    );
+                                    if (!sheetContext.mounted) return;
+                                    Navigator.pop(sheetContext);
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
+                                          'Транспорт маалыматы сакталды',
+                                        ),
+                                        backgroundColor: AppColors.primary,
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  } catch (exception) {
+                                    if (!sheetContext.mounted) return;
+                                    setSheetState(() {
+                                      saving = false;
+                                      error = exception.toString().replaceFirst(
+                                        'Exception: ',
+                                        '',
+                                      );
+                                    });
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: saving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Сактоо',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    plateController.dispose();
+    brandController.dispose();
+    colorController.dispose();
   }
 
   // ── Balance card ─────────────────────────────────────────────────────────────
@@ -587,9 +1138,11 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
-    final todayCompleted = (stats['today_completed_orders'] as num?)?.toInt() ?? 0;
+    final todayCompleted =
+        (stats['today_completed_orders'] as num?)?.toInt() ?? 0;
     final todayEarnings = (stats['today_earnings'] as num?)?.toDouble() ?? 0.0;
-    final totalCompleted = (stats['total_completed_orders'] as num?)?.toInt() ?? 0;
+    final totalCompleted =
+        (stats['total_completed_orders'] as num?)?.toInt() ?? 0;
     final totalEarnings = (stats['total_earnings'] as num?)?.toDouble() ?? 0.0;
 
     return Column(
@@ -638,7 +1191,10 @@ class _ProfilePageState extends State<ProfilePage> {
     return value.toString();
   }
 
-  Widget _buildStatCard({required String title, required List<_StatItem> items}) {
+  Widget _buildStatCard({
+    required String title,
+    required List<_StatItem> items,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -670,10 +1226,11 @@ class _ProfilePageState extends State<ProfilePage> {
             children: items.map((item) {
               return Expanded(
                 child: Container(
-                  margin: EdgeInsets.only(
-                    right: item == items.last ? 0 : 10,
+                  margin: EdgeInsets.only(right: item == items.last ? 0 : 10),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 12,
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF4F6F8),
                     borderRadius: BorderRadius.circular(12),
@@ -716,6 +1273,17 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildMenuSection(User user) {
     final items = [
+      _MenuItem(
+        icon: Icons.campaign_outlined,
+        label: 'Менин жарнамаларым',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                AdvertisementsPage(token: widget.token, mineOnly: true),
+          ),
+        ),
+      ),
       _MenuItem(
         icon: Icons.help_outline,
         label: 'Кантип заказ берем?',
@@ -803,7 +1371,10 @@ class _ProfilePageState extends State<ProfilePage> {
           return Column(
             children: [
               ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 2,
+                ),
                 leading: Container(
                   width: 40,
                   height: 40,
@@ -829,11 +1400,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 onTap: item.onTap,
               ),
               if (!isLast)
-                Divider(
-                  height: 1,
-                  indent: 68,
-                  color: const Color(0xFFF0F0F0),
-                ),
+                Divider(height: 1, indent: 68, color: const Color(0xFFF0F0F0)),
             ],
           );
         }).toList(),
@@ -863,6 +1430,31 @@ class _ProfilePageState extends State<ProfilePage> {
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
+            color: AppColors.danger,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeleteAccountButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: TextButton.icon(
+        onPressed: _showDeleteAccountDialog,
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.danger,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        icon: const Icon(Icons.delete_forever_outlined, size: 20, color: AppColors.danger),
+        label: const Text(
+          'Аккаунтту өчүрүү',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
             color: AppColors.danger,
           ),
         ),
@@ -904,15 +1496,21 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Чыгуу',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-        content: const Text('Сиз чындап эле чыккыңыз келеби?',
-            style: TextStyle(fontSize: 15)),
+        title: const Text(
+          'Чыгуу',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        ),
+        content: const Text(
+          'Сиз чындап эле чыккыңыз келеби?',
+          style: TextStyle(fontSize: 15),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Жок',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 16)),
+            child: Text(
+              'Жок',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -924,14 +1522,90 @@ class _ProfilePageState extends State<ProfilePage> {
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            child: const Text('Ооба',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            child: const Text(
+              'Ооба',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.danger, size: 24),
+            SizedBox(width: 8),
+            Text(
+              'Аккаунтту өчүрүү',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.danger),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Сиз чындап эле аккаунтуңузду биротоло өчүргүңүз келеби?\n\nБул аракетти артка кайтарууга болбойт. Бардык буйрутмаларыңыз жана жеке маалыматтарыңыз өчүрүлөт.',
+          style: TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Жокко чыгаруу', style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _performDeleteAccount();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Ооба, өчүрүү', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performDeleteAccount() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: AppColors.danger),
+      ),
+    );
+    try {
+      await user_api_lib.UserApi().deleteAccount(widget.token);
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss spinner
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Аккаунтуңуз ийгиликтүү өчүрүлдү'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      widget.onLogout();
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss spinner
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ката: $e'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
   }
 
   void _openSupportChat() {
@@ -943,7 +1617,8 @@ class _ProfilePageState extends State<ProfilePage> {
         builder: (_) => ContactAdminPage(
           token: widget.token,
           userId: user.id,
-          startChatFn: () => user_api_lib.UserApi().startSupportChat(widget.token),
+          startChatFn: () =>
+              user_api_lib.UserApi().startSupportChat(widget.token),
         ),
       ),
     );
@@ -1006,10 +1681,15 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                    borderSide: BorderSide(
+                      color: AppColors.primary,
+                      width: 1.5,
+                    ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -1053,7 +1733,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: const Text(
                         'Сактоо',
                         style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w700),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
@@ -1071,20 +1753,28 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       await _profileCubit.updateProfile(widget.token, name: name);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Профил жаңыланды'),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Профил жаңыланды'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(error.toString().replaceFirst('Exception: ', '')),
-        backgroundColor: AppColors.danger,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
     }
   }
 }
@@ -1095,12 +1785,20 @@ class _StatItem {
   final IconData icon;
   final String value;
   final String label;
-  const _StatItem({required this.icon, required this.value, required this.label});
+  const _StatItem({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
 }
 
 class _MenuItem {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _MenuItem({required this.icon, required this.label, required this.onTap});
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 }

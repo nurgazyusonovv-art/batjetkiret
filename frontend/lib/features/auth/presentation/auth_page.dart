@@ -55,8 +55,9 @@ class _KyrgyzPhoneFormatter extends TextInputFormatter {
 }
 
 class AuthPage extends StatefulWidget {
-  const AuthPage({super.key, this.onAuthSuccess});
+  const AuthPage({super.key, this.onAuthSuccess, this.onContinueAsGuest});
   final ValueChanged<String>? onAuthSuccess;
+  final VoidCallback? onContinueAsGuest;
 
   @override
   State<AuthPage> createState() => _AuthPageState();
@@ -483,8 +484,9 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             const SizedBox(height: 20),
 
             // Switch mode
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
                   state.isLogin ? 'Аккаунтуңуз жокпу?' : 'Аккаунтуңуз барбы?',
@@ -506,6 +508,39 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                   ),
                 ),
               ],
+            ),
+
+            const SizedBox(height: 16),
+            const Divider(color: Color(0xFFE5E7EB)),
+            const SizedBox(height: 12),
+
+            // Continue as Guest button
+            OutlinedButton.icon(
+              onPressed: state.isLoading
+                  ? null
+                  : () {
+                      if (widget.onContinueAsGuest != null) {
+                        widget.onContinueAsGuest!();
+                      } else {
+                        Navigator.pop(context);
+                      }
+                    },
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+                side: const BorderSide(color: Color(0xFFE5E7EB)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              icon: const Icon(Icons.explore_outlined, size: 20, color: Color(0xFF4B5563)),
+              label: const Text(
+                'Конок катары көрүү (Кирбестен)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF4B5563),
+                ),
+              ),
             ),
           ],
         ),

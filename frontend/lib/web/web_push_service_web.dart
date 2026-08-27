@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:frontend/core/config.dart';
 import 'package:http/http.dart' as http;
-import '../config.dart';
 
 /// Web Push subscription service for Flutter web.
 ///

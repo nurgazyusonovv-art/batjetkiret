@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../widgets/notification_service.dart';
@@ -6,7 +7,8 @@ import 'api_service.dart';
 // Top-level handler for background/terminated FCM messages
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  final title = message.notification?.title ?? message.data['title'] ?? '🛎 Жаңы заказ';
+  final title =
+      message.notification?.title ?? message.data['title'] ?? '🛎 Жаңы заказ';
   final body = message.notification?.body ?? message.data['body'] ?? '';
   await NotificationService.show(title, body);
 }
@@ -16,23 +18,21 @@ class FcmService {
 
   static Future<void> init() async {
     if (kIsWeb || _initialized) return;
+    if (Firebase.apps.isEmpty) return;
     _initialized = true;
 
     final messaging = FirebaseMessaging.instance;
 
     // Request permission (iOS + Android 13+)
-    await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    await messaging.requestPermission(alert: true, badge: true, sound: true);
 
     // Register background handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     // Foreground message handler
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      final title = message.notification?.title ??
+      final title =
+          message.notification?.title ??
           message.data['title'] ??
           '🛎 Жаңы заказ';
       final body = message.notification?.body ?? message.data['body'] ?? '';

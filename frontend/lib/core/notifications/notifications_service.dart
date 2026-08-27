@@ -13,6 +13,12 @@ class NotificationsService {
   static Stream<Map<String, dynamic>> get notificationStream =>
       _notificationStream.stream;
 
+  static const messagesChannelId = 'batken_messages_v3';
+  static const orderStatusChannelId = 'order_status_v3';
+  static const topupStatusChannelId = 'topup_status_v3';
+  static const supportChatChannelId = 'support_chat_v3';
+  static const urgentOrdersChannelId = 'urgent_orders_v3';
+
   static Future<void> initialize() async {
     if (_initialized) return;
     _initialized = true;
@@ -43,74 +49,50 @@ class NotificationsService {
       },
     );
 
-    // Custom notification sound (android/app/src/main/res/raw/notification_tone.mp3).
-    // Channel ids are suffixed _v2 because Android caches a channel's sound at
+    // Custom notification sounds live under android/app/src/main/res/raw.
+    // Channel ids are suffixed _v3 because Android caches a channel's sound at
     // creation time and ignores later changes — a new id forces the new sound.
-    const sound = RawResourceAndroidNotificationSound('notification_tone');
-
-    const messagesChannel = AndroidNotificationChannel(
-      'batken_messages_v2',
-      'Билдирүүлөр',
-      description: 'Жаңы билдирүүлөр жана чат хабарлары',
-      importance: Importance.max,
-      playSound: true,
-      sound: sound,
-      enableVibration: true,
-    );
-    const topupChannel = AndroidNotificationChannel(
-      'topup_status_v2',
-      'Топап статусу',
-      description: 'Топап тастыкталды же четке кагылды',
-      importance: Importance.max,
-      playSound: true,
-      sound: sound,
-      enableVibration: true,
-    );
-    const orderChannel = AndroidNotificationChannel(
-      'order_status_v2',
-      'Заказ статусу',
-      description: 'Заказыңыздын статусу өзгөрдү',
-      importance: Importance.max,
-      playSound: true,
-      sound: sound,
-      enableVibration: true,
-    );
-    const supportChannel = AndroidNotificationChannel(
-      'support_chat_v2',
-      'Колдоо кызматы',
-      description: 'Колдоо кызматынан жооп',
-      importance: Importance.max,
-      playSound: true,
-      sound: sound,
-      enableVibration: true,
-    );
-
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-    await androidPlugin?.createNotificationChannel(messagesChannel);
-    await androidPlugin?.createNotificationChannel(topupChannel);
-    await androidPlugin?.createNotificationChannel(orderChannel);
-    await androidPlugin?.createNotificationChannel(supportChannel);
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    for (final spec in _channelSpecs) {
+      await androidPlugin?.createNotificationChannel(
+        AndroidNotificationChannel(
+          spec.id,
+          spec.name,
+          description: spec.description,
+          importance: Importance.max,
+          playSound: true,
+          sound: RawResourceAndroidNotificationSound(spec.sound),
+          enableVibration: true,
+          enableLights: true,
+        ),
+      );
+    }
+    await androidPlugin?.requestNotificationsPermission();
 
     // Request iOS permissions
     await _plugin
         .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
+          IOSFlutterLocalNotificationsPlugin
+        >()
         ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
-  /// Show a system notification with sound. Payload supports "order:<id>" or plain chat id.
+  /// Show a system notification with sound. Payload supports `order:<id>` or a plain chat id.
   static Future<void> showNotification(
     int id,
     String title,
     String body, {
     int? chatId,
     int? orderId,
-    String channelId = 'batken_messages_v2',
+    String channelId = messagesChannelId,
   }) async {
     if (!_initialized) return;
 
+    final resolvedChannelId = _normalizeChannelId(channelId);
+    final spec = _specForChannel(resolvedChannelId);
     String? payload;
     if (orderId != null) {
       payload = 'order:$orderId';
@@ -119,35 +101,26 @@ class NotificationsService {
     }
 
     final androidDetails = AndroidNotificationDetails(
-      channelId,
-      _channelName(channelId),
+      resolvedChannelId,
+      spec.name,
       importance: Importance.max,
       priority: Priority.max,
       playSound: true,
-      sound: const RawResourceAndroidNotificationSound('notification_tone'),
+      sound: RawResourceAndroidNotificationSound(spec.sound),
       enableVibration: true,
       vibrationPattern: Int64List.fromList([0, 250, 100, 250]),
     );
-    const iosDetails = DarwinNotificationDetails(
+    final iosDetails = DarwinNotificationDetails(
       presentSound: true,
       presentAlert: true,
       presentBadge: true,
+      sound: '${spec.sound}.wav',
     );
-    final details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
     await _plugin.show(id, title, body, details, payload: payload);
-  }
-
-  static String _channelName(String channelId) {
-    switch (channelId) {
-      case 'topup_status_v2':
-        return 'Топап статусу';
-      case 'order_status_v2':
-        return 'Заказ статусу';
-      case 'support_chat_v2':
-        return 'Колдоо кызматы';
-      default:
-        return 'Билдирүүлөр';
-    }
   }
 
   /// Add notification to in-app overlay stream.
@@ -178,17 +151,55 @@ class NotificationsService {
   }
 
   static String _channelForType(String type) {
-    switch (type) {
+    switch (type.toLowerCase()) {
       case 'topup_approved':
       case 'topup_rejected':
-        return 'topup_status_v2';
+      case 'topup':
+        return topupStatusChannelId;
       case 'order_status':
-        return 'order_status_v2';
-      case 'SUPPORT':
-        return 'support_chat_v2';
+      case 'delivery_status':
+        return orderStatusChannelId;
+      case 'support':
+      case 'support_chat':
+      case 'support_message':
+        return supportChatChannelId;
+      case 'new_order':
+      case 'cancel_request':
+      case 'cancel_requests':
+        return urgentOrdersChannelId;
       default:
-        return 'batken_messages_v2';
+        return messagesChannelId;
     }
+  }
+
+  static String _normalizeChannelId(String channelId) {
+    switch (channelId) {
+      case 'batken_messages':
+      case 'batken_messages_v2':
+        return messagesChannelId;
+      case 'order_status':
+      case 'order_status_v2':
+        return orderStatusChannelId;
+      case 'topup_requests':
+      case 'topup_status':
+      case 'topup_status_v2':
+        return topupStatusChannelId;
+      case 'support_chat':
+      case 'support_chat_v2':
+        return supportChatChannelId;
+      case 'urgent_orders':
+      case 'urgent_orders_v2':
+        return urgentOrdersChannelId;
+      default:
+        return channelId;
+    }
+  }
+
+  static _NotificationChannelSpec _specForChannel(String channelId) {
+    return _channelSpecs.firstWhere(
+      (spec) => spec.id == channelId,
+      orElse: () => _channelSpecs.first,
+    );
   }
 
   static void notifyNewOrder(String orderId, String status) {
@@ -247,3 +258,50 @@ class NotificationsService {
     _notificationStream.close();
   }
 }
+
+class _NotificationChannelSpec {
+  const _NotificationChannelSpec({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.sound,
+  });
+
+  final String id;
+  final String name;
+  final String description;
+  final String sound;
+}
+
+const _channelSpecs = [
+  _NotificationChannelSpec(
+    id: NotificationsService.messagesChannelId,
+    name: 'Билдирүүлөр',
+    description: 'Жаңы билдирүүлөр жана чат хабарлары',
+    sound: 'message_tone',
+  ),
+  _NotificationChannelSpec(
+    id: NotificationsService.orderStatusChannelId,
+    name: 'Заказ статусу',
+    description: 'Заказыңыздын статусу өзгөргөндө',
+    sound: 'order_tone',
+  ),
+  _NotificationChannelSpec(
+    id: NotificationsService.topupStatusChannelId,
+    name: 'Баланс жана төлөм',
+    description: 'Топап жана төлөм статусу',
+    sound: 'topup_tone',
+  ),
+  _NotificationChannelSpec(
+    id: NotificationsService.supportChatChannelId,
+    name: 'Колдоо кызматы',
+    description: 'Колдоо кызматынан билдирүүлөр',
+    sound: 'support_tone',
+  ),
+  _NotificationChannelSpec(
+    id: NotificationsService.urgentOrdersChannelId,
+    name: 'Шашылыш заказдар',
+    description: 'Жаңы заказ жана маанилүү эскертмелер',
+    sound: 'urgent_tone',
+  ),
+];

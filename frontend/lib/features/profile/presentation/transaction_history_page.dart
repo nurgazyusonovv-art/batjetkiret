@@ -61,6 +61,8 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
         return 'Кызмат төлөмү (колдонуучу)';
       case 'SERVICE_FEE_COURIER':
         return 'Кызмат төлөмү (курьер)';
+      case 'SERVICE_FEE_EXTERNAL':
+        return 'Сырткы заказ комиссиясы (2%)';
       default:
         return type;
     }
@@ -75,6 +77,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
       case 'HOLD':
       case 'SERVICE_FEE_USER':
       case 'SERVICE_FEE_COURIER':
+      case 'SERVICE_FEE_EXTERNAL':
         return AppColors.accent5;
       default:
         return AppColors.textSecondary;
@@ -93,6 +96,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
         return Icons.lock_open;
       case 'SERVICE_FEE_USER':
       case 'SERVICE_FEE_COURIER':
+      case 'SERVICE_FEE_EXTERNAL':
         return Icons.receipt_long;
       default:
         return Icons.swap_horiz;

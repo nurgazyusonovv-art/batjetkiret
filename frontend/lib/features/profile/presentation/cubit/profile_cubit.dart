@@ -113,12 +113,20 @@ class ProfileCubit extends Cubit<ProfileState> {
     String? name,
     String? phone,
     String? address,
+    String? courierTransport,
+    String? courierVehiclePlate,
+    String? courierVehicleBrand,
+    String? courierVehicleColor,
   }) async {
     await _userApi.updateProfile(
       token,
       name: name,
       phone: phone,
       address: address,
+      courierTransport: courierTransport,
+      courierVehiclePlate: courierVehiclePlate,
+      courierVehicleBrand: courierVehicleBrand,
+      courierVehicleColor: courierVehicleColor,
     );
     await loadUser(token);
   }
@@ -132,7 +140,12 @@ class ProfileCubit extends Cubit<ProfileState> {
 
   Future<void> loadCourierStats(String token, {bool silent = false}) async {
     if (!silent || state.courierStats == null) {
-      emit(state.copyWith(isCourierStatsLoading: true, clearCourierStatsError: true));
+      emit(
+        state.copyWith(
+          isCourierStatsLoading: true,
+          clearCourierStatsError: true,
+        ),
+      );
     }
 
     try {
@@ -146,7 +159,12 @@ class ProfileCubit extends Cubit<ProfileState> {
         ),
       );
     } on UnauthorizedException {
-      emit(state.copyWith(isCourierStatsLoading: false, clearCourierStatsError: true));
+      emit(
+        state.copyWith(
+          isCourierStatsLoading: false,
+          clearCourierStatsError: true,
+        ),
+      );
     } catch (e) {
       emit(
         state.copyWith(
