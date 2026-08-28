@@ -54,7 +54,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   String get _fullPhone {
-    final digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    var digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('996') && digits.length > 9) {
+      digits = digits.substring(3);
+    } else if (digits.startsWith('0') && digits.length > 9) {
+      digits = digits.substring(1);
+    }
+    if (digits.length > 9) {
+      digits = digits.substring(digits.length - 9);
+    }
     return '+996$digits';
   }
 

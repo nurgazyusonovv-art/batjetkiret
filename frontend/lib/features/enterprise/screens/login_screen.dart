@@ -25,11 +25,19 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    final phone = _phoneCtrl.text.trim();
+    var phone = _phoneCtrl.text.trim();
     final pass = _passCtrl.text.trim();
     if (phone.isEmpty || pass.isEmpty) {
       setState(() => _error = 'Телефон жана сырсөздү толтуруңуз');
       return;
+    }
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('996') && digits.length == 12) {
+      phone = '+$digits';
+    } else if (digits.length == 9) {
+      phone = '+996$digits';
+    } else if (digits.startsWith('0') && digits.length == 10) {
+      phone = '+996${digits.substring(1)}';
     }
     setState(() { _loading = true; _error = null; });
     try {

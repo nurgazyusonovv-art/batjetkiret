@@ -12,8 +12,8 @@ class _KyrgyzPhoneFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final oldDigits = oldValue.text.replaceAll(RegExp(r'\D'), '');
-    final newRaw = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final oldDigits = digitsOnly(oldValue.text);
+    final newRaw = digitsOnly(newValue.text);
 
     String digits;
     if (newValue.text.length < oldValue.text.length &&
@@ -22,7 +22,13 @@ class _KyrgyzPhoneFormatter extends TextInputFormatter {
           ? ''
           : oldDigits.substring(0, oldDigits.length - 1);
     } else {
-      digits = newRaw.length > 9 ? newRaw.substring(0, 9) : newRaw;
+      String clean = newRaw;
+      if (clean.startsWith('996') && clean.length > 9) {
+        clean = clean.substring(3);
+      } else if (clean.startsWith('0') && clean.length > 9) {
+        clean = clean.substring(1);
+      }
+      digits = clean.length > 9 ? clean.substring(0, 9) : clean;
     }
 
     final formatted = _applyMask(digits);
@@ -93,7 +99,15 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   }
 
   String get _fullPhone {
-    final digits = _KyrgyzPhoneFormatter.digitsOnly(_phoneController.text);
+    String digits = _KyrgyzPhoneFormatter.digitsOnly(_phoneController.text);
+    if (digits.startsWith('996') && digits.length > 9) {
+      digits = digits.substring(3);
+    } else if (digits.startsWith('0') && digits.length > 9) {
+      digits = digits.substring(1);
+    }
+    if (digits.length > 9) {
+      digits = digits.substring(digits.length - 9);
+    }
     return '+996$digits';
   }
 

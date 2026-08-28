@@ -60,7 +60,8 @@ class LoginRequest(BaseModel):
 
 @router.post("/login")
 def enterprise_login(data: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.phone == data.phone).first()
+    from app.api.auth import _normalize_phone_variants
+    user = db.query(User).filter(User.phone.in_(_normalize_phone_variants(data.phone))).first()
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Телефон же сырсөз туура эмес")
     if not user.is_active:
