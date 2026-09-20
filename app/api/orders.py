@@ -19,7 +19,7 @@ from app.models.user import User
 from app.models.user_rating import UserRating
 from app.schemas.order import OrderCreateRequest, OrderResponse
 from app.core.config import settings
-from app.services.pricing import calculate_price
+from app.services.pricing import calculate_price, resolve_distance_km
 from app.api.admin import get_delivery_pricing, get_taxi_pricing, get_user_service_fee
 from app.services.wallet import charge_platform_fee, refund
 from app.services.order_status import apply_status_change
@@ -203,6 +203,7 @@ def create_order(
         )
 
     # Intercity orders use fixed city price; taxi uses taxi pricing; others use delivery pricing.
+    billed_distance_km = 0.0
     if data.category == "intercity":
         if not data.intercity_city_id:
             raise HTTPException(status_code=400, detail="intercity_city_id is required for intercity orders")
@@ -213,12 +214,21 @@ def create_order(
         if not city:
             raise HTTPException(status_code=404, detail="City not found or inactive")
         price = float(city.price)
-    elif data.category == "taxi":
-        base, per_km, extra_after_km, extra_per_km = get_taxi_pricing(db)
-        price = calculate_price(data.distance_km, base, per_km, extra_after_km, extra_per_km)
     else:
-        base, per_km, extra_after_km, extra_per_km = get_delivery_pricing(db)
-        price = calculate_price(data.distance_km, base, per_km, extra_after_km, extra_per_km)
+        # Never price on the distance the app reports — recompute it here from
+        # the coordinates, so a modified client cannot pick its own price.
+        billed_distance_km = resolve_distance_km(
+            data.distance_km,
+            data.from_latitude,
+            data.from_longitude,
+            data.to_latitude,
+            data.to_longitude,
+        )
+        if data.category == "taxi":
+            base, per_km, extra_after_km, extra_per_km = get_taxi_pricing(db)
+        else:
+            base, per_km, extra_after_km, extra_per_km = get_delivery_pricing(db)
+        price = calculate_price(billed_distance_km, base, per_km, extra_after_km, extra_per_km)
 
     # Commission values read from DB settings.
     user_fee = get_user_service_fee(db)
@@ -237,7 +247,7 @@ def create_order(
         from_longitude=data.from_longitude,
         to_latitude=data.to_latitude,
         to_longitude=data.to_longitude,
-        distance_km=data.distance_km if data.category != "intercity" else 0,
+        distance_km=billed_distance_km if data.category != "intercity" else 0,
         price=price,
         items_total=data.items_total,
         user_commission=user_commission,
@@ -404,6 +414,10 @@ def my_orders(
                 "id": o.courier.id,
                 "name": o.courier.name,
                 "phone": o.courier.phone,
+                "transport": o.courier.courier_transport or "walking",
+                "vehicle_plate": o.courier.courier_vehicle_plate,
+                "vehicle_brand": o.courier.courier_vehicle_brand,
+                "vehicle_color": o.courier.courier_vehicle_color,
             }
         
         result.append(order_dict)
@@ -437,12 +451,26 @@ def get_counterparty_info(
             "id": courier.id,
             "name": courier.name,
             "phone": courier.phone,
+            "transport": courier.courier_transport or "walking",
+            "vehicle_plate": courier.courier_vehicle_plate,
+            "vehicle_brand": courier.courier_vehicle_brand,
+            "vehicle_color": courier.courier_vehicle_color,
             "call_url": f"tel:{courier.phone}",
             "whatsapp_url": f"https://wa.me/{courier.phone}",
         }
 
     # Эгер курьер болсо → колдонуучуну көрөт
     if current_user.id == order.courier_id:
+        if order.source == "admin_external":
+            phone = order.customer_phone
+            return {
+                "role": "user",
+                "id": None,
+                "name": "Сырткы кардар",
+                "phone": phone,
+                "call_url": f"tel:{phone}" if phone else None,
+                "whatsapp_url": f"https://wa.me/{phone.lstrip('+')}" if phone else None,
+            }
         user = db.query(User).filter(User.id == order.user_id).first()
 
         return {
@@ -484,12 +512,19 @@ def get_order(
         "created_at": order.created_at,
         "enterprise_id": order.enterprise_id,
         "items_total": float(order.items_total) if order.items_total is not None else None,
+        "source": order.source,
+        "order_type": order.order_type,
+        "customer_phone": order.customer_phone,
     }
 
 
     if order.courier_id and order.courier:
         result["courier_name"] = order.courier.name
         result["courier_phone"] = order.courier.phone
+        result["courier_transport"] = order.courier.courier_transport or "walking"
+        result["courier_vehicle_plate"] = order.courier.courier_vehicle_plate
+        result["courier_vehicle_brand"] = order.courier.courier_vehicle_brand
+        result["courier_vehicle_color"] = order.courier.courier_vehicle_color
         result["courier_latitude"] = order.courier.current_latitude
         result["courier_longitude"] = order.courier.current_longitude
 

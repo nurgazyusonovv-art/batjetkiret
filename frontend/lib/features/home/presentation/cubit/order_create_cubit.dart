@@ -20,22 +20,21 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
     double? lat,
     double? lon,
   }) {
-    emit(state.copyWith(
-      enterpriseId: id,
-      enterpriseName: name,
-      enterpriseAddress: address,
-      enterpriseLat: lat,
-      enterpriseLon: lon,
-      isEnterprisePath: true,
-      selectedItems: {},
-    ));
+    emit(
+      state.copyWith(
+        enterpriseId: id,
+        enterpriseName: name,
+        enterpriseAddress: address,
+        enterpriseLat: lat,
+        enterpriseLon: lon,
+        isEnterprisePath: true,
+        selectedItems: {},
+      ),
+    );
   }
 
   void clearEnterprise() {
-    emit(state.copyWith(
-      clearEnterprise: true,
-      selectedItems: {},
-    ));
+    emit(state.copyWith(clearEnterprise: true, selectedItems: {}));
   }
 
   /// Jump directly to enterprise menu step (called when enterprise card is tapped).
@@ -45,11 +44,13 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
 
   /// Jump directly to pickup location step (manual path, "Башка ишкана").
   void goToPickupStep() {
-    emit(state.copyWith(
-      currentStep: OrderCreateStep.pickupLocation,
-      clearEnterprise: true,
-      selectedItems: {},
-    ));
+    emit(
+      state.copyWith(
+        currentStep: OrderCreateStep.pickupLocation,
+        clearEnterprise: true,
+        selectedItems: {},
+      ),
+    );
   }
 
   // ── Item selection (enterprise menu path) ──────────────────────────────────
@@ -83,10 +84,12 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
     switch (state.currentStep) {
       case OrderCreateStep.enterpriseSelection:
         // Enterprise cards navigate directly; this branch handles "Башка ишкана"
-        emit(state.copyWith(
-          currentStep: OrderCreateStep.pickupLocation,
-          clearEnterprise: true,
-        ));
+        emit(
+          state.copyWith(
+            currentStep: OrderCreateStep.pickupLocation,
+            clearEnterprise: true,
+          ),
+        );
         return null;
 
       case OrderCreateStep.enterpriseMenu:
@@ -158,41 +161,25 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
     LatLng? toLocation,
   }) async {
     try {
-      LatLng? fromCoords = fromLocation;
-      LatLng? toCoords = toLocation;
-
-      if (fromCoords != null && toCoords != null) {
-        final distance = await YandexRouter.calculateDrivingDistance(
-          from: fromCoords,
-          to: toCoords,
-        );
-        if (distance != null) {
-          emit(state.copyWith(calculatedDistance: distance));
-          return;
-        }
+      // Pins set from GPS, the map or a picked search hit are exact; fall back
+      // to geocoding the typed text only when a pin is missing.
+      final fromCoords =
+          fromLocation ?? await RealGeocoder.getCoordinates(fromAddress);
+      final toCoords =
+          toLocation ?? await RealGeocoder.getCoordinates(toAddress);
+      if (fromCoords == null || toCoords == null) {
+        // createOrder validates the missing distance and shows an error.
+        return;
       }
 
-      fromCoords ??= await RealGeocoder.getCoordinates(fromAddress);
-      toCoords ??= await RealGeocoder.getCoordinates(toAddress);
-
-      if (fromCoords != null && toCoords != null) {
-        final distance = await YandexRouter.calculateDrivingDistance(
-          from: fromCoords,
-          to: toCoords,
-        );
-        if (distance != null) {
-          emit(state.copyWith(calculatedDistance: distance));
-          return;
-        }
-        final straight = DistanceCalculator.calculateDistance(
-          from: fromCoords,
-          to: toCoords,
-        );
-        emit(state.copyWith(
-          calculatedDistance: (straight * 1.4).clamp(0.5, 500.0),
-        ));
-      }
-      // If geocoding failed, leave calculatedDistance null → createOrder validates
+      // RouteDistance always answers: road distance when a routing service is
+      // reachable, otherwise the straight line scaled by the road factor.
+      final distance = await RouteDistance.calculateDrivingDistance(
+        from: fromCoords,
+        to: toCoords,
+      );
+      if (distance == null) return;
+      emit(state.copyWith(calculatedDistance: distance.clamp(0.5, 500.0)));
     } catch (_) {
       // createOrder validates and shows error.
     }
@@ -224,14 +211,15 @@ class OrderCreateCubit extends Cubit<OrderCreateState> {
 
     final distanceKm = state.calculatedDistance ?? 0;
     if (distanceKm <= 0) {
-      throw Exception('Аралык туура эсептелген жок. Картадан тандап кайра аракет кылыңыз');
+      throw Exception(
+        'Аралык туура эсептелген жок. Картадан тандап кайра аракет кылыңыз',
+      );
     }
 
     // Structured items (product_id + quantity) so the backend can track stock.
     final items = <Map<String, int>>[
       for (final entry in state.selectedItems.entries)
-        if (entry.value > 0)
-          {'product_id': entry.key, 'quantity': entry.value},
+        if (entry.value > 0) {'product_id': entry.key, 'quantity': entry.value},
     ];
 
     emit(state.copyWith(isLoading: true));

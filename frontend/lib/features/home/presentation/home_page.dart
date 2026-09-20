@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -15,6 +16,8 @@ import 'package:frontend/features/home/data/banner_model.dart';
 import 'package:frontend/features/home/data/ad_popup_api.dart';
 import 'banner_carousel.dart';
 import 'ad_popup_overlay.dart';
+import 'delivery_page.dart';
+import 'package:frontend/features/common/widgets/map_picker.dart';
 import 'package:frontend/features/home/presentation/cubit/home_cubit.dart';
 import 'package:frontend/features/home/presentation/cubit/order_create_cubit.dart';
 import 'package:frontend/features/home/presentation/cubit/order_create_state.dart';
@@ -41,39 +44,18 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  List<models.Category> _filteredCategories = [];
   List<BannerItem> _banners = [];
 
-  // ── Home browse (horizontal categories → filtered enterprises) ──────────────
-  late String _selectedCategoryId;
-  List<Enterprise> _homeEnterprises = [];
-  bool _loadingHomeEnterprises = false;
-  String? _homeEnterprisesError;
-  int _homeEnterpriseFetchVersion = 0;
-
-  final _homeSearchController = TextEditingController();
-  String _homeSearch = '';
+  // ── Services home (taxi / delivery entry points) ────────────────────────────
   LatLng? _homeUserLocation;
+  String? _homeAddress;
+  bool _loadingHomeLocation = false;
   bool _updatingCourierOnlineStatus = false;
-
-  // Categories that are not enterprise-based — they show a dedicated action card.
-  static const _actionCategories = {'taxi', 'intercity'};
 
   @override
   void initState() {
     super.initState();
-    _filteredCategories = models.categories;
-    _selectedCategoryId = models.categories
-        .firstWhere(
-          (c) => !_actionCategories.contains(c.id),
-          orElse: () => models.categories.first,
-        )
-        .id;
-    _homeSearchController.addListener(
-      () => setState(() => _homeSearch = _homeSearchController.text.trim()),
-    );
     _fetchBanners();
-    _loadHomeEnterprises(_selectedCategoryId);
     _fetchHomeUserLocation();
     _maybeShowWelcomeBonus();
     _checkAndShowPopup();
@@ -87,86 +69,61 @@ class _HomePageState extends State<HomePage> {
           permission != LocationPermission.whileInUse) {
         return;
       }
-      final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.low,
-      );
-      if (!mounted) return;
-      setState(
-        () => _homeUserLocation = LatLng(
-          latitude: pos.latitude,
-          longitude: pos.longitude,
-        ),
-      );
+      await _readLocation();
     } catch (_) {}
   }
 
-  double? _enterpriseDistanceKm(Enterprise e) {
-    if (_homeUserLocation == null || e.lat == null || e.lon == null) {
-      return null;
-    }
-    return DistanceCalculator.calculateDistance(
-      from: _homeUserLocation!,
-      to: LatLng(latitude: e.lat!, longitude: e.lon!),
-    );
-  }
-
-  String _formatDistance(double km) =>
-      km < 1 ? '${(km * 1000).round()} м' : '${km.toStringAsFixed(1)} км';
-
-  List<Enterprise> get _visibleHomeEnterprises {
-    if (_homeSearch.isEmpty) return _homeEnterprises;
-    final q = _homeSearch.toLowerCase();
-    return _homeEnterprises
-        .where(
-          (e) =>
-              e.name.toLowerCase().contains(q) ||
-              (e.address ?? '').toLowerCase().contains(q),
-        )
-        .toList();
-  }
-
-  Future<void> _loadHomeEnterprises(String categoryId) async {
-    final version = ++_homeEnterpriseFetchVersion;
-    setState(() {
-      _loadingHomeEnterprises = true;
-      _homeEnterprisesError = null;
-    });
+  // Explicit refresh — may prompt for permission (user tapped the GPS button).
+  Future<void> _refreshHomeLocation() async {
+    if (_loadingHomeLocation) return;
+    setState(() => _loadingHomeLocation = true);
     try {
-      final list = await EnterpriseApi().fetchEnterprises(
-        token: widget.token,
-        category: categoryId,
-      );
-      if (!mounted || version != _homeEnterpriseFetchVersion) return;
-      setState(() {
-        _homeEnterprises = list;
-        _loadingHomeEnterprises = false;
-      });
-    } catch (e) {
-      if (!mounted || version != _homeEnterpriseFetchVersion) return;
-      setState(() {
-        _homeEnterprisesError = e.toString().replaceFirst('Exception: ', '');
-        _loadingHomeEnterprises = false;
-      });
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('GPS уруксаты берилген жок'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      await _readLocation(highAccuracy: true);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _loadingHomeLocation = false);
     }
   }
 
-  // Unified: every chip selects in place. Enterprise categories load a list;
-  // action categories (taxi/intercity) show a dedicated order card below.
-  void _selectCategory(models.Category category) {
-    if (_selectedCategoryId == category.id) return;
-    setState(() {
-      _selectedCategoryId = category.id;
-      _homeSearchController.clear();
-      _homeSearch = '';
-    });
-    if (!_actionCategories.contains(category.id)) {
-      _loadHomeEnterprises(category.id);
-    }
+  Future<void> _readLocation({bool highAccuracy = false}) async {
+    final pos = await Geolocator.getCurrentPosition(
+      desiredAccuracy: highAccuracy
+          ? LocationAccuracy.high
+          : LocationAccuracy.low,
+    );
+    if (!mounted) return;
+    setState(
+      () => _homeUserLocation = LatLng(
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+      ),
+    );
+    final address = await RealGeocoder.getAddressFromCoordinates(
+      latitude: pos.latitude,
+      longitude: pos.longitude,
+    );
+    if (!mounted) return;
+    setState(() => _homeAddress = address);
   }
 
   @override
   void dispose() {
-    _homeSearchController.dispose();
     super.dispose();
   }
 
@@ -620,7 +577,8 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Couriers: list title. Users: search bar + horizontal category chips.
+              // Couriers get a list title here; users go straight to the
+              // services home below.
               if (homeState.isCourier)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -637,12 +595,7 @@ class _HomePageState extends State<HomePage> {
                       _buildExternalTripButton(),
                     ],
                   ),
-                )
-              else ...[
-                _buildHomeSearchBar(),
-                const SizedBox(height: 10),
-                _buildCategoryChips(),
-              ],
+                ),
               if (homeState.isCourier && (user?.balance ?? 0) < 0) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -857,7 +810,7 @@ class _HomePageState extends State<HomePage> {
                                 );
                               },
                             )
-                    : _buildUserBrowse(homeState, user),
+                    : _buildServicesHome(user),
               ),
               const SizedBox(height: 16),
             ],
@@ -888,608 +841,106 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ── Search bar ───────────────────────────────────────────────────────────────
-  Widget _buildHomeSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        height: 46,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.035),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: TextField(
-          controller: _homeSearchController,
-          textInputAction: TextInputAction.search,
-          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-          decoration: InputDecoration(
-            isCollapsed: true,
-            contentPadding: const EdgeInsets.symmetric(vertical: 13),
-            hintText: 'Ишкана издөө...',
-            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-            prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 21),
-            suffixIcon: _homeSearch.isEmpty
-                ? null
-                : IconButton(
-                    icon: Icon(Icons.close, color: Colors.grey[500], size: 19),
-                    onPressed: () => _homeSearchController.clear(),
-                  ),
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Horizontal category chips ────────────────────────────────────────────────
-  Widget _buildCategoryChips() {
-    return SizedBox(
-      height: 116,
-      child: Stack(
-        children: [
-          ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(16, 2, 28, 6),
-            itemCount: _filteredCategories.length + 1, // + trailing "all" chip
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              if (index == _filteredCategories.length) {
-                return _buildAllCategoriesChip();
-              }
-              final category = _filteredCategories[index];
-              final selected = category.id == _selectedCategoryId;
-              return _categoryChip(
-                selected: selected,
-                onTap: () => _selectCategory(category),
-                label: category.name,
-                imageTile: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(category.icon, fit: BoxFit.cover),
-                ),
-              );
-            },
-          ),
-          // Right-edge fade hints there are more categories to scroll.
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: IgnorePointer(
-              child: Container(
-                width: 24,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      AppColors.background.withValues(alpha: 0),
-                      AppColors.background,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _categoryChip({
-    required bool selected,
-    required VoidCallback onTap,
-    required String label,
-    required Widget imageTile,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        width: 84,
-        height: 104,
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: selected
-                  ? AppColors.primary.withValues(alpha: 0.20)
-                  : Colors.black.withValues(alpha: 0.035),
-              blurRadius: selected ? 10 : 6,
-              offset: Offset(0, selected ? 4 : 2),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: imageTile,
-            ),
-            const SizedBox(height: 7),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  height: 1.1,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.1,
-                  color: selected ? Colors.white : AppColors.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAllCategoriesChip() {
-    return _categoryChip(
-      selected: false,
-      onTap: _openCategoriesSheet,
-      label: 'Баары',
-      imageTile: const Icon(
-        Icons.grid_view_rounded,
-        color: AppColors.primary,
-        size: 26,
-      ),
-    );
-  }
-
-  // Bottom sheet showing every category in a grid for quick discovery.
-  void _openCategoriesSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetCtx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(left: 4, bottom: 12),
-                  child: Text(
-                    'Категориялар',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 4,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.82,
-                  children: [
-                    for (final c in _filteredCategories)
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.of(sheetCtx).pop();
-                          _selectCategory(c);
-                        },
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 56,
-                              height: 56,
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: c.id == _selectedCategoryId
-                                    ? AppColors.primarySoft
-                                    : const Color(0xFFF3F4F6),
-                                borderRadius: BorderRadius.circular(16),
-                                border: c.id == _selectedCategoryId
-                                    ? Border.all(
-                                        color: AppColors.primary,
-                                        width: 2,
-                                      )
-                                    : null,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(11),
-                                child: Image.asset(c.icon, fit: BoxFit.cover),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              c.name,
-                              maxLines: 2,
-                              textAlign: TextAlign.center,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                height: 1.1,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ── User browse: banner + selected-category enterprises ──────────────────────
-  Widget _buildUserBrowse(dynamic homeState, dynamic user) {
-    final selectedCategory = _filteredCategories.firstWhere(
-      (c) => c.id == _selectedCategoryId,
-      orElse: () => _filteredCategories.first,
-    );
-    final isAction = _actionCategories.contains(selectedCategory.id);
-    final visible = _visibleHomeEnterprises;
-
+  // ── Services home: destination bar, location, banners, service cards ────────
+  Widget _buildServicesHome(dynamic user) {
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: () async {
-        await Future.wait([
-          _fetchBanners(),
-          if (!isAction) _loadHomeEnterprises(_selectedCategoryId),
-        ]);
+        // Silent location read here — the GPS button is where we may prompt.
+        await Future.wait([_fetchBanners(), _fetchHomeUserLocation()]);
       },
       child: ListView(
-        padding: const EdgeInsets.only(top: 8, bottom: 16),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(top: 2, bottom: 20),
         children: [
+          _buildDestinationBar(user),
+          const SizedBox(height: 12),
+          _buildCurrentLocationCard(),
+          const SizedBox(height: 12),
+          _buildMiniMapCard(),
           if (_banners.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(0, 0, 0, 14),
+              padding: const EdgeInsets.fromLTRB(0, 16, 0, 0),
               child: BannerCarousel(banners: _banners),
             ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 4,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  selectedCategory.name,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (!isAction &&
-                    !_loadingHomeEnterprises &&
-                    _homeEnterprisesError == null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primarySoft,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${visible.length}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (isAction)
-            _buildActionCategoryCard(selectedCategory, user)
-          else
-            _buildHomeEnterpriseSection(visible),
+          const SizedBox(height: 18),
+          _buildServicesHeader(),
+          const SizedBox(height: 12),
+          _buildServiceCards(user),
         ],
       ),
     );
   }
 
-  // Taxi / intercity have no enterprises — show a dedicated order card instead.
-  Widget _buildActionCategoryCard(models.Category category, dynamic user) {
-    final isTaxi = category.id == 'taxi';
+  // Big "where to?" bar — the primary entry point into a taxi order.
+  Widget _buildDestinationBar(dynamic user) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 9,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: const BoxDecoration(
-                  color: AppColors.primarySoft,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isTaxi ? Icons.local_taxi_rounded : Icons.alt_route_rounded,
-                  size: 32,
-                  color: AppColors.primary,
-                ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _openTaxiOrder(user, startAtAddressStep: true),
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [AppColors.accent4, AppColors.accent5],
               ),
-              const SizedBox(height: 14),
-              Text(
-                isTaxi ? 'Такси чакыруу' : 'Шаарлар аралык сапар',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.accent5.withValues(alpha: 0.25),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                isTaxi
-                    ? 'Барар жериңизди көрсөтүп, дароо заказ бериңиз'
-                    : 'Башка шаарга жеткирүү же сапар заказ кылыңыз',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  height: 1.4,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (isTaxi) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => OrderCreatePage(
-                            token: widget.token,
-                            selectedCategory: category,
-                            initialFromAddress: user?.address,
-                          ),
-                        ),
-                      );
-                    } else {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => IntercityOrderPage(
-                            token: widget.token,
-                            userId: user?.id ?? 0,
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: Text(
-                    isTaxi ? 'Такси заказ кылуу' : 'Заказ берүү',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHomeEnterpriseSection(List<Enterprise> visible) {
-    if (_loadingHomeEnterprises) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 48),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (_homeEnterprisesError != null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
-        child: Column(
-          children: [
-            Icon(Icons.error_outline, size: 44, color: Colors.grey[400]),
-            const SizedBox(height: 12),
-            Text(
-              _homeEnterprisesError!,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600]),
+              ],
             ),
-            const SizedBox(height: 16),
-            AppButton.primary(
-              onPressed: () => _loadHomeEnterprises(_selectedCategoryId),
-              label: 'Кайра жүктөө',
-            ),
-          ],
-        ),
-      );
-    }
-    if (visible.isEmpty) {
-      final searching = _homeSearch.isNotEmpty;
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
-        child: Column(
-          children: [
-            Icon(
-              searching ? Icons.search_off : Icons.storefront_outlined,
-              size: 46,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              searching
-                  ? '«$_homeSearch» боюнча эч нерсе табылган жок'
-                  : 'Бул категорияда ишкана жок',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600], fontSize: 15),
-            ),
-          ],
-        ),
-      );
-    }
-    return Column(
-      children: [for (final e in visible) _buildHomeEnterpriseCard(e)],
-    );
-  }
-
-  Widget _buildHomeEnterpriseCard(Enterprise e) {
-    final closed = e.isOpen == false;
-    final prep = e.prepTimeMinutes;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 9,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(22),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () => _openEnterpriseDirectly(e.id, _selectedCategoryId),
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               child: Row(
                 children: [
-                  // Logo with a soft frame; dimmed when the shop is closed.
-                  Opacity(
-                    opacity: closed ? 0.55 : 1,
-                    child: Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(18),
-                        color: AppColors.primarySoft,
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: _enterpriseLogo(e),
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.search,
+                      color: Colors.white,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(width: 14),
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          e.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 16.5,
+                          'Кайда барабыз?',
+                          style: TextStyle(
+                            fontSize: 20,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                            letterSpacing: -0.3,
+                            color: Colors.white,
+                            letterSpacing: -0.4,
                           ),
                         ),
-                        if ((e.address ?? '').isNotEmpty) ...[
-                          const SizedBox(height: 3),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.place_outlined,
-                                size: 13,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(width: 3),
-                              Expanded(
-                                child: Text(
-                                  e.address!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            _statusPill(closed),
-                            if (prep != null && prep > 0)
-                              _metaPill(Icons.schedule, '$prep мин'),
-                            if (_enterpriseDistanceKm(e) != null)
-                              _metaPill(
-                                Icons.near_me_outlined,
-                                _formatDistance(_enterpriseDistanceKm(e)!),
-                              ),
-                          ],
+                        SizedBox(height: 2),
+                        Text(
+                          'Дарек тандоо',
+                          style: TextStyle(fontSize: 13, color: Colors.white70),
                         ),
                       ],
                     ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward,
+                    color: Colors.white,
+                    size: 24,
                   ),
                 ],
               ),
@@ -1500,30 +951,176 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _statusPill(bool closed) {
-    final color = closed ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
-    final bg = closed ? const Color(0xFFFEE2E2) : const Color(0xFFDCFCE7);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3.5),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
+  Widget _buildCurrentLocationCard() {
+    final hasAddress = (_homeAddress ?? '').isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.035),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.place, color: Color(0xFF16A34A), size: 26),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Учурдагы жайгашкан жер',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    hasAddress
+                        ? _homeAddress!
+                        : (_loadingHomeLocation
+                              ? 'Аныкталып жатат...'
+                              : 'Жайгашкан жериңизди аныктаңыз'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: _loadingHomeLocation ? null : _refreshHomeLocation,
+              icon: _loadingHomeLocation
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.my_location, size: 22),
+              color: AppColors.textPrimary,
+              tooltip: 'Жайгашкан жерди жаңылоо',
+            ),
+          ],
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+
+  // Lightweight map teaser — tapping opens the real picker so the user can
+  // adjust the pin without waiting for an embedded map to boot on home.
+  Widget _buildMiniMapCard() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GestureDetector(
+        onTap: _openLocationPicker,
+        child: Container(
+          height: 150,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF3EA),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
           ),
-          const SizedBox(width: 4),
-          Text(
-            closed ? 'Жабык' : 'Ачык',
+          child: Stack(
+            children: [
+              Positioned.fill(child: CustomPaint(painter: _MiniMapPainter())),
+              // Pin + accuracy halo in the middle, like a live map would show.
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.place, size: 34, color: Color(0xFF16A34A)),
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3B82F6).withValues(alpha: 0.18),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF2563EB),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.my_location,
+                    size: 21,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServicesHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'Сервистер',
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.4,
+            ),
+          ),
+          GestureDetector(
+            onTap: _openDeliveryPage,
+            child: const Text(
+              'Баарын көрүү',
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.accent4,
+              ),
             ),
           ),
         ],
@@ -1531,47 +1128,198 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _metaPill(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3.5),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+  Widget _buildServiceCards(dynamic user) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
         children: [
-          Icon(icon, size: 11.5, color: AppColors.textSecondary),
-          const SizedBox(width: 3.5),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+          // IntrinsicHeight lets both cards share the taller one's height
+          // (a bare stretch would get unbounded height inside the ListView).
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _serviceCard(
+                    color: AppColors.accent4,
+                    icon: Icons.local_taxi_rounded,
+                    title: 'Такси',
+                    subtitle: 'Шаар боюнча',
+                    action: 'Такси чакыруу',
+                    onTap: () => _openTaxiOrder(user),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _serviceCard(
+                    color: AppColors.accent2,
+                    icon: Icons.inventory_2_rounded,
+                    title: 'Жеткирүү',
+                    subtitle: 'Тамак, документ, гүл...',
+                    action: 'Курьер чакыруу',
+                    onTap: _openDeliveryPage,
+                  ),
+                ),
+              ],
             ),
+          ),
+          const SizedBox(height: 12),
+          _serviceCard(
+            color: AppColors.accent3,
+            icon: Icons.alt_route_rounded,
+            title: 'Шаарлар аралык',
+            subtitle: 'Башка шаарга сапар же жүк',
+            action: 'Заказ берүү',
+            onTap: () => _openIntercityOrder(user),
+            wide: true,
           ),
         ],
       ),
     );
   }
 
-  Widget _enterpriseLogo(Enterprise e) {
-    final logo = e.logoData;
-    if (logo != null && logo.isNotEmpty && logo.startsWith('http')) {
-      return Image.network(
-        logo,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _enterpriseLogoFallback(),
-      );
-    }
-    return _enterpriseLogoFallback();
+  Widget _serviceCard({
+    required Color color,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String action,
+    required VoidCallback onTap,
+    bool wide = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.22),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: wide ? 48 : 58,
+                  height: wide ? 48 : 58,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: wide ? 26 : 32),
+                ),
+                SizedBox(height: wide ? 10 : 14),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12.5, color: Colors.white70),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        action,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
-  Widget _enterpriseLogoFallback() {
-    return Container(
-      color: AppColors.primarySoft,
-      child: const Icon(Icons.storefront, color: AppColors.primary, size: 30),
+  // ── Service navigation ───────────────────────────────────────────────────────
+  // [startAtAddressStep] skips picking a taxi firm — the "Кайда барабыз?" bar
+  // goes straight to the route, the Такси card keeps the firm list.
+  void _openTaxiOrder(dynamic user, {bool startAtAddressStep = false}) {
+    final taxi = models.categories.firstWhere(
+      (c) => c.id == 'taxi',
+      orElse: () => models.categories.first,
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => OrderCreatePage(
+          token: widget.token,
+          selectedCategory: taxi,
+          initialFromAddress: _homeAddress ?? user?.address,
+          initialFromLocation: _homeAddress == null ? null : _homeUserLocation,
+          startAtAddressStep: startAtAddressStep,
+        ),
+      ),
+    );
+  }
+
+  void _openIntercityOrder(dynamic user) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            IntercityOrderPage(token: widget.token, userId: user?.id ?? 0),
+      ),
+    );
+  }
+
+  void _openDeliveryPage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => DeliveryPage(token: widget.token)),
+    );
+  }
+
+  Future<void> _openLocationPicker() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => MapPickerWidget(
+          initialLocation: _homeUserLocation,
+          initialAddress: _homeAddress,
+          title: 'Жайгашкан жериңизди тандаңыз',
+          onLocationSelected: (location, address) {
+            if (!mounted) return;
+            setState(() {
+              _homeUserLocation = location;
+              _homeAddress = address;
+            });
+          },
+        ),
+      ),
     );
   }
 
@@ -1634,12 +1382,22 @@ class OrderCreatePage extends StatefulWidget {
   final String? initialFromAddress;
   final int? initialEnterpriseId;
 
+  /// Skip enterprise selection and open straight on the address step — used by
+  /// the home "Кайда барабыз?" bar, where the user only wants to name a route.
+  final bool startAtAddressStep;
+
+  /// Coordinates for [initialFromAddress], so the pickup pin is exact and the
+  /// distance does not have to be geocoded back from the address text.
+  final LatLng? initialFromLocation;
+
   const OrderCreatePage({
     super.key,
     required this.token,
     required this.selectedCategory,
     this.initialFromAddress,
     this.initialEnterpriseId,
+    this.startAtAddressStep = false,
+    this.initialFromLocation,
   });
 
   @override
@@ -1652,6 +1410,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   // Address controllers
   final _fromAddressController = TextEditingController();
   final _toAddressController = TextEditingController();
+  // House / flat number: map data in Batken has almost no house numbers, so
+  // the customer supplies it and we append it to the geocoded street.
+  final _fromHouseController = TextEditingController();
+  final _toHouseController = TextEditingController();
   final _notesController = TextEditingController();
 
   // Map coordinates
@@ -1687,44 +1449,60 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   // User GPS location for distance-to-enterprise display
   LatLng? _userLocation;
 
-  // Suggestion addresses
-  final List<String> _suggestions = [
-    'Бишкек, ул. Жибек Жолу, 123',
-    'Бишкек, пр. Чуй, 456',
-    'Бишкек, ул. Боконбаева, 789',
-    'Бишкек, ул. Сатпаева, 321',
-    'Бишкек, пр. Манаса, 654',
-    'Бишкек, ул. Всемирная, 987',
-  ];
+  // Live address search (Yandex geocoder) for the address fields
+  List<AddressSuggestion> _addressSuggestions = [];
+  bool _loadingSuggestions = false;
+  Timer? _suggestDebounce;
+  // Which field the open dropdown belongs to.
+  TextEditingController? _suggestTarget;
+  // True while we fill a field ourselves (GPS, map, enterprise) so the
+  // programmatic text change does not pop the suggestion list open.
+  bool _fillingAddress = false;
 
   @override
   void initState() {
     super.initState();
     _cubit = OrderCreateCubit();
     if (widget.initialFromAddress != null) {
-      _fromAddressController.text = widget.initialFromAddress!;
+      _setAddressText(_fromAddressController, widget.initialFromAddress!);
     }
-    // Rebuild when address text changes (for suggestions dropdown)
-    _fromAddressController.addListener(() => setState(() {}));
-    _toAddressController.addListener(() => setState(() {}));
+    _selectedFromLocation = widget.initialFromLocation;
+    if (widget.startAtAddressStep) {
+      _cubit.goToPickupStep();
+    }
+    // Typing in an address field searches Yandex (debounced).
+    _fromAddressController.addListener(
+      () => _onAddressChanged(_fromAddressController, isFrom: true),
+    );
+    _toAddressController.addListener(
+      () => _onAddressChanged(_toAddressController, isFrom: false),
+    );
+    _fromHouseController.addListener(() => setState(() {}));
+    _toHouseController.addListener(() => setState(() {}));
     _enterpriseSearchController.addListener(
       () =>
           setState(() => _enterpriseSearch = _enterpriseSearchController.text),
     );
-    _fetchEnterprises().then((_) {
-      if (widget.initialEnterpriseId != null && mounted) {
-        _autoSelectEnterprise(widget.initialEnterpriseId!);
-      }
-    });
+    // The enterprise list is only needed by the selection step we skipped.
+    if (!widget.startAtAddressStep) {
+      _fetchEnterprises().then((_) {
+        if (widget.initialEnterpriseId != null && mounted) {
+          _autoSelectEnterprise(widget.initialEnterpriseId!);
+        }
+      });
+    }
     _fetchAppSettings();
     _fetchUserLocation();
   }
 
   @override
   void dispose() {
+    _suggestDebounce?.cancel();
     _cubit.close();
     _fromAddressController.dispose();
     _toAddressController.dispose();
+    _fromHouseController.dispose();
+    _toHouseController.dispose();
     _notesController.dispose();
     _enterpriseSearchController.dispose();
     super.dispose();
@@ -1807,7 +1585,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         lat: ent.lat,
         lon: ent.lon,
       );
-      _fromAddressController.text = ent.address ?? '';
+      _setAddressText(_fromAddressController, ent.address ?? '');
       setState(() {
         _enterpriseMenu = menu;
         _isLoadingMenu = false;
@@ -1864,8 +1642,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
   void _goToNextStep({String? overrideFrom, String? overrideTo}) {
     final message = _cubit.goToNextStep(
-      fromAddress: overrideFrom ?? _fromAddressController.text,
-      toAddress: overrideTo ?? _toAddressController.text,
+      fromAddress: overrideFrom ?? _fromAddressFull,
+      toAddress: overrideTo ?? _toAddressFull,
       fromLocation: _selectedFromLocation,
       toLocation: _selectedToLocation,
     );
@@ -1877,6 +1655,13 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   }
 
   void _goToPreviousStep() {
+    // Opened straight on the address step → back leaves the flow instead of
+    // dropping into the enterprise selection the user never saw.
+    if (widget.startAtAddressStep &&
+        _cubit.state.currentStep == OrderCreateStep.pickupLocation) {
+      Navigator.of(context).pop();
+      return;
+    }
     // Opened straight into an enterprise's menu from home → back returns home,
     // not the (skipped) enterprise-selection step.
     if (widget.initialEnterpriseId != null &&
@@ -1902,7 +1687,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       lon: ent.lon,
     );
     // Auto-fill from address from enterprise
-    _fromAddressController.text = ent.address ?? '';
+    _setAddressText(_fromAddressController, ent.address ?? '');
+    _fromHouseController.clear();
     if (ent.lat != null && ent.lon != null) {
       setState(() {
         _selectedFromLocation = LatLng(latitude: ent.lat!, longitude: ent.lon!);
@@ -1920,7 +1706,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
   void _onManualEnterprise() {
     _cubit.goToPickupStep();
-    _fromAddressController.clear();
+    _setAddressText(_fromAddressController, '');
+    _fromHouseController.clear();
     setState(() => _selectedFromLocation = null);
   }
 
@@ -1984,10 +1771,10 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       setState(() {
         if (isFrom) {
           _selectedFromLocation = loc;
-          _fromAddressController.text = address;
+          _setAddressText(_fromAddressController, address);
         } else {
           _selectedToLocation = loc;
-          _toAddressController.text = address;
+          _setAddressText(_toAddressController, address);
         }
       });
     } catch (e) {
@@ -2052,20 +1839,32 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       final shouldLogin = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Кирүү талап кылынат', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: const Text('Буйрутманы тастыктоо үчүн аккаунтуңузга кириңиз же катталыңыз.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Кирүү талап кылынат',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'Буйрутманы тастыктоо үчүн аккаунтуңузга кириңиз же катталыңыз.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Жокко чыгаруу', style: TextStyle(color: AppColors.textSecondary)),
+              child: const Text(
+                'Жокко чыгаруу',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Text('Кирүү / Катталуу'),
             ),
@@ -2097,8 +1896,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       final orderData = await _cubit.createOrder(
         token: widget.token,
         category: widget.selectedCategory.id,
-        fromAddress: _fromAddressController.text,
-        toAddress: _toAddressController.text,
+        fromAddress: _fromAddressFull,
+        toAddress: _toAddressFull,
         description: description,
         fromLocation: _selectedFromLocation,
         toLocation: _selectedToLocation,
@@ -2146,11 +1945,102 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
-  List<String> _filteredSuggestions(String query) {
-    if (query.isEmpty) return _suggestions;
-    return _suggestions
-        .where((a) => a.toLowerCase().contains(query.toLowerCase()))
-        .toList();
+  // ── Address search ──────────────────────────────────────────────────────────
+
+  void _onAddressChanged(
+    TextEditingController controller, {
+    required bool isFrom,
+  }) {
+    if (_fillingAddress) return;
+    final query = controller.text.trim();
+    _suggestDebounce?.cancel();
+
+    if (query.length < 3) {
+      setState(() {
+        _suggestTarget = null;
+        _addressSuggestions = [];
+        _loadingSuggestions = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _suggestTarget = controller;
+      _loadingSuggestions = true;
+    });
+    // 600ms keeps us inside the free OSM fallback's 1 req/s policy.
+    _suggestDebounce = Timer(
+      const Duration(milliseconds: 600),
+      () => _searchAddresses(controller, query),
+    );
+  }
+
+  Future<void> _searchAddresses(
+    TextEditingController controller,
+    String query,
+  ) async {
+    final results = await RealGeocoder.searchAddresses(
+      query,
+      near: _userLocation,
+    );
+    // Drop the response if the user moved on or kept typing.
+    if (!mounted ||
+        _suggestTarget != controller ||
+        controller.text.trim() != query) {
+      return;
+    }
+    setState(() {
+      _addressSuggestions = results;
+      _loadingSuggestions = false;
+    });
+  }
+
+  /// Street plus the hand-typed house number, which is what the courier sees.
+  String get _fromAddressFull =>
+      _withHouse(_fromAddressController.text, _fromHouseController.text);
+
+  String get _toAddressFull =>
+      _withHouse(_toAddressController.text, _toHouseController.text);
+
+  String _withHouse(String address, String house) {
+    final street = address.trim();
+    final number = house.trim();
+    if (number.isEmpty) return street;
+    if (street.isEmpty) return number;
+    // Skip when the geocoder already returned this number in the street line.
+    final tokens = street.split(RegExp(r'[\s,]+'));
+    if (tokens.contains(number)) return street;
+    return '$street, $number';
+  }
+
+  /// Fill an address field from code without triggering a new search.
+  void _setAddressText(TextEditingController controller, String text) {
+    _fillingAddress = true;
+    controller.text = text;
+    controller.selection = TextSelection.collapsed(offset: text.length);
+    _fillingAddress = false;
+    if (_suggestTarget == controller) {
+      _suggestTarget = null;
+      _addressSuggestions = [];
+      _loadingSuggestions = false;
+    }
+  }
+
+  void _applySuggestion(
+    TextEditingController controller,
+    AddressSuggestion suggestion, {
+    required bool isFrom,
+  }) {
+    _suggestDebounce?.cancel();
+    setState(() {
+      _setAddressText(controller, suggestion.fullAddress);
+      if (isFrom) {
+        _selectedFromLocation = suggestion.location;
+      } else {
+        _selectedToLocation = suggestion.location;
+      }
+    });
+    FocusScope.of(context).unfocus();
   }
 
   String _appBarTitle(OrderCreateState state) {
@@ -2282,10 +2172,15 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
   Widget _buildAddressField({
     required TextEditingController controller,
+    required TextEditingController houseController,
     required String hint,
     required String label,
+    required bool isFrom,
   }) {
-    // Note: controller listeners are added in initState for setState-driven suggestions
+    final showDropdown =
+        _suggestTarget == controller &&
+        (_loadingSuggestions || _addressSuggestions.isNotEmpty);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2294,7 +2189,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           hintText: hint,
           prefixIcon: const Icon(Icons.location_on),
         ),
-        if (controller.text.isNotEmpty)
+        if (showDropdown)
           Container(
             margin: const EdgeInsets.only(top: 2),
             decoration: BoxDecoration(
@@ -2311,40 +2206,99 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 ),
               ],
             ),
-            child: ListView(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: _filteredSuggestions(controller.text)
-                  .take(4)
-                  .map(
-                    (addr) => ListTile(
-                      dense: true,
-                      leading: const Icon(
-                        Icons.location_on,
-                        size: 16,
-                        color: AppColors.primary,
+            child: _loadingSuggestions
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                      title: Text(addr, style: const TextStyle(fontSize: 13)),
-                      onTap: () => setState(() => controller.text = addr),
                     ),
                   )
-                  .toList(),
-            ),
+                : ListView(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      for (final suggestion in _addressSuggestions)
+                        ListTile(
+                          dense: true,
+                          leading: const Icon(
+                            Icons.location_on,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                          title: Text(
+                            suggestion.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: suggestion.subtitle.isEmpty
+                              ? null
+                              : Text(
+                                  suggestion.subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                          onTap: () => _applySuggestion(
+                            controller,
+                            suggestion,
+                            isFrom: isFrom,
+                          ),
+                        ),
+                    ],
+                  ),
           ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            SizedBox(
+              width: 170,
+              child: AppTextField(
+                controller: houseController,
+                hintText: 'Үй / батир №',
+                textInputAction: TextInputAction.done,
+                prefixIcon: const Icon(Icons.home_outlined),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Картада үй номерлери жок — өзүңүз жазыңыз',
+                style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
 
   Widget _buildMapSection({
     required LatLng? location,
+    required String? address,
     required String mapLabel,
     required void Function(LatLng, String?) onChanged,
     Color locationColor = Colors.green,
   }) {
+    final hasAddress = (address ?? '').trim().isNotEmpty;
     return Column(
       children: [
         CompactMapPreview(
+          // Re-seed the preview when the pin is set elsewhere (GPS button or a
+          // picked search suggestion), so it never shows a stale point.
+          key: ValueKey('${location?.latitude},${location?.longitude}'),
           initialLocation: location,
+          initialAddress: hasAddress ? address : null,
           label: mapLabel,
           onLocationChanged: (loc, addr) => onChanged(loc, addr),
         ),
@@ -2363,7 +2317,13 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Координата: ${location.latitude.toStringAsFixed(5)}, ${location.longitude.toStringAsFixed(5)}',
+                    // Show the street, not raw coordinates — those mean nothing
+                    // to a customer or a courier.
+                    hasAddress
+                        ? address!.trim()
+                        : 'Координата: ${location.latitude.toStringAsFixed(5)}, ${location.longitude.toStringAsFixed(5)}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                   ),
                 ),
@@ -3518,20 +3478,23 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           const SizedBox(height: 16),
           _buildAddressField(
             controller: _fromAddressController,
-            hint: 'Мисал: ул. Жибек Жолу, 123',
+            houseController: _fromHouseController,
+            hint: 'Көчөнүн атын жазыңыз',
             label: 'Жөнөтүүнүн адресси',
+            isFrom: true,
           ),
           const SizedBox(height: 10),
           _buildMyLocationButton(isFrom: true),
           const SizedBox(height: 16),
           _buildMapSection(
             location: _selectedFromLocation,
+            address: _fromAddressFull,
             mapLabel: 'Картадан тандаңыз',
             onChanged: (loc, addr) {
               setState(() {
                 _selectedFromLocation = loc;
                 if (addr != null) {
-                  _fromAddressController.text = addr;
+                  _setAddressText(_fromAddressController, addr);
                 }
               });
             },
@@ -3563,20 +3526,23 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           const SizedBox(height: 16),
           _buildAddressField(
             controller: _toAddressController,
-            hint: 'Мисал: пр. Чуй, 456',
+            houseController: _toHouseController,
+            hint: 'Көчөнүн атын жазыңыз',
             label: 'Жеткирүүнүн адресси',
+            isFrom: false,
           ),
           const SizedBox(height: 10),
           _buildMyLocationButton(isFrom: false),
           const SizedBox(height: 16),
           _buildMapSection(
             location: _selectedToLocation,
+            address: _toAddressFull,
             mapLabel: 'Картадан тандаңыз',
             onChanged: (loc, addr) {
               setState(() {
                 _selectedToLocation = loc;
                 if (addr != null) {
-                  _toAddressController.text = addr;
+                  _setAddressText(_toAddressController, addr);
                 }
               });
             },
@@ -3646,18 +3612,14 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 _buildAddressRow(
                   icon: Icons.location_on,
                   label: 'Кайдан',
-                  value: _fromAddressController.text.isNotEmpty
-                      ? _fromAddressController.text
-                      : '—',
+                  value: _fromAddressFull.isNotEmpty ? _fromAddressFull : '—',
                   color: Colors.green.shade700,
                 ),
                 Divider(color: Colors.green.shade200, height: 16),
                 _buildAddressRow(
                   icon: Icons.flag,
                   label: 'Кайда',
-                  value: _toAddressController.text.isNotEmpty
-                      ? _toAddressController.text
-                      : '—',
+                  value: _toAddressFull.isNotEmpty ? _toAddressFull : '—',
                   color: Colors.blue.shade700,
                 ),
               ],
@@ -4387,4 +4349,68 @@ class _EnterpriseProductDetailPageState
       child: Icon(icon, color: filled ? Colors.white : AppColors.textPrimary),
     ),
   );
+}
+
+/// Stylised street grid for the home map teaser — blocks, roads and a river,
+/// drawn locally so the home screen never waits on a map SDK.
+class _MiniMapPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final block = Paint()..color = const Color(0xFFE3EBDC);
+    final road = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 9
+      ..strokeCap = StrokeCap.square;
+    final river = Paint()
+      ..color = const Color(0xFFBFDCEF)
+      ..strokeWidth = 12
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    // Building blocks
+    for (var row = 0; row < 3; row++) {
+      for (var col = 0; col < 4; col++) {
+        final rect = Rect.fromLTWH(
+          col * size.width / 4 + 12,
+          row * size.height / 3 + 10,
+          size.width / 4 - 24,
+          size.height / 3 - 20,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+          block,
+        );
+      }
+    }
+
+    // Roads
+    for (var col = 1; col < 4; col++) {
+      final x = col * size.width / 4;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), road);
+    }
+    for (var row = 1; row < 3; row++) {
+      final y = row * size.height / 3;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), road);
+    }
+
+    // River sweeping across the lower third
+    final path = Path()
+      ..moveTo(0, size.height * 0.74)
+      ..quadraticBezierTo(
+        size.width * 0.3,
+        size.height * 0.62,
+        size.width * 0.55,
+        size.height * 0.76,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.8,
+        size.height * 0.9,
+        size.width,
+        size.height * 0.78,
+      );
+    canvas.drawPath(path, river);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

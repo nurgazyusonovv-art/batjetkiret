@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 2
     DB_POOL_RECYCLE_SECONDS: int = 300
     DB_POOL_TIMEOUT_SECONDS: int = 10
+    # OpenRouteService key — lets the server compute the road distance itself
+    # instead of trusting the distance the app sends. Empty => straight line
+    # scaled by ROAD_FACTOR.
+    ORS_API_KEY: str = ""
+
     R2_ACCESS_KEY: str = ""
     R2_SECRET_KEY: str = ""
     R2_ENDPOINT: str = ""

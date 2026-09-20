@@ -27,6 +27,9 @@ fi
 if [ -f ".env" ]; then
     source .env
     api_key_flag="--dart-define=YANDEX_API_KEY=$YANDEX_API_KEY"
+    # Routing / address search keys (optional — the app falls back gracefully)
+    [ -n "$ORS_API_KEY" ] && api_key_flag="$api_key_flag --dart-define=ORS_API_KEY=$ORS_API_KEY"
+    [ -n "$OSRM_BASE_URL" ] && api_key_flag="$api_key_flag --dart-define=OSRM_BASE_URL=$OSRM_BASE_URL"
 fi
 
 echo ""

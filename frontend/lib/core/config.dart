@@ -55,6 +55,21 @@ class AppConfig {
     defaultValue: '',
   );
 
+  // OpenRouteService key for driving distance (free tier ~2000 req/day).
+  // Pass at build time: --dart-define=ORS_API_KEY=<key>
+  static const String _envOrsApiKey = String.fromEnvironment(
+    'ORS_API_KEY',
+    defaultValue: '',
+  );
+
+  // OSRM routing server. The public demo server is a stop-gap — it is not
+  // meant for production traffic, so point this at your own OSRM instance:
+  // --dart-define=OSRM_BASE_URL=https://osrm.example.kg
+  static const String _envOsrmBaseUrl = String.fromEnvironment(
+    'OSRM_BASE_URL',
+    defaultValue: 'https://router.project-osrm.org',
+  );
+
   static String get baseUrl {
     if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
     if (kIsWeb) return '/api';
@@ -116,6 +131,10 @@ class AppConfig {
   }
 
   static String get yandexApiKey => _envYandexApiKey;
+
+  static String get orsApiKey => _envOrsApiKey;
+
+  static String get osrmBaseUrl => _envOsrmBaseUrl;
 
   static String get yandexMapKitApiKey => '';
 
