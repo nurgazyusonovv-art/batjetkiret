@@ -16,11 +16,11 @@ flutter run -d "iPhone 17" --detach
 
 # Вариант 2: С логами
 cd ~/python_projects/batjetkiret-backend/frontend
-flutter build ios --debug
-xcrun simctl launch booted com.example.batJetkiret
+flutter build ios --simulator --debug
+xcrun simctl launch booted com.batkenexpress.app
 
 # Вариант 3: Создать алиас для удобства
-alias run-ios='flutter run -d "iPhone 17" --detach'
+alias run-ios='flutter run -d "iPhone-17-Express" --detach'
 # Затем: run-ios
 ```
 
@@ -35,10 +35,10 @@ alias run-ios='flutter run -d "iPhone 17" --detach'
 
 ```bash
 # Убить приложение с симулятора
-xcrun simctl terminate booted com.example.batJetkiret
+xcrun simctl terminate booted com.batkenexpress.app
 
 # Перезагрузить приложение
-xcrun simctl uninstall booted com.example.batJetkiret
+xcrun simctl uninstall booted com.batkenexpress.app
 flutter install
 
 # Очистить всё и пересобрать
