@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../widgets/map_picker.dart';
 
 class CreateOrderScreen extends StatefulWidget {
   const CreateOrderScreen({super.key});
@@ -75,6 +77,22 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             'price': p['price'],
           })
       .toList();
+
+  Future<void> _pickAddressFromMap() async {
+    final result = await Navigator.push<PickedLocation>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const MapPickerPage(needAddress: true),
+      ),
+    );
+    if (result == null) return;
+    if (result.address != null && result.address!.isNotEmpty) {
+      _addressCtrl.text = result.address!;
+    } else {
+      _addressCtrl.text =
+          '${result.lat.toStringAsFixed(5)}, ${result.lon.toStringAsFixed(5)}';
+    }
+  }
 
   Future<void> _submit() async {
     if (_selectedItems.isEmpty) {
@@ -189,8 +207,32 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                           Icons.phone_outlined,
                           type: TextInputType.phone),
                       const SizedBox(height: 10),
-                      _field(_addressCtrl, 'Жеткирүү дареги *',
-                          Icons.location_on_outlined),
+                      TextField(
+                        controller: _addressCtrl,
+                        decoration: InputDecoration(
+                          hintText: 'Жеткирүү дареги *',
+                          prefixIcon: const Icon(Icons.location_on_outlined,
+                              size: 18, color: Color(0xFF9CA3AF)),
+                          suffixIcon: IconButton(
+                            tooltip: 'Картадан тандоо',
+                            icon: const Icon(Icons.map_outlined,
+                                color: Color(0xFF16A34A)),
+                            onPressed: _pickAddressFromMap,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF9FAFB),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFE5E7EB))),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFE5E7EB))),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                        ),
+                      ),
                       const SizedBox(height: 10),
                       _field(_noteCtrl, 'Эскертүү (милдеттүү эмес)',
                           Icons.note_outlined),
@@ -414,12 +456,10 @@ class _ProductRow extends StatelessWidget {
       ),
       child: Row(children: [
         // Product image
-        if (imageUrl != null && imageUrl.isNotEmpty && !imageUrl.startsWith('data:'))
+        if (imageUrl != null && imageUrl.isNotEmpty)
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: Image.network(imageUrl,
-                width: 40, height: 40, fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _placeholder()),
+            child: _productImage(imageUrl),
           )
         else
           _placeholder(),
@@ -451,6 +491,22 @@ class _ProductRow extends StatelessWidget {
         ]),
       ]),
     );
+  }
+
+  static Widget _productImage(String url) {
+    if (url.startsWith('data:')) {
+      final comma = url.indexOf(',');
+      if (comma == -1) return _placeholder();
+      try {
+        final bytes = base64Decode(url.substring(comma + 1));
+        return Image.memory(bytes, width: 40, height: 40, fit: BoxFit.cover,
+            errorBuilder: (_, e, s) => _placeholder());
+      } catch (_) {
+        return _placeholder();
+      }
+    }
+    return Image.network(url, width: 40, height: 40, fit: BoxFit.cover,
+        errorBuilder: (_, e, s) => _placeholder());
   }
 
   static Widget _placeholder() => Container(

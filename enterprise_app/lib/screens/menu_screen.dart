@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -230,15 +231,10 @@ class _ProductsTabState extends State<_ProductsTab>
   static Widget _productImage(Map<String, dynamic> p) {
     final url = p['image_url'] as String?;
     if (url != null && url.isNotEmpty) {
-      final img = url.startsWith('data:')
-          ? null
-          : Image.network(url,
-              width: 46, height: 46, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  const Icon(Icons.fastfood, color: Color(0xFF9CA3AF)));
       return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: img ?? const Icon(Icons.fastfood, color: Color(0xFF9CA3AF)));
+        borderRadius: BorderRadius.circular(8),
+        child: _imageFromUrl(url, 46, 46),
+      );
     }
     return Container(
       width: 46, height: 46,
@@ -249,6 +245,29 @@ class _ProductsTabState extends State<_ProductsTab>
       child: const Icon(Icons.fastfood, color: Color(0xFF9CA3AF), size: 22),
     );
   }
+
+  static Widget _imageFromUrl(String url, double w, double h) {
+    if (url.startsWith('data:')) {
+      final comma = url.indexOf(',');
+      if (comma == -1) return _imgError(w, h);
+      try {
+        final bytes = base64Decode(url.substring(comma + 1));
+        return Image.memory(bytes,
+            width: w, height: h, fit: BoxFit.cover,
+            errorBuilder: (_, e, s) => _imgError(w, h));
+      } catch (_) {
+        return _imgError(w, h);
+      }
+    }
+    return Image.network(url,
+        width: w, height: h, fit: BoxFit.cover,
+        errorBuilder: (_, e, s) => _imgError(w, h));
+  }
+
+  static Widget _imgError(double w, double h) => SizedBox(
+        width: w, height: h,
+        child: const Icon(Icons.fastfood, color: Color(0xFF9CA3AF)),
+      );
 
   static Widget _empty(String text) => ListView(children: [
     const SizedBox(height: 200),
@@ -279,6 +298,7 @@ class _ProductFormState extends State<_ProductForm> {
   bool _active = true;
   bool _saving = false;
   File? _imageFile;
+  String? _existingImageUrl;
   int? _productId;
 
   @override
@@ -293,6 +313,10 @@ class _ProductFormState extends State<_ProductForm> {
       _descCtrl.text = e['description'] as String? ?? '';
       _catId = e['category_id'] as int?;
       _active = e['is_active'] as bool? ?? true;
+      _existingImageUrl = e['image_url'] as String?;
+      if (_existingImageUrl != null && _existingImageUrl!.isEmpty) {
+        _existingImageUrl = null;
+      }
     }
   }
 
@@ -333,7 +357,10 @@ class _ProductFormState extends State<_ProductForm> {
           await ApiService.uploadProductImage(_productId!, _imageFile!);
         }
       } else {
-        await ApiService.createProduct(data);
+        final created = await ApiService.createProduct(data);
+        if (_imageFile != null && created['id'] != null) {
+          await ApiService.uploadProductImage(created['id'] as int, _imageFile!);
+        }
       }
 
       if (mounted) Navigator.pop(context, true);
@@ -376,17 +403,36 @@ class _ProductFormState extends State<_ProductForm> {
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: Image.file(_imageFile!, fit: BoxFit.cover))
-                  : const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add_photo_alternate_outlined,
-                            size: 28, color: Color(0xFF9CA3AF)),
-                        SizedBox(height: 4),
-                        Text('Сүрөт кошуу',
-                            style: TextStyle(
-                                fontSize: 12, color: Color(0xFF9CA3AF))),
-                      ],
-                    ),
+                  : _existingImageUrl != null
+                      ? Stack(fit: StackFit.expand, children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: _ProductsTabState._imageFromUrl(
+                                _existingImageUrl!, double.infinity, 90),
+                          ),
+                          Positioned(
+                            bottom: 6, right: 6,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(Icons.edit, size: 14, color: Colors.white),
+                            ),
+                          ),
+                        ])
+                      : const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_photo_alternate_outlined,
+                                size: 28, color: Color(0xFF9CA3AF)),
+                            SizedBox(height: 4),
+                            Text('Сүрөт кошуу',
+                                style: TextStyle(
+                                    fontSize: 12, color: Color(0xFF9CA3AF))),
+                          ],
+                        ),
             ),
           ),
           const SizedBox(height: 12),
@@ -401,7 +447,7 @@ class _ProductFormState extends State<_ProductForm> {
 
           // Category
           DropdownButtonFormField<int?>(
-            value: _catId,
+            initialValue: _catId,
             decoration: _dec('Категория'),
             items: [
               const DropdownMenuItem(value: null, child: Text('Категориясыз')),
@@ -418,7 +464,7 @@ class _ProductFormState extends State<_ProductForm> {
             contentPadding: EdgeInsets.zero,
             title: const Text('Активдүү'),
             value: _active,
-            activeColor: const Color(0xFF16A34A),
+            activeThumbColor: const Color(0xFF16A34A),
             onChanged: (v) => setState(() => _active = v),
           ),
           const SizedBox(height: 16),
@@ -571,7 +617,7 @@ class _CategoriesTabState extends State<_CategoriesTab>
                   : ReorderableListView.builder(
                       padding: const EdgeInsets.fromLTRB(14, 14, 14, 80),
                       itemCount: _cats.length,
-                      onReorder: (_, __) {},
+                      onReorder: (_, i) {},
                       itemBuilder: (_, i) {
                         final c = _cats[i] as Map<String, dynamic>;
                         return Container(

@@ -8,6 +8,7 @@ import 'screens/topup_screen.dart';
 import 'screens/support_chats_screen.dart';
 import 'screens/cancel_requests_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/admin_orders_screen.dart';
 import 'services/auth_service.dart';
 
 final FlutterLocalNotificationsPlugin localNotifications =
@@ -45,29 +46,31 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Канал жана notification plugin'ди фондо да инициализациялайбыз
   final plugin = FlutterLocalNotificationsPlugin();
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-  await plugin.initialize(const InitializationSettings(android: androidSettings));
+  await plugin.initialize(
+    const InitializationSettings(android: androidSettings),
+  );
 
   await plugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(const AndroidNotificationChannel(
-        _channelId,
-        _channelName,
-        importance: Importance.max,
-        enableVibration: true,
-        playSound: true,
-      ));
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
+      ?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _channelId,
+          _channelName,
+          importance: Importance.max,
+          enableVibration: true,
+          playSound: true,
+        ),
+      );
 
-  final title = message.notification?.title ??
+  final title =
+      message.notification?.title ??
       message.data['title'] ??
       '🔑 Жаңы сырсөз өтүнүчү';
   final body = message.notification?.body ?? message.data['body'] ?? '';
 
-  await plugin.show(
-    message.hashCode,
-    title,
-    body,
-    _notificationDetails,
-  );
+  await plugin.show(message.hashCode, title, body, _notificationDetails);
 }
 
 Future<void> main() async {
@@ -84,7 +87,9 @@ Future<void> main() async {
 
   // Канал түзөбүз — маанилүүлүгү MAX болушу керек heads-up үчүн
   await localNotifications
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.createNotificationChannel(_androidChannel);
 
   // Notification уруксаты
@@ -180,7 +185,8 @@ class _AppEntryState extends State<AppEntry> with WidgetsBindingObserver {
 
   void _setupFCMForeground() {
     FirebaseMessaging.onMessage.listen((message) {
-      final title = message.notification?.title ??
+      final title =
+          message.notification?.title ??
           message.data['title'] ??
           '🔑 Жаңы өтүнүч';
       final body = message.notification?.body ?? message.data['body'] ?? '';
@@ -210,6 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static const _screens = [
     DashboardScreen(),
+    AdminOrdersScreen(),
     ResetRequestsScreen(),
     TopUpScreen(),
     SupportChatsScreen(),
@@ -221,6 +228,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: IndexedStack(index: _tab, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
         currentIndex: _tab,
         onTap: (i) => setState(() => _tab = i),
         selectedItemColor: const Color(0xFFDC2626),
@@ -229,6 +237,10 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
             label: 'Дашборд',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long_outlined),
+            label: 'Заказдар',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.lock_reset),

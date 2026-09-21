@@ -51,15 +51,25 @@ class _SupportChatsScreenState extends State<SupportChatsScreen>
   }
 
   void _startPolling() {
-    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _load(silent: true));
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _load(silent: true),
+    );
   }
 
   Future<void> _load({bool silent = false}) async {
-    if (!silent) setState(() { _loading = true; _error = null; });
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final data = await ApiService.getSupportChats();
       final unread = data.fold<int>(
-        0, (sum, c) => sum + ((c['unread_count'] as num?)?.toInt() ?? 0));
+        0,
+        (sum, c) => sum + ((c['unread_count'] as num?)?.toInt() ?? 0),
+      );
       if (mounted) {
         setState(() {
           _chats = data;
@@ -68,7 +78,12 @@ class _SupportChatsScreenState extends State<SupportChatsScreen>
         });
       }
     } catch (e) {
-      if (mounted) setState(() { _error = 'Маалымат жүктөлбөдү'; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _error = 'Маалымат жүктөлбөдү';
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -99,8 +114,10 @@ class _SupportChatsScreenState extends State<SupportChatsScreen>
         foregroundColor: Colors.white,
         title: Row(
           children: [
-            const Text('Колдоо чаттары',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            const Text(
+              'Колдоо чаттары',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            ),
             if (_totalUnread > 0) ...[
               const SizedBox(width: 6),
               Container(
@@ -112,9 +129,10 @@ class _SupportChatsScreenState extends State<SupportChatsScreen>
                 child: Text(
                   '$_totalUnread',
                   style: const TextStyle(
-                      color: Color(0xFFDC2626),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12),
+                    color: Color(0xFFDC2626),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],
@@ -122,9 +140,10 @@ class _SupportChatsScreenState extends State<SupportChatsScreen>
         ),
         actions: [
           IconButton(
-              icon: const Icon(Icons.refresh, size: 18),
-              onPressed: _load,
-              padding: EdgeInsets.zero),
+            icon: const Icon(Icons.refresh, size: 18),
+            onPressed: _load,
+            padding: EdgeInsets.zero,
+          ),
         ],
       ),
       body: RefreshIndicator(
@@ -132,112 +151,126 @@ class _SupportChatsScreenState extends State<SupportChatsScreen>
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? ListView(children: [
-                    const SizedBox(height: 200),
-                    Center(
-                      child: Column(children: [
-                        Text(_error!,
-                            style: const TextStyle(color: Color(0xFFDC2626))),
+            ? ListView(
+                children: [
+                  const SizedBox(height: 200),
+                  Center(
+                    child: Column(
+                      children: [
+                        Text(
+                          _error!,
+                          style: const TextStyle(color: Color(0xFFDC2626)),
+                        ),
                         const SizedBox(height: 12),
                         ElevatedButton(
-                            onPressed: _load, child: const Text('Кайра')),
-                      ]),
-                    ),
-                  ])
-                : _chats.isEmpty
-                    ? ListView(children: const [
-                        SizedBox(height: 200),
-                        Center(
-                          child: Text('Азырынча колдоо чаттары жок',
-                              style: TextStyle(
-                                  color: Color(0xFF9CA3AF), fontSize: 16)),
+                          onPressed: _load,
+                          child: const Text('Кайра'),
                         ),
-                      ])
-                    : ListView.separated(
-                        itemCount: _chats.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(height: 1, indent: 16, endIndent: 16),
-                        itemBuilder: (_, i) {
-                          final c = _chats[i];
-                          final unread =
-                              (c['unread_count'] as num?)?.toInt() ?? 0;
-                          final lastMsg = c['last_message'] as String?;
-                          final lastAt = (c['last_message_at'] ?? '') as String;
-                          return ListTile(
-                            tileColor: Colors.white,
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xFFDC2626),
-                              child: Text(
-                                (c['user_name'] as String? ?? '?')
-                                    .characters
-                                    .first
-                                    .toUpperCase(),
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                            title: Text(
-                              c['user_name'] ?? 'Колдонуучу',
-                              style: TextStyle(
-                                fontWeight: unread > 0
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                              ),
-                            ),
-                            subtitle: lastMsg != null
-                                ? Text(
-                                    lastMsg,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: unread > 0
-                                          ? const Color(0xFF111827)
-                                          : const Color(0xFF9CA3AF),
-                                      fontSize: 13,
-                                    ),
-                                  )
-                                : const Text('Билдирүү жок',
-                                    style: TextStyle(
-                                        color: Color(0xFF9CA3AF),
-                                        fontSize: 13)),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                if (lastAt.length >= 16)
-                                  Text(
-                                    lastAt
-                                        .replaceAll('T', ' ')
-                                        .substring(11, 16),
-                                    style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF9CA3AF)),
-                                  ),
-                                if (unread > 0) ...[
-                                  const SizedBox(height: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFDC2626),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      '$unread',
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            onTap: () => _openChat(c),
-                          );
-                        },
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : _chats.isEmpty
+            ? ListView(
+                children: const [
+                  SizedBox(height: 200),
+                  Center(
+                    child: Text(
+                      'Азырынча колдоо чаттары жок',
+                      style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
+                    ),
+                  ),
+                ],
+              )
+            : ListView.separated(
+                itemCount: _chats.length,
+                separatorBuilder: (_, index) =>
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                itemBuilder: (_, i) {
+                  final c = _chats[i];
+                  final unread = (c['unread_count'] as num?)?.toInt() ?? 0;
+                  final lastMsg = c['last_message'] as String?;
+                  final lastAt = (c['last_message_at'] ?? '') as String;
+                  return ListTile(
+                    tileColor: Colors.white,
+                    leading: CircleAvatar(
+                      backgroundColor: const Color(0xFFDC2626),
+                      child: Text(
+                        (c['user_name'] as String? ?? '?').characters.first
+                            .toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
+                    ),
+                    title: Text(
+                      c['user_name'] ?? 'Колдонуучу',
+                      style: TextStyle(
+                        fontWeight: unread > 0
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                    subtitle: lastMsg != null
+                        ? Text(
+                            lastMsg,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: unread > 0
+                                  ? const Color(0xFF111827)
+                                  : const Color(0xFF9CA3AF),
+                              fontSize: 13,
+                            ),
+                          )
+                        : const Text(
+                            'Билдирүү жок',
+                            style: TextStyle(
+                              color: Color(0xFF9CA3AF),
+                              fontSize: 13,
+                            ),
+                          ),
+                    trailing: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (lastAt.length >= 16)
+                          Text(
+                            lastAt.replaceAll('T', ' ').substring(11, 16),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF9CA3AF),
+                            ),
+                          ),
+                        if (unread > 0) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDC2626),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$unread',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    onTap: () => _openChat(c),
+                  );
+                },
+              ),
       ),
     );
   }

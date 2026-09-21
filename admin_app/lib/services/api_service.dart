@@ -6,10 +6,12 @@ const _baseUrl = 'https://batjetkiret-production.up.railway.app';
 class ApiService {
   static Future<Dio> _client() async {
     final token = await AuthService.getToken();
-    return Dio(BaseOptions(
-      baseUrl: _baseUrl,
-      headers: {'Authorization': 'Bearer $token'},
-    ));
+    return Dio(
+      BaseOptions(
+        baseUrl: _baseUrl,
+        headers: {'Authorization': 'Bearer $token'},
+      ),
+    );
   }
 
   static Future<List<dynamic>> getResetRequests() async {
@@ -103,8 +105,10 @@ class ApiService {
     return resp.data as Map<String, dynamic>;
   }
 
-  static Future<void> rejectCancelRequest(int orderId,
-      {String adminNote = ''}) async {
+  static Future<void> rejectCancelRequest(
+    int orderId, {
+    String adminNote = '',
+  }) async {
     final dio = await _client();
     await dio.post(
       '/admin/cancel-requests/$orderId/reject',
@@ -122,7 +126,10 @@ class ApiService {
 
   static Future<List<dynamic>> getRevenueTrend({int days = 7}) async {
     final dio = await _client();
-    final resp = await dio.get('/admin/revenue-trend', queryParameters: {'days': days});
+    final resp = await dio.get(
+      '/admin/revenue-trend',
+      queryParameters: {'days': days},
+    );
     return resp.data as List<dynamic>;
   }
 
@@ -130,5 +137,16 @@ class ApiService {
     final dio = await _client();
     final resp = await dio.get('/admin/cancel-requests/count');
     return (resp.data['count'] as num?)?.toInt() ?? 0;
+  }
+
+  // ── Orders ────────────────────────────────────────────────────────────────
+
+  static Future<List<dynamic>> getAdminOrders({int limit = 300}) async {
+    final dio = await _client();
+    final resp = await dio.get(
+      '/admin/orders',
+      queryParameters: {'limit': limit},
+    );
+    return resp.data as List<dynamic>;
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_service.dart';
+import 'order_detail_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -176,6 +177,15 @@ class _OrdersScreenState extends State<OrdersScreen>
                           final o = _orders[i];
                           return _OrderCard(
                             order: o,
+                            onTap: () async {
+                              final changed = await Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => OrderDetailScreen(order: o),
+                                ),
+                              );
+                              if (changed == true) _load(silent: true);
+                            },
                             onStatusTap: () => _changeStatus(
                               o['id'] as int,
                               o['status'] as String? ?? '',
@@ -210,8 +220,9 @@ class _OrdersScreenState extends State<OrdersScreen>
 
 class _OrderCard extends StatelessWidget {
   final dynamic order;
+  final VoidCallback onTap;
   final VoidCallback onStatusTap;
-  const _OrderCard({required this.order, required this.onStatusTap});
+  const _OrderCard({required this.order, required this.onTap, required this.onStatusTap});
 
   @override
   Widget build(BuildContext context) {
@@ -228,7 +239,9 @@ class _OrderCard extends StatelessWidget {
     final source = order['source'] as String? ?? '';
     final color = OrdersScreen.statusColor(status);
 
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -301,7 +314,7 @@ class _OrderCard extends StatelessWidget {
           ]),
         ),
       ]),
-    );
+    ));
   }
 
   static Widget _row(IconData icon, String text) => Row(children: [
