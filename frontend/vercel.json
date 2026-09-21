@@ -4,14 +4,33 @@
   "installCommand": "flutter pub get",
   "alias": ["batken-express-web.vercel.app"],
   "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://batjetkiret-production.up.railway.app/$1"
+    },
+    {
+      "source": "/uploads/(.*)",
+      "destination": "https://batjetkiret-production.up.railway.app/uploads/$1"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/flutter_bootstrap.js",
       "headers": [
-        { "key": "Cross-Origin-Embedder-Policy", "value": "credentialless" },
-        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/flutter_service_worker.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/main.dart.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
     }
   ]

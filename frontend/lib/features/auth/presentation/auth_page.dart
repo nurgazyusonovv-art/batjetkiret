@@ -69,7 +69,8 @@ class AuthPage extends StatefulWidget {
   State<AuthPage> createState() => _AuthPageState();
 }
 
-class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin {
+class _AuthPageState extends State<AuthPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _nameController = TextEditingController();
@@ -114,10 +115,10 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     await context.read<AuthCubit>().submit(
-          phone: _fullPhone,
-          password: _passwordController.text,
-          name: _nameController.text.trim(),
-        );
+      phone: _fullPhone,
+      password: _passwordController.text,
+      name: _nameController.text.trim(),
+    );
   }
 
   void _switchMode(bool isLogin) {
@@ -132,16 +133,19 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
       listenWhen: (prev, cur) => prev.token != cur.token && cur.token != null,
       listener: (context, state) {
         if (state.token != null && state.token!.isNotEmpty) {
-          widget.onAuthSuccess?.call(state.token!);
+          final onAuthSuccess = widget.onAuthSuccess;
+          if (onAuthSuccess != null) {
+            onAuthSuccess(state.token!);
+          } else if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(state.token!);
+          }
         }
       },
       builder: (context, state) {
         final isWide = MediaQuery.of(context).size.width >= 800;
         return Scaffold(
           backgroundColor: const Color(0xFFF5F5F5),
-          body: isWide
-              ? _buildWideLayout(state)
-              : _buildNarrowLayout(state),
+          body: isWide ? _buildWideLayout(state) : _buildNarrowLayout(state),
         );
       },
     );
@@ -187,10 +191,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                   const SizedBox(height: 10),
                   const Text(
                     'Тез жеткирүү кызматы',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
                   ),
                 ],
               ),
@@ -204,7 +205,10 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             color: Colors.white,
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 40),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 48,
+                  vertical: 40,
+                ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 380),
                   child: _buildForm(state),
@@ -260,10 +264,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                       ),
                       Text(
                         'Тез жеткирүү кызматы',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ],
                   ),
@@ -313,13 +314,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             ),
             const SizedBox(height: 4),
             Text(
-              state.isLogin
-                  ? 'Аккаунтуңузга кириңиз'
-                  : 'Жаңы аккаунт түзүңүз',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF6B7280),
-              ),
+              state.isLogin ? 'Аккаунтуңузга кириңиз' : 'Жаңы аккаунт түзүңүз',
+              style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
             ),
             const SizedBox(height: 28),
 
@@ -366,7 +362,9 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             const SizedBox(height: 8),
             _buildTextField(
               controller: _passwordController,
-              hint: state.isLogin ? 'Сыр сөзүңүздү жазыңыз' : 'Жаңы сыр сөз түзүңүз',
+              hint: state.isLogin
+                  ? 'Сыр сөзүңүздү жазыңыз'
+                  : 'Жаңы сыр сөз түзүңүз',
               icon: Icons.lock_outline_rounded,
               obscureText: _obscurePassword,
               textInputAction: TextInputAction.done,
@@ -379,7 +377,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                   color: const Color(0xFF9CA3AF),
                   size: 20,
                 ),
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
               ),
               validator: (v) {
                 if (v == null || v.length < 6) {
@@ -398,11 +397,11 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                   onPressed: state.isLoading
                       ? null
                       : () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ForgotPasswordPage(),
-                            ),
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordPage(),
                           ),
+                        ),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFFCC1010),
                     padding: EdgeInsets.zero,
@@ -455,14 +454,21 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             if (state.error != null) ...[
               const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFEE2E2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, color: Color(0xFFCC1010), size: 18),
+                    const Icon(
+                      Icons.error_outline,
+                      color: Color(0xFFCC1010),
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -482,7 +488,10 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             if (state.success != null) ...[
               const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFDCFCE7),
                   borderRadius: BorderRadius.circular(10),
@@ -490,7 +499,10 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                 child: Text(
                   state.success!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFF16A34A), fontSize: 13),
+                  style: const TextStyle(
+                    color: Color(0xFF16A34A),
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ],
@@ -504,10 +516,15 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               children: [
                 Text(
                   state.isLogin ? 'Аккаунтуңуз жокпу?' : 'Аккаунтуңуз барбы?',
-                  style: const TextStyle(color: Color(0xFF6B7280), fontSize: 14),
+                  style: const TextStyle(
+                    color: Color(0xFF6B7280),
+                    fontSize: 14,
+                  ),
                 ),
                 TextButton(
-                  onPressed: state.isLoading ? null : () => _switchMode(!state.isLogin),
+                  onPressed: state.isLoading
+                      ? null
+                      : () => _switchMode(!state.isLogin),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFFCC1010),
                     padding: const EdgeInsets.only(left: 4),
@@ -546,7 +563,11 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              icon: const Icon(Icons.explore_outlined, size: 20, color: Color(0xFF4B5563)),
+              icon: const Icon(
+                Icons.explore_outlined,
+                size: 20,
+                color: Color(0xFF4B5563),
+              ),
               label: const Text(
                 'Конок катары көрүү (Кирбестен)',
                 style: TextStyle(
@@ -608,7 +629,10 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: const Color(0xFFF9FAFB),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFFE5E7EB)),

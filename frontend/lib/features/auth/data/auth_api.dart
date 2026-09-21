@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -5,12 +6,14 @@ import 'package:http/http.dart' as http;
 import '../../../core/config.dart';
 
 class AuthApi {
+  static const _requestTimeout = Duration(seconds: 20);
+
   Future<String> register({
     required String phone,
     required String name,
     required String password,
   }) async {
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('${AppConfig.baseUrl}/auth/register'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'phone': phone, 'name': name, 'password': password}),
@@ -28,7 +31,7 @@ class AuthApi {
     required String phone,
     required String password,
   }) async {
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('${AppConfig.baseUrl}/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'phone': phone, 'password': password}),
@@ -47,7 +50,7 @@ class AuthApi {
     required String code,
     required String newPassword,
   }) async {
-    final response = await http.post(
+    final response = await _post(
       Uri.parse(
         '${AppConfig.baseUrl}/auth/reset-password?phone=${Uri.encodeComponent(phone)}&code=$code&new_password=${Uri.encodeComponent(newPassword)}',
       ),
@@ -60,8 +63,10 @@ class AuthApi {
   }
 
   Future<String> forgotPassword({required String phone}) async {
-    final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/auth/forgot-password?phone=${Uri.encodeComponent(phone)}'),
+    final response = await _post(
+      Uri.parse(
+        '${AppConfig.baseUrl}/auth/forgot-password?phone=${Uri.encodeComponent(phone)}',
+      ),
     );
 
     final data = _decode(response.body);
@@ -74,6 +79,26 @@ class AuthApi {
     }
 
     throw Exception(_extractError(data, fallback: 'Forgot password failed'));
+  }
+
+  Future<http.Response> _post(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      return await http
+          .post(uri, headers: headers, body: body)
+          .timeout(_requestTimeout);
+    } on TimeoutException {
+      throw Exception(
+        'Сервер жооп берген жок. Интернет байланышын текшерип, кайра аракет кылыңыз.',
+      );
+    } on http.ClientException {
+      throw Exception(
+        'Серверге туташуу мүмкүн болгон жок. Интернет байланышын текшериңиз.',
+      );
+    }
   }
 
   Map<String, dynamic> _decode(String body) {

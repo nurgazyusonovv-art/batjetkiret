@@ -47,6 +47,7 @@ class AuthCubit extends Cubit<AuthState> {
     required String password,
     String? name,
   }) async {
+    if (state.isLoading) return;
     emit(state.copyWith(isLoading: true, clearError: true, clearSuccess: true));
 
     try {

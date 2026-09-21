@@ -117,7 +117,9 @@ class _CompactMapPreviewState extends State<CompactMapPreview> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (hasLocation) ...[
+                      // Coordinates only help when we have no street name for
+                      // the pin — otherwise they are noise for the customer.
+                      if (hasLocation && (_selectedAddress ?? '').isEmpty) ...[
                         const SizedBox(height: 4),
                         Text(
                           '${_selectedLocation!.latitude.toStringAsFixed(4)}, ${_selectedLocation!.longitude.toStringAsFixed(4)}',

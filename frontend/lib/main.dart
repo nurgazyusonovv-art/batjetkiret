@@ -280,12 +280,15 @@ class _AppStartFlowState extends State<_AppStartFlow> {
     if (!widget.authState.isInitialized) return const SplashScreen();
 
     if (widget.authState.token != null && widget.authState.token!.isNotEmpty) {
-      return MainNavigation(token: widget.authState.token!);
+      return MainNavigation(
+        key: const ValueKey('authenticated-navigation'),
+        token: widget.authState.token!,
+      );
     }
 
     // Customer guest browsing mode
     if (_role == 'user' || _isGuest) {
-      return const MainNavigation(token: '');
+      return const MainNavigation(key: ValueKey('guest-navigation'), token: '');
     }
 
     return AuthPage(
@@ -330,6 +333,12 @@ class _MainNavigationState extends State<MainNavigation>
   Duration get _profileInterval => AppConfig.profileInterval;
   Duration get _maxBackoffInterval => AppConfig.maxBackoffInterval;
 
+  Future<void> _openAuth() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const AuthPage()));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -351,7 +360,9 @@ class _MainNavigationState extends State<MainNavigation>
       ),
       ProfilePage(
         token: widget.token,
-        onLogout: () => context.read<AuthCubit>().logout(),
+        onLogout: widget.token.isEmpty
+            ? _openAuth
+            : () => context.read<AuthCubit>().logout(),
       ),
       _SupportTab(token: widget.token),
     ];
@@ -657,7 +668,7 @@ class _SupportTab extends StatelessWidget {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

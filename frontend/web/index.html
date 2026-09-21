@@ -50,6 +50,17 @@
     <p>Жүктөлүүдө...</p>
   </div>
   <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        registrations.forEach(function(registration) {
+          var active = registration.active;
+          if (active && active.scriptURL.indexOf('flutter_service_worker.js') !== -1) {
+            registration.unregister();
+          }
+        });
+      });
+    }
+
     window.addEventListener('flutter-first-frame', function() {
       var el = document.getElementById('loading');
       if (el) el.style.display = 'none';
@@ -110,6 +121,6 @@
         .catch(function(e) { onError(String(e)); });
     };
   </script>
-  <script src="flutter_bootstrap.js" async></script>
+  <script src="flutter_bootstrap.js?v=20260521-menu-products" async></script>
 </body>
 </html>
