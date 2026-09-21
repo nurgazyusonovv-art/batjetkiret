@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from typing import Literal
 from decimal import Decimal
+from uuid import uuid4
 import random
 import logging
 import os
@@ -27,6 +28,7 @@ from app.models.message import Message
 from app.models.password_reset import PasswordReset
 from app.models.order_payment import OrderPayment
 from app.models.enterprise import Enterprise
+from app.services.media_upload import upload_image_file
 from app.services.order_status import apply_status_change
 from app.core.security import hash_password
 from app.services import fcm as fcm_service
@@ -94,21 +96,35 @@ class NotificationCreate(BaseModel):
     title: str
     message: str
     order_id: int | None = None
+    # Campaign notifications: a picture and the shop it advertises.
+    image_url: str | None = None
+    enterprise_id: int | None = None
+    type: str | None = None
 
 
 class AdminCreateOrderRequest(BaseModel):
-    user_id: int
+    phone: str = Field(..., min_length=5, max_length=32)
     category: Literal["delivery", "taxi"] = "delivery"
     description: str = Field(..., min_length=1, max_length=500)
     from_address: str = Field(..., min_length=1, max_length=255)
     to_address: str = Field(..., min_length=1, max_length=255)
-    distance_km: float = Field(..., ge=0, le=10000)
-    price: float | None = Field(default=None, ge=0)
     from_latitude: float | None = Field(default=None, ge=-90, le=90)
     from_longitude: float | None = Field(default=None, ge=-180, le=180)
     to_latitude: float | None = Field(default=None, ge=-90, le=90)
     to_longitude: float | None = Field(default=None, ge=-180, le=180)
     admin_note: str | None = Field(default=None, max_length=500)
+
+
+def _normalize_contact_phone(value: str) -> str:
+    digits = "".join(char for char in value if char.isdigit())
+    if len(digits) == 9:
+        digits = f"996{digits}"
+    elif len(digits) == 10 and digits.startswith("0"):
+        digits = f"996{digits[1:]}"
+    if len(digits) < 10 or len(digits) > 15:
+        raise HTTPException(status_code=400, detail="Телефон номерди туура жазыңыз")
+    return f"+{digits}"
+
 
 def _generate_unique_user_id(db: Session) -> str:
     """Generate a unique reference id in BJ000123 format."""
@@ -345,6 +361,9 @@ def admin_notifications(
             "id": n.id,
             "title": n.title,
             "message": n.message,
+            "image_url": n.image_url,
+            "enterprise_id": n.enterprise_id,
+            "type": n.notification_type,
             "is_read": n.is_read,
             "created_at": n.created_at,
         }
@@ -400,6 +419,14 @@ def broadcast_notification(
     admin=Depends(require_admin),
 ):
     """Send a notification to ALL active users at once."""
+    enterprise = None
+    if payload.enterprise_id is not None:
+        enterprise = db.query(Enterprise).filter(
+            Enterprise.id == payload.enterprise_id
+        ).first()
+        if not enterprise:
+            raise HTTPException(status_code=404, detail="Ишкана табылган жок")
+
     users = db.query(User).filter(User.is_active == True).all()  # noqa: E712
 
     notifs = [
@@ -407,6 +434,9 @@ def broadcast_notification(
             user_id=u.id,
             title=payload.title,
             message=payload.message,
+            image_url=payload.image_url,
+            enterprise_id=payload.enterprise_id,
+            notification_type=payload.type or "promo",
             is_read=False,
         )
         for u in users
@@ -414,11 +444,44 @@ def broadcast_notification(
     db.bulk_save_objects(notifs)
     db.commit()
 
-    # Send FCM push to all users with tokens
-    for u in users:
-        fcm_service.send_push_to_user(u, title=payload.title, body=payload.message)
+    # One multicast per 500 devices instead of a request per user — a loop
+    # takes minutes and can time out once there are hundreds of tokens.
+    data = {"type": payload.type or "promo"}
+    if enterprise is not None:
+        # The app needs the category to open the shop's page from the push.
+        data["enterprise_id"] = str(enterprise.id)
+        data["enterprise_category"] = enterprise.category or ""
+    delivered = fcm_service.send_push_to_tokens(
+        [u.fcm_token for u in users if u.fcm_token],
+        title=payload.title,
+        body=payload.message,
+        data=data,
+        image_url=payload.image_url,
+    )
 
-    return {"sent_to": len(notifs), "message": f"{len(notifs)} колдонуучуга жөнөтүлдү"}
+    return {
+        "sent_to": len(notifs),
+        "pushed": delivered,
+        "message": f"{len(notifs)} колдонуучуга жөнөтүлдү",
+    }
+
+
+@router.post("/notifications/image")
+async def upload_notification_image(
+    file: UploadFile = File(...),
+    admin=Depends(require_admin),
+):
+    """Upload a campaign picture and return its public URL.
+
+    FCM needs a real HTTPS URL for the notification image, so this goes to R2
+    rather than the base64 data URLs used by banners and ad popups.
+    """
+    uploaded = await upload_image_file(
+        file=file,
+        key_prefix=f"notifications/{uuid4().hex}",
+        max_bytes=3 * 1024 * 1024,
+    )
+    return {"url": uploaded.url}
 
 
 
@@ -467,32 +530,21 @@ def admin_create_order(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    customer = db.query(User).filter(User.id == data.user_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Колдонуучу табылган жок")
-    if not customer.is_active:
-        raise HTTPException(status_code=400, detail="Бул колдонуучунун аккаунту бөгөттөлгөн")
-    if customer.is_admin or customer.is_courier or customer.is_enterprise:
-        raise HTTPException(status_code=400, detail="Заказ кадимки колдонуучу үчүн гана түзүлөт")
-
+    customer_phone = _normalize_contact_phone(data.phone)
     description = data.description.strip()
     from_address = data.from_address.strip()
     to_address = data.to_address.strip()
     if not description or not from_address or not to_address:
         raise HTTPException(status_code=400, detail="Даректер жана заказдын түшүндүрмөсү толтурулушу керек")
 
-    if data.price is None:
-        pricing = get_taxi_pricing(db) if data.category == "taxi" else get_delivery_pricing(db)
-        price = calculate_price(data.distance_km, *pricing)
-    else:
-        price = data.price
-
     admin_note = f"Админ #{admin.id} түздү"
     if data.admin_note and data.admin_note.strip():
         admin_note += f". {data.admin_note.strip()}"
 
     order = Order(
-        user_id=customer.id,
+        # The phone owner may not have an account. Keep the FK valid by using the
+        # creating admin as the technical owner and expose customer_phone instead.
+        user_id=admin.id,
         category=data.category,
         description=description,
         from_address=from_address,
@@ -501,13 +553,14 @@ def admin_create_order(
         from_longitude=data.from_longitude,
         to_latitude=data.to_latitude,
         to_longitude=data.to_longitude,
-        distance_km=data.distance_km,
-        price=round(float(price), 2),
+        distance_km=0,
+        price=0,
         user_commission=0,
         courier_commission=COURIER_ORDER_SERVICE_FEE,
         status="WAITING_COURIER",
-        source="admin",
-        order_type="delivery",
+        source="admin_external",
+        order_type=data.category,
+        customer_phone=customer_phone,
         admin_note=admin_note,
     )
     db.add(order)
@@ -516,44 +569,12 @@ def admin_create_order(
         OrderStatusLog(
             order_id=order.id,
             actor_user_id=admin.id,
-            from_status=None,
+            from_status="CREATED",
             to_status="WAITING_COURIER",
-        )
-    )
-    db.add(
-        Notification(
-            user_id=customer.id,
-            title="Сиз үчүн заказ түзүлдү",
-            message=f"Заказ #{order.id}: {order.from_address} → {order.to_address}",
-            order_id=order.id,
         )
     )
     db.commit()
     db.refresh(order)
-
-    push_data = {"order_id": str(order.id), "type": "order_status"}
-    try:
-        fcm_service.send_push_to_user(
-            customer,
-            title="Сиз үчүн заказ түзүлдү",
-            body=f"Заказ #{order.id}: {order.from_address} → {order.to_address}",
-            data=push_data,
-        )
-    except Exception:
-        logger.exception("Failed to notify user_id=%s about admin order", customer.id)
-
-    try:
-        from app.services.web_push import notify_user
-
-        notify_user(
-            db,
-            user_id=customer.id,
-            title="Сиз үчүн заказ түзүлдү",
-            body=f"Заказ #{order.id}: {order.from_address} → {order.to_address}",
-            data=push_data,
-        )
-    except Exception:
-        logger.exception("Failed to send web push for admin order_id=%s", order.id)
 
     try:
         notify_online_couriers_about_order(db, order)
@@ -564,6 +585,8 @@ def admin_create_order(
         "id": order.id,
         "price": float(order.price),
         "status": order.status,
+        "source": order.source,
+        "customer_phone": order.customer_phone,
     }
 
 
@@ -625,8 +648,9 @@ def all_orders(
         {
             "id": o.id,
             "user_id": o.user_id,
-            "user_name": o.user.name if o.user else None,
-            "user_phone": o.user.phone if o.user else None,
+            "user_name": "Сырткы кардар" if o.source == "admin_external" else (o.user.name if o.user else None),
+            "user_phone": o.customer_phone if o.source == "admin_external" else (o.user.phone if o.user else None),
+            "customer_phone": o.customer_phone,
             "courier_id": o.courier_id,
             "courier_name": o.courier.name if o.courier else None,
             "courier_phone": o.courier.phone if o.courier else None,
@@ -1357,12 +1381,24 @@ def send_notification_to_user(
         user_id=user_id,
         title=payload.title,
         message=payload.message,
+        image_url=payload.image_url,
+        enterprise_id=payload.enterprise_id,
+        notification_type=payload.type,
         is_read=False,
     )
     db.add(notif)
     db.commit()
 
-    fcm_service.send_push_to_user(user, title=payload.title, body=payload.message)
+    data = {"type": payload.type} if payload.type else None
+    if payload.enterprise_id:
+        data = {**(data or {}), "enterprise_id": str(payload.enterprise_id)}
+    fcm_service.send_push_to_user(
+        user,
+        title=payload.title,
+        body=payload.message,
+        data=data,
+        image_url=payload.image_url,
+    )
 
     return {"ok": True}
 
@@ -1703,7 +1739,10 @@ def admin_order_detail(
         "user_commission": float(order.user_commission or 0),
         "courier_commission": float(order.courier_commission or 0),
         "user_id": order.user_id,
-        "user_phone": order.user.phone if order.user else None,
+        "user_phone": order.customer_phone if order.source == "admin_external" else (order.user.phone if order.user else None),
+        "customer_phone": order.customer_phone,
+        "source": order.source,
+        "order_type": order.order_type,
         "courier_id": order.courier_id,
         "courier_phone": order.courier.phone if order.courier else None,
         "verification_code": order.verification_code,

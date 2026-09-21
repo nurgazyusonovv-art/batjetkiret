@@ -8,6 +8,7 @@ export interface User {
   is_active: boolean;
   is_online?: boolean;
   is_courier: boolean;
+  is_enterprise?: boolean;
   balance: number;
   average_rating?: number | null;
   total_orders?: number;
@@ -95,6 +96,9 @@ export interface Order {
   hidden_for_user?: boolean;
   hidden_for_courier?: boolean;
   admin_note?: string | null;
+  source?: string;
+  order_type?: string;
+  customer_phone?: string | null;
   status_audit?: OrderStatusAudit[];
 }
 
@@ -137,8 +141,30 @@ export interface Notification {
   id: number;
   title: string;
   message: string;
+  image_url?: string | null;
+  enterprise_id?: number | null;
+  type?: string | null;
   is_read: boolean;
   created_at: string;
+}
+
+export interface Advertisement {
+  id: number;
+  user_id: number;
+  user_name?: string | null;
+  title: string;
+  description: string;
+  category?: string | null;
+  contact_phone?: string | null;
+  image_url?: string | null;
+  status: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'EXPIRED' | string;
+  duration_days: number;
+  fee_amount: number;
+  rejection_reason?: string | null;
+  created_at: string;
+  approved_at?: string | null;
+  starts_at?: string | null;
+  expires_at?: string | null;
 }
 
 // Statistics Types
@@ -148,8 +174,10 @@ export interface SystemStats {
   active_orders: number;
   completed_orders: number;
   total_revenue: number;
+  total_accounts?: number;
   total_users: number;
   total_couriers: number;
+  total_enterprise_users?: number;
   online_couriers: number;
   pending_topups: number;
   approved_topups_count: number;

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
+from app.models.enterprise import Enterprise
 from app.models.notification import Notification
 from app.models.user import User
 from app.services import fcm as fcm_service
@@ -25,6 +26,18 @@ def my_notifications(
         .all()
     )
 
+    # The app needs the shop's category to open its page, so resolve the
+    # referenced enterprises in one query instead of per notification.
+    enterprise_ids = {n.enterprise_id for n in notifs if n.enterprise_id}
+    categories: dict[int, str] = {}
+    if enterprise_ids:
+        categories = {
+            e.id: e.category
+            for e in db.query(Enterprise)
+            .filter(Enterprise.id.in_(enterprise_ids))
+            .all()
+        }
+
     return [
         {
             "id": n.id,
@@ -32,6 +45,10 @@ def my_notifications(
             "message": n.message,
             "chat_id": n.related_chat_id,
             "order_id": n.order_id,
+            "image_url": n.image_url,
+            "enterprise_id": n.enterprise_id,
+            "enterprise_category": categories.get(n.enterprise_id),
+            "type": n.notification_type,
             "is_read": n.is_read,
             "created_at": n.created_at,
         }

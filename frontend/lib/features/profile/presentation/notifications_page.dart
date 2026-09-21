@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../home/data/category_model.dart' as models;
+import '../../home/presentation/home_page.dart';
 import '../../orders/data/order_api.dart';
 import '../../orders/presentation/order_chat_page.dart';
 import 'support_chat_page.dart';
@@ -9,41 +11,63 @@ import '../data/user_api.dart';
 
 // ── Category enum ─────────────────────────────────────────────────────────────
 
-enum _NotifCategory { all, orders, chat, wallet, system }
+enum _NotifCategory { all, promo, orders, chat, wallet, system }
 
 extension _NotifCategoryX on _NotifCategory {
   String get label {
     switch (this) {
-      case _NotifCategory.all:     return 'Баары';
-      case _NotifCategory.orders:  return 'Заказдар';
-      case _NotifCategory.chat:    return 'Чат';
-      case _NotifCategory.wallet:  return 'Капчык';
-      case _NotifCategory.system:  return 'Система';
+      case _NotifCategory.all:
+        return 'Баары';
+      case _NotifCategory.promo:
+        return 'Жарнама';
+      case _NotifCategory.orders:
+        return 'Заказдар';
+      case _NotifCategory.chat:
+        return 'Чат';
+      case _NotifCategory.wallet:
+        return 'Капчык';
+      case _NotifCategory.system:
+        return 'Система';
     }
   }
 
   IconData get icon {
     switch (this) {
-      case _NotifCategory.all:    return Icons.notifications_outlined;
-      case _NotifCategory.orders: return Icons.receipt_long_outlined;
-      case _NotifCategory.chat:   return Icons.chat_bubble_outline;
-      case _NotifCategory.wallet: return Icons.account_balance_wallet_outlined;
-      case _NotifCategory.system: return Icons.info_outline;
+      case _NotifCategory.all:
+        return Icons.notifications_outlined;
+      case _NotifCategory.promo:
+        return Icons.local_offer_outlined;
+      case _NotifCategory.orders:
+        return Icons.receipt_long_outlined;
+      case _NotifCategory.chat:
+        return Icons.chat_bubble_outline;
+      case _NotifCategory.wallet:
+        return Icons.account_balance_wallet_outlined;
+      case _NotifCategory.system:
+        return Icons.info_outline;
     }
   }
 
   Color get color {
     switch (this) {
-      case _NotifCategory.all:    return AppColors.primary;
-      case _NotifCategory.orders: return const Color(0xFF0284C7);
-      case _NotifCategory.chat:   return const Color(0xFF059669);
-      case _NotifCategory.wallet: return const Color(0xFF7C3AED);
-      case _NotifCategory.system: return const Color(0xFF92400E);
+      case _NotifCategory.all:
+        return AppColors.primary;
+      case _NotifCategory.promo:
+        return const Color(0xFFDC2626);
+      case _NotifCategory.orders:
+        return const Color(0xFF0284C7);
+      case _NotifCategory.chat:
+        return const Color(0xFF059669);
+      case _NotifCategory.wallet:
+        return const Color(0xFF7C3AED);
+      case _NotifCategory.system:
+        return const Color(0xFF92400E);
     }
   }
 }
 
 _NotifCategory _categoryOf(NotificationItem n) {
+  if (n.isPromo) return _NotifCategory.promo;
   final t = n.title;
   final tl = t.toLowerCase();
   if (t.contains('💳') || tl.contains('топап') || tl.contains('капчык')) {
@@ -64,7 +88,11 @@ _NotifCategory _categoryOf(NotificationItem n) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key, required this.token, required this.userId});
+  const NotificationsPage({
+    super.key,
+    required this.token,
+    required this.userId,
+  });
 
   final String token;
   final int userId;
@@ -129,7 +157,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
       setState(() {
         _notifications = _notifications.map((n) => n.copyWithRead()).toList();
       });
-    } catch (_) {} finally {
+    } catch (_) {
+    } finally {
       if (mounted) setState(() => _isMarkingAll = false);
     }
   }
@@ -162,26 +191,30 @@ class _NotificationsPageState extends State<NotificationsPage> {
       if (!mounted) return;
 
       if (contextData.type == 'ORDER' && contextData.orderId != null) {
-        await Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => OrderChatPage(
-            token: widget.token,
-            orderId: contextData.orderId!,
-            counterpartyName: contextData.counterpartyName ?? 'Чат',
-            counterpartyId: contextData.counterpartyId,
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => OrderChatPage(
+              token: widget.token,
+              orderId: contextData.orderId!,
+              counterpartyName: contextData.counterpartyName ?? 'Чат',
+              counterpartyId: contextData.counterpartyId,
+            ),
           ),
-        ));
+        );
         return;
       }
 
       if (contextData.type == 'SUPPORT') {
-        await Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => SupportChatPage(
-            token: widget.token,
-            chatId: contextData.chatId,
-            title: contextData.counterpartyName ?? 'Колдоо кызматы',
-            myUserId: widget.userId,
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SupportChatPage(
+              token: widget.token,
+              chatId: contextData.chatId,
+              title: contextData.counterpartyName ?? 'Колдоо кызматы',
+              myUserId: widget.userId,
+            ),
           ),
-        ));
+        );
         return;
       }
 
@@ -191,15 +224,38 @@ class _NotificationsPageState extends State<NotificationsPage> {
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Чатты ачууда ката кетти')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Чатты ачууда ката кетти')));
     }
   }
 
   Future<void> _handleTap(NotificationItem item) async {
     await _markRead(item);
+    if (await _openEnterpriseFromNotification(item)) return;
     await _openChatFromNotification(item);
+  }
+
+  /// Opens the shop a campaign notification points at. Returns false when the
+  /// notification has no shop, so the caller falls back to the chat flow.
+  Future<bool> _openEnterpriseFromNotification(NotificationItem item) async {
+    final enterpriseId = item.enterpriseId;
+    if (enterpriseId == null || enterpriseId <= 0) return false;
+
+    final category = models.categories.firstWhere(
+      (c) => c.id == item.enterpriseCategory,
+      orElse: () => models.categories.first,
+    );
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => OrderCreatePage(
+          token: widget.token,
+          selectedCategory: category,
+          initialEnterpriseId: enterpriseId,
+        ),
+      ),
+    );
+    return true;
   }
 
   String _formatDate(String raw) {
@@ -208,7 +264,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (date == null) return raw;
     final local = date.toLocal();
     final now = DateTime.now();
-    final isToday = local.year == now.year &&
+    final isToday =
+        local.year == now.year &&
         local.month == now.month &&
         local.day == now.day;
     final hour = local.hour.toString().padLeft(2, '0');
@@ -236,8 +293,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
     return [
       _NotifCategory.all,
-      ..._NotifCategory.values
-          .where((c) => c != _NotifCategory.all && cats.contains(c)),
+      ..._NotifCategory.values.where(
+        (c) => c != _NotifCategory.all && cats.contains(c),
+      ),
     ];
   }
 
@@ -296,86 +354,90 @@ class _NotificationsPageState extends State<NotificationsPage> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      Text(_error!,
-                          style: const TextStyle(color: AppColors.accent5)),
-                      const SizedBox(height: 10),
-                      OutlinedButton(
-                        onPressed: _loadNotifications,
-                        child: const Text('Кайра аракет кылуу'),
-                      ),
-                    ],
-                  )
-                : _notifications.isEmpty
-                    ? ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: const [
-                          SizedBox(height: 120),
-                          Center(
-                            child: Column(
-                              children: [
-                                Icon(Icons.notifications_off_outlined,
-                                    size: 48, color: AppColors.textSecondary),
-                                SizedBox(height: 12),
-                                Text(
-                                  'Билдирмелер жок',
-                                  style: TextStyle(
-                                      color: AppColors.textSecondary),
-                                ),
-                              ],
+            ? ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: AppColors.accent5),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: _loadNotifications,
+                    child: const Text('Кайра аракет кылуу'),
+                  ),
+                ],
+              )
+            : _notifications.isEmpty
+            ? ListView(
+                padding: const EdgeInsets.all(16),
+                children: const [
+                  SizedBox(height: 120),
+                  Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.notifications_off_outlined,
+                          size: 48,
+                          color: AppColors.textSecondary,
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'Билдирмелер жок',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                children: [
+                  // ── Filter chips ────────────────────────────────
+                  _buildFilterChips(),
+
+                  // ── Mark-all button ─────────────────────────────
+                  if (totalUnread > 0)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _isMarkingAll ? null : _markAllRead,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: BorderSide(
+                              color: AppColors.primary.withValues(alpha: 0.4),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                        ],
-                      )
-                    : Column(
-                        children: [
-                          // ── Filter chips ────────────────────────────────
-                          _buildFilterChips(),
-
-                          // ── Mark-all button ─────────────────────────────
-                          if (totalUnread > 0)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  onPressed:
-                                      _isMarkingAll ? null : _markAllRead,
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: AppColors.primary,
-                                    side: BorderSide(
-                                        color: AppColors.primary
-                                            .withValues(alpha: 0.4)),
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 10),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12)),
+                          icon: _isMarkingAll
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                   ),
-                                  icon: _isMarkingAll
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2),
-                                        )
-                                      : const Icon(Icons.done_all, size: 18),
-                                  label: Text(
-                                    'Баарын окулду деп белги коюу ($totalUnread)',
-                                    style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                              ),
+                                )
+                              : const Icon(Icons.done_all, size: 18),
+                          label: Text(
+                            'Баарын окулду деп белги коюу ($totalUnread)',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                             ),
-
-                          // ── Notification list ───────────────────────────
-                          Expanded(child: _buildList()),
-                        ],
+                          ),
+                        ),
                       ),
+                    ),
+
+                  // ── Notification list ───────────────────────────
+                  Expanded(child: _buildList()),
+                ],
+              ),
       ),
     );
   }
@@ -397,7 +459,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
               onTap: () => setState(() => _selectedCategory = cat),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: selected ? color : Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -427,7 +492,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       const SizedBox(width: 5),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: selected
                               ? Colors.white.withValues(alpha: 0.3)
@@ -461,8 +528,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(_selectedCategory.icon,
-                size: 42, color: AppColors.textSecondary),
+            Icon(
+              _selectedCategory.icon,
+              size: 42,
+              color: AppColors.textSecondary,
+            ),
             const SizedBox(height: 10),
             Text(
               '"${_selectedCategory.label}" категориясында билдирме жок',
@@ -483,25 +553,29 @@ class _NotificationsPageState extends State<NotificationsPage> {
       children: [
         if (unread.isNotEmpty) ...[
           _sectionHeader('Окулбагандар', unread.length),
-          ...unread.map((item) => _NotificationCard(
-                key: ValueKey(item.id),
-                item: item,
-                category: _categoryOf(item),
-                onTap: () => _handleTap(item),
-                onDelete: () => _deleteNotification(item),
-                formatDate: _formatDate,
-              )),
+          ...unread.map(
+            (item) => _NotificationCard(
+              key: ValueKey(item.id),
+              item: item,
+              category: _categoryOf(item),
+              onTap: () => _handleTap(item),
+              onDelete: () => _deleteNotification(item),
+              formatDate: _formatDate,
+            ),
+          ),
         ],
         if (read.isNotEmpty) ...[
           _sectionHeader('Окулгандар', null),
-          ...read.map((item) => _NotificationCard(
-                key: ValueKey(item.id),
-                item: item,
-                category: _categoryOf(item),
-                onTap: () => _handleTap(item),
-                onDelete: () => _deleteNotification(item),
-                formatDate: _formatDate,
-              )),
+          ...read.map(
+            (item) => _NotificationCard(
+              key: ValueKey(item.id),
+              item: item,
+              category: _categoryOf(item),
+              onTap: () => _handleTap(item),
+              onDelete: () => _deleteNotification(item),
+              formatDate: _formatDate,
+            ),
+          ),
         ],
       ],
     );
@@ -540,12 +614,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             ),
           ],
           const SizedBox(width: 8),
-          Expanded(
-            child: Divider(
-              height: 1,
-              color: Colors.grey.shade200,
-            ),
-          ),
+          Expanded(child: Divider(height: 1, color: Colors.grey.shade200)),
         ],
       ),
     );
@@ -576,6 +645,7 @@ class _NotificationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUnread = !item.isRead;
     final canOpenChat = item.chatId != null && item.chatId! > 0;
+    final canOpenShop = item.enterpriseId != null && item.enterpriseId! > 0;
     final catColor = category.color;
 
     return Dismissible(
@@ -593,23 +663,23 @@ class _NotificationCard extends StatelessWidget {
       ),
       confirmDismiss: (_) async {
         return await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Өчүрүү'),
-            content: const Text('Бул билдирмени өчүрөсүзбү?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Жок'),
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Өчүрүү'),
+                content: const Text('Бул билдирмени өчүрөсүзбү?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Жок'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    child: const Text('Өчүрүү'),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Өчүрүү'),
-              ),
-            ],
-          ),
-        ) ??
+            ) ??
             false;
       },
       onDismissed: (_) => onDelete(),
@@ -630,135 +700,189 @@ class _NotificationCard extends StatelessWidget {
               width: isUnread ? 1.5 : 1,
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Category icon
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: isUnread
-                        ? catColor.withValues(alpha: 0.15)
-                        : catColor.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    category.icon,
-                    color: isUnread ? catColor : catColor.withValues(alpha: 0.6),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (item.imageUrl != null) _buildImage(item.imageUrl!),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Category icon
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isUnread
+                            ? catColor.withValues(alpha: 0.15)
+                            : catColor.withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        category.icon,
+                        color: isUnread
+                            ? catColor
+                            : catColor.withValues(alpha: 0.6),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              item.title,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: isUnread
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                                color: isUnread
-                                    ? AppColors.textPrimary
-                                    : AppColors.textSecondary,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.title,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: isUnread
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: isUnread
+                                        ? AppColors.textPrimary
+                                        : AppColors.textSecondary,
+                                  ),
+                                ),
                               ),
+                              if (isUnread)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.only(left: 6),
+                                  decoration: BoxDecoration(
+                                    color: catColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.message,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isUnread
+                                  ? AppColors.textPrimary.withValues(
+                                      alpha: 0.78,
+                                    )
+                                  : AppColors.textSecondary,
+                              height: 1.35,
                             ),
                           ),
-                          if (isUnread)
-                            Container(
-                              width: 8,
-                              height: 8,
-                              margin: const EdgeInsets.only(left: 6),
-                              decoration: BoxDecoration(
-                                color: catColor,
-                                shape: BoxShape.circle,
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              // Category badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: catColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      category.icon,
+                                      size: 10,
+                                      color: catColor,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      category.label,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: catColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item.message,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isUnread
-                              ? AppColors.textPrimary.withValues(alpha: 0.78)
-                              : AppColors.textSecondary,
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          // Category badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: catColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(category.icon,
-                                    size: 10, color: catColor),
-                                const SizedBox(width: 3),
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.access_time,
+                                size: 11,
+                                color: AppColors.textSecondary.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                formatDate(item.createdAt),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                ),
+                              ),
+                              if (canOpenShop) ...[
+                                const Spacer(),
                                 Text(
-                                  category.label,
+                                  'Дүкөндү ачуу →',
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 11,
+                                    color: catColor.withValues(alpha: 0.9),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ] else if (canOpenChat) ...[
+                                const Spacer(),
+                                Text(
+                                  'Чат ачуу →',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: catColor.withValues(alpha: 0.8),
                                     fontWeight: FontWeight.w600,
-                                    color: catColor,
                                   ),
                                 ),
                               ],
-                            ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.access_time,
-                            size: 11,
-                            color: AppColors.textSecondary.withValues(alpha: 0.6),
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            formatDate(item.createdAt),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textSecondary
-                                  .withValues(alpha: 0.6),
-                            ),
-                          ),
-                          if (canOpenChat) ...[
-                            const Spacer(),
-                            Text(
-                              'Чат ачуу →',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: catColor.withValues(alpha: 0.8),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Campaign picture. Keeps its slot while loading so the card does not jump,
+  /// and disappears entirely if the image cannot be fetched.
+  Widget _buildImage(String url) {
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return Container(
+            color: AppColors.primarySoft,
+            alignment: Alignment.center,
+            child: const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        },
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
       ),
     );
   }

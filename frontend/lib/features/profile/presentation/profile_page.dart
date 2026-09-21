@@ -1,5 +1,8 @@
 // ignore_for_file: deprecated_member_use
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -1330,16 +1333,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _MenuItem(
         icon: Icons.share_outlined,
         label: 'Достор менен бөлүшүү',
-        onTap: () {
-          SharePlus.instance.share(
-            ShareParams(
-              text:
-                  '🚀 Баткен Экспресс — тез жана ыңгайлуу жеткирүү кызматы!\n'
-                  'Буйрутма бер: https://batjetkiret.vercel.app',
-              subject: 'Баткен Экспресс',
-            ),
-          );
-        },
+        onTap: _shareApp,
       ),
       _MenuItem(
         icon: Icons.info_outline,
@@ -1449,7 +1443,11 @@ class _ProfilePageState extends State<ProfilePage> {
             borderRadius: BorderRadius.circular(14),
           ),
         ),
-        icon: const Icon(Icons.delete_forever_outlined, size: 20, color: AppColors.danger),
+        icon: const Icon(
+          Icons.delete_forever_outlined,
+          size: 20,
+          color: AppColors.danger,
+        ),
         label: const Text(
           'Аккаунтту өчүрүү',
           style: TextStyle(
@@ -1542,11 +1540,19 @@ class _ProfilePageState extends State<ProfilePage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.danger, size: 24),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.danger,
+              size: 24,
+            ),
             SizedBox(width: 8),
             Text(
               'Аккаунтту өчүрүү',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.danger),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: AppColors.danger,
+              ),
             ),
           ],
         ),
@@ -1557,7 +1563,10 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Жокко чыгаруу', style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+            child: const Text(
+              'Жокко чыгаруу',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1568,9 +1577,14 @@ class _ProfilePageState extends State<ProfilePage> {
               backgroundColor: AppColors.danger,
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            child: const Text('Ооба, өчүрүү', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Ооба, өчүрүү',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -1600,10 +1614,33 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!mounted) return;
       Navigator.pop(context); // dismiss spinner
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ката: $e'),
-          backgroundColor: AppColors.danger,
+        SnackBar(content: Text('Ката: $e'), backgroundColor: AppColors.danger),
+      );
+    }
+  }
+
+  /// Share the app with the logo attached, so the post carries a picture in
+  /// WhatsApp/Instagram instead of a bare link.
+  Future<void> _shareApp() async {
+    const text =
+        '🚀 Баткен Экспресс — тез жана ыңгайлуу жеткирүү кызматы!\n'
+        'Буйрутма бер: https://batjetkiret.vercel.app';
+
+    try {
+      final logo = await rootBundle.load('assets/images/logo.png');
+      final file = File('${Directory.systemTemp.path}/batken_express.png');
+      await file.writeAsBytes(logo.buffer.asUint8List(), flush: true);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'image/png')],
+          text: text,
+          subject: 'Баткен Экспресс',
         ),
+      );
+    } catch (_) {
+      // Attaching the picture is a bonus — never block sharing on it.
+      await SharePlus.instance.share(
+        ShareParams(text: text, subject: 'Баткен Экспресс'),
       );
     }
   }

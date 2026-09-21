@@ -110,6 +110,7 @@ def send_push(
     data: dict | None = None,
     channel_id: str | None = None,
     include_notification: bool = False,
+    image_url: str | None = None,
 ) -> bool:
     """Send a push notification to a single FCM token. Returns True on success.
 
@@ -132,8 +133,14 @@ def send_push(
                 "sound": sound,
             }
         )
+        if image_url:
+            # Also in data so the app can draw the picture itself when it
+            # builds the notification (data-only) or renders the in-app list.
+            all_data["image_url"] = image_url
         message = _messaging.Message(
-            notification=_messaging.Notification(title=title, body=body)
+            notification=_messaging.Notification(
+                title=title, body=body, image=image_url
+            )
             if include_notification
             else None,
             data=all_data,
@@ -143,14 +150,25 @@ def send_push(
                 notification=_messaging.AndroidNotification(
                     sound=sound,
                     channel_id=resolved_channel_id,
+                    image=image_url,
                 )
                 if include_notification
                 else None,
             ),
+            # mutable_content lets an iOS Notification Service Extension attach
+            # the picture. Without that extension iOS shows text only, which is
+            # why the image also travels in `data` for the in-app list.
             apns=_messaging.APNSConfig(
                 payload=_messaging.APNSPayload(
-                    aps=_messaging.Aps(sound=sound),
+                    aps=_messaging.Aps(
+                        sound=f"{sound}.wav",
+                        mutable_content=bool(image_url),
+                    ),
                 ),
+                headers={"apns-priority": "10"},
+                fcm_options=_messaging.APNSFcmOptions(image=image_url)
+                if image_url
+                else None,
             )
             if include_notification
             else None,
@@ -168,6 +186,7 @@ def send_push_to_user(
     body: str,
     data: dict | None = None,
     channel_id: str | None = None,
+    image_url: str | None = None,
 ) -> bool:
     """Send push if the user has an FCM token."""
     if user is None or not getattr(user, "fcm_token", None):
@@ -179,6 +198,7 @@ def send_push_to_user(
         data,
         channel_id=channel_id,
         include_notification=True,
+        image_url=image_url,
     )
 
 
@@ -186,3 +206,75 @@ def is_initialized() -> bool:
     """Return True if Firebase Admin SDK is ready to send pushes."""
     _init()
     return _messaging is not None
+
+
+def send_push_to_tokens(
+    tokens: list[str],
+    title: str,
+    body: str,
+    data: dict | None = None,
+    channel_id: str | None = None,
+    image_url: str | None = None,
+) -> int:
+    """Send one push to many devices at once. Returns the delivered count.
+
+    Broadcasts used to loop over users one request at a time, which takes
+    minutes (and risks a timeout) once there are hundreds of devices. FCM
+    accepts up to 500 tokens per multicast call.
+    """
+    _init()
+    unique_tokens = [t for t in dict.fromkeys(tokens) if t]
+    if _messaging is None or not unique_tokens:
+        return 0
+
+    resolved_channel_id = _resolve_channel(channel_id, data)
+    sound = _sound_for_channel(resolved_channel_id)
+    all_data = {k: str(v) for k, v in (data or {}).items()}
+    all_data.update(
+        {
+            "title": title,
+            "body": body,
+            "channel_id": resolved_channel_id,
+            "sound": sound,
+        }
+    )
+    if image_url:
+        all_data["image_url"] = image_url
+
+    delivered = 0
+    for start in range(0, len(unique_tokens), 500):
+        chunk = unique_tokens[start:start + 500]
+        try:
+            message = _messaging.MulticastMessage(
+                notification=_messaging.Notification(
+                    title=title, body=body, image=image_url
+                ),
+                data=all_data,
+                tokens=chunk,
+                android=_messaging.AndroidConfig(
+                    priority="high",
+                    notification=_messaging.AndroidNotification(
+                        sound=sound,
+                        channel_id=resolved_channel_id,
+                        image=image_url,
+                    ),
+                ),
+                apns=_messaging.APNSConfig(
+                    payload=_messaging.APNSPayload(
+                        aps=_messaging.Aps(
+                            sound=f"{sound}.wav",
+                            mutable_content=bool(image_url),
+                        ),
+                    ),
+                    headers={"apns-priority": "10"},
+                    fcm_options=_messaging.APNSFcmOptions(image=image_url)
+                    if image_url
+                    else None,
+                ),
+            )
+            response = _messaging.send_each_for_multicast(message)
+            delivered += response.success_count
+        except Exception as exc:
+            logger.warning("FCM multicast failed for %d tokens: %s", len(chunk), exc)
+
+    return delivered

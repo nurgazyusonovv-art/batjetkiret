@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
 import '../services/notification_navigator.dart';
 
 class NotificationsService {
@@ -88,6 +89,7 @@ class NotificationsService {
     int? chatId,
     int? orderId,
     String channelId = messagesChannelId,
+    String? imageUrl,
   }) async {
     if (!_initialized) return;
 
@@ -100,6 +102,11 @@ class NotificationsService {
       payload = '$chatId';
     }
 
+    // Campaign pictures are shown as an expandable big picture. The bitmap
+    // travels to the system over a binder transaction with a ~1MB budget, so a
+    // heavy image is dropped rather than risking a failed notification.
+    final picture = await _downloadPicture(imageUrl);
+
     final androidDetails = AndroidNotificationDetails(
       resolvedChannelId,
       spec.name,
@@ -109,6 +116,15 @@ class NotificationsService {
       sound: RawResourceAndroidNotificationSound(spec.sound),
       enableVibration: true,
       vibrationPattern: Int64List.fromList([0, 250, 100, 250]),
+      styleInformation: picture == null
+          ? null
+          : BigPictureStyleInformation(
+              ByteArrayAndroidBitmap(picture),
+              largeIcon: ByteArrayAndroidBitmap(picture),
+              contentTitle: title,
+              summaryText: body,
+              hideExpandedLargeIcon: true,
+            ),
     );
     final iosDetails = DarwinNotificationDetails(
       presentSound: true,
@@ -139,6 +155,7 @@ class NotificationsService {
           : int.tryParse('${notification['order_id'] ?? ''}');
       final type = notification['type'] as String? ?? 'info';
       final channelId = _channelForType(type);
+      final imageUrl = (notification['image_url'] as String?)?.trim();
 
       showNotification(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -146,6 +163,7 @@ class NotificationsService {
         body,
         orderId: orderId,
         channelId: channelId,
+        imageUrl: (imageUrl?.isEmpty ?? true) ? null : imageUrl,
       );
     }
   }
@@ -305,3 +323,20 @@ const _channelSpecs = [
     sound: 'urgent_tone',
   ),
 ];
+
+/// Fetches a campaign picture for a notification, or null when there is none,
+/// the download fails, or the image is too heavy to hand to the system.
+Future<Uint8List?> _downloadPicture(String? url) async {
+  if (url == null || url.isEmpty) return null;
+  const maxBytes = 800 * 1024;
+  try {
+    final response = await http
+        .get(Uri.parse(url))
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) return null;
+    final bytes = response.bodyBytes;
+    return bytes.length > maxBytes ? null : bytes;
+  } catch (_) {
+    return null;
+  }
+}

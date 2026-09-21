@@ -15,6 +15,16 @@ class Notification(Base):
     related_chat_id = Column(Integer, nullable=True)
     order_id = Column(Integer, nullable=True)
 
+    # Rich notifications (admin campaigns): a picture plus the enterprise the
+    # notification advertises, so tapping it opens that shop.
+    image_url = Column(String, nullable=True)
+    enterprise_id = Column(
+        Integer,
+        ForeignKey("enterprises.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    notification_type = Column(String, nullable=True)
+
     is_read = Column(Boolean, default=False)
 
     created_at = Column(DateTime, server_default=func.now())

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../features/home/data/category_model.dart' as models;
+import '../../features/home/presentation/home_page.dart';
 import '../../features/orders/data/order_api.dart';
 import '../../features/orders/presentation/order_chat_page.dart';
 import '../../features/profile/presentation/support_chat_page.dart';
@@ -16,6 +18,8 @@ class NotificationNavigator {
   // Queue taps that arrive before auth is ready
   static int? _pendingChatId;
   static int? _pendingOrderId;
+  static int? _pendingEnterpriseId;
+  static String? _pendingEnterpriseCategory;
 
   static void setAuth(String token, int userId) {
     _token = token;
@@ -23,10 +27,16 @@ class NotificationNavigator {
 
     final pendingChat = _pendingChatId;
     final pendingOrder = _pendingOrderId;
+    final pendingEnterprise = _pendingEnterpriseId;
+    final pendingCategory = _pendingEnterpriseCategory;
     _pendingChatId = null;
     _pendingOrderId = null;
+    _pendingEnterpriseId = null;
+    _pendingEnterpriseCategory = null;
 
-    if (pendingOrder != null) {
+    if (pendingEnterprise != null) {
+      openEnterpriseById(pendingEnterprise, pendingCategory);
+    } else if (pendingOrder != null) {
       openOrderById(pendingOrder);
     } else if (pendingChat != null) {
       openChatById(pendingChat);
@@ -39,6 +49,44 @@ class NotificationNavigator {
     _isNavigating = false;
     _pendingChatId = null;
     _pendingOrderId = null;
+    _pendingEnterpriseId = null;
+    _pendingEnterpriseCategory = null;
+  }
+
+  /// Opens the shop advertised by a campaign notification.
+  static Future<void> openEnterpriseById(
+    int enterpriseId,
+    String? categoryId,
+  ) async {
+    if (_token == null || _userId == null) {
+      _pendingEnterpriseId = enterpriseId;
+      _pendingEnterpriseCategory = categoryId;
+      return;
+    }
+
+    if (_isNavigating) return;
+    _isNavigating = true;
+
+    try {
+      final nav = navigatorKey?.currentState;
+      if (nav == null) return;
+
+      final category = models.categories.firstWhere(
+        (c) => c.id == categoryId,
+        orElse: () => models.categories.first,
+      );
+      nav.push(
+        MaterialPageRoute(
+          builder: (_) => OrderCreatePage(
+            token: _token!,
+            selectedCategory: category,
+            initialEnterpriseId: enterpriseId,
+          ),
+        ),
+      );
+    } finally {
+      _isNavigating = false;
+    }
   }
 
   static Future<void> openChatById(int chatId) async {
@@ -69,26 +117,30 @@ class NotificationNavigator {
       if (nav == null) return;
 
       if (ctx.type == 'ORDER' && ctx.orderId != null) {
-        nav.push(MaterialPageRoute(
-          builder: (_) => OrderChatPage(
-            token: token,
-            orderId: ctx.orderId!,
-            counterpartyName: ctx.counterpartyName ?? 'Чат',
-            counterpartyId: ctx.counterpartyId,
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => OrderChatPage(
+              token: token,
+              orderId: ctx.orderId!,
+              counterpartyName: ctx.counterpartyName ?? 'Чат',
+              counterpartyId: ctx.counterpartyId,
+            ),
           ),
-        ));
+        );
         return;
       }
 
       if (ctx.type == 'SUPPORT') {
-        nav.push(MaterialPageRoute(
-          builder: (_) => SupportChatPage(
-            token: token,
-            chatId: ctx.chatId,
-            title: ctx.counterpartyName ?? 'Колдоо кызматы',
-            myUserId: userId,
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => SupportChatPage(
+              token: token,
+              chatId: ctx.chatId,
+              title: ctx.counterpartyName ?? 'Колдоо кызматы',
+              myUserId: userId,
+            ),
           ),
-        ));
+        );
       }
     } catch (_) {
       // Silently ignore — user can open the chat manually
@@ -125,14 +177,16 @@ class NotificationNavigator {
       final nav = key?.currentState;
       if (nav == null) return;
 
-      nav.push(MaterialPageRoute(
-        builder: (_) => OrderChatPage(
-          token: token,
-          orderId: orderId,
-          counterpartyName: ctx.counterpartyName ?? 'Заказ #$orderId',
-          counterpartyId: ctx.counterpartyId,
+      nav.push(
+        MaterialPageRoute(
+          builder: (_) => OrderChatPage(
+            token: token,
+            orderId: orderId,
+            counterpartyName: ctx.counterpartyName ?? 'Заказ #$orderId',
+            counterpartyId: ctx.counterpartyId,
+          ),
         ),
-      ));
+      );
     } catch (_) {
       // If chat fetch fails, silently ignore — user can navigate manually
     } finally {
@@ -168,7 +222,34 @@ class NotificationNavigator {
     });
   }
 
+  static void _openEnterpriseWithRetry(
+    int enterpriseId,
+    String? categoryId, {
+    int attempt = 0,
+  }) {
+    const delays = [500, 1000, 2000, 3000];
+    final ms = attempt < delays.length ? delays[attempt] : 0;
+    if (ms == 0) return;
+
+    Future.delayed(Duration(milliseconds: ms), () {
+      if (navigatorKey?.currentState != null) {
+        openEnterpriseById(enterpriseId, categoryId);
+      } else {
+        _openEnterpriseWithRetry(
+          enterpriseId,
+          categoryId,
+          attempt: attempt + 1,
+        );
+      }
+    });
+  }
+
   // Expose retry helpers for FCM terminated-app launch
   static void openChatByIdWithRetry(int chatId) => _openChatWithRetry(chatId);
-  static void openOrderByIdWithRetry(int orderId) => _openOrderWithRetry(orderId);
+  static void openOrderByIdWithRetry(int orderId) =>
+      _openOrderWithRetry(orderId);
+  static void openEnterpriseByIdWithRetry(
+    int enterpriseId,
+    String? categoryId,
+  ) => _openEnterpriseWithRetry(enterpriseId, categoryId);
 }

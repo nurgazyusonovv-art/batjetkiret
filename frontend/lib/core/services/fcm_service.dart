@@ -31,6 +31,13 @@ int? _orderIdFromMessage(RemoteMessage message) {
   return int.tryParse(raw.toString());
 }
 
+/// Campaign pushes carry the advertised shop so tapping opens it.
+int? _enterpriseIdFromMessage(RemoteMessage message) {
+  final raw = message.data['enterprise_id'];
+  if (raw == null) return null;
+  return int.tryParse(raw.toString());
+}
+
 String _titleFromMessage(RemoteMessage message) {
   return message.notification?.title ?? message.data['title'] ?? '';
 }
@@ -82,7 +89,13 @@ class FcmService {
     if (initial != null) {
       final orderId = _orderIdFromMessage(initial);
       final chatId = _chatIdFromMessage(initial);
-      if (orderId != null) {
+      final enterpriseId = _enterpriseIdFromMessage(initial);
+      if (enterpriseId != null) {
+        NotificationNavigator.openEnterpriseByIdWithRetry(
+          enterpriseId,
+          initial.data['enterprise_category'] as String?,
+        );
+      } else if (orderId != null) {
         NotificationNavigator.openOrderByIdWithRetry(orderId);
       } else if (chatId != null) {
         NotificationNavigator.openChatByIdWithRetry(chatId);
@@ -93,9 +106,15 @@ class FcmService {
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       final orderId = _orderIdFromMessage(message);
       final chatId = _chatIdFromMessage(message);
+      final enterpriseId = _enterpriseIdFromMessage(message);
 
       Future.delayed(const Duration(milliseconds: 300), () {
-        if (orderId != null) {
+        if (enterpriseId != null) {
+          NotificationNavigator.openEnterpriseById(
+            enterpriseId,
+            message.data['enterprise_category'] as String?,
+          );
+        } else if (orderId != null) {
           NotificationNavigator.openOrderById(orderId);
         } else if (chatId != null) {
           NotificationNavigator.openChatById(chatId);
@@ -118,6 +137,8 @@ class FcmService {
         _newOrderController.add(orderId);
       }
 
+      final imageUrl = (message.data['image_url'] as String?)?.trim();
+
       // Show system notification with sound (handles chat payload for tap nav)
       NotificationsService.showNotification(
         message.hashCode,
@@ -126,6 +147,7 @@ class FcmService {
         chatId: chatId,
         orderId: orderId,
         channelId: channelId,
+        imageUrl: (imageUrl?.isEmpty ?? true) ? null : imageUrl,
       );
 
       // In-app overlay banner (without duplicate sound — sound comes from showNotification above)
@@ -134,6 +156,7 @@ class FcmService {
         'body': body,
         'type': type,
         'order_id': orderId,
+        'image_url': imageUrl,
       }, withSound: false);
     });
 
