@@ -95,6 +95,10 @@ class RealGeocoder {
   /// Forward geocoding - get coordinates from address using Yandex API
   /// Falls back to MockGeocoder if Yandex API fails or key not set
   static Future<LatLng?> getCoordinates(String address) async {
+    // 2GIS knows Batken's house numbers; Yandex and OSM are fallbacks.
+    final viaTwoGis = await _TwoGisGeocoder.coordinates(address);
+    if (viaTwoGis != null) return viaTwoGis;
+
     final apiKey = AppConfig.yandexApiKey;
 
     try {
@@ -138,6 +142,12 @@ class RealGeocoder {
     required double latitude,
     required double longitude,
   }) async {
+    final viaTwoGis = await _TwoGisGeocoder.reverse(
+      latitude: latitude,
+      longitude: longitude,
+    );
+    if (viaTwoGis != null && viaTwoGis.isNotEmpty) return viaTwoGis;
+
     final apiKey = AppConfig.yandexApiKey;
 
     try {
@@ -245,9 +255,17 @@ class RealGeocoder {
     final trimmed = query.trim();
     if (trimmed.length < 3) return const [];
 
-    final apiKey = AppConfig.yandexApiKey;
     final bias =
         near ?? const LatLng(latitude: 40.060518, longitude: 70.819638);
+
+    final viaTwoGis = await _TwoGisGeocoder.search(
+      trimmed,
+      near: bias,
+      limit: limit,
+    );
+    if (viaTwoGis.isNotEmpty) return viaTwoGis;
+
+    final apiKey = AppConfig.yandexApiKey;
 
     try {
       if (apiKey.isEmpty) throw Exception('no yandex key');
@@ -606,5 +624,146 @@ class _OsmAddress {
     if (title.isEmpty) return null;
     if (locality.isEmpty || title.contains(locality)) return title;
     return '$title, $locality';
+  }
+}
+
+/// 2GIS Geocoder — the primary address source.
+///
+/// Measured over 15 points across Batken: 2GIS returned a house number for 13
+/// of them, OpenStreetMap for 2. Yandex would be second best but its Geocoder
+/// API rejects the project's key, so the order is 2GIS → Yandex → OSM.
+class _TwoGisGeocoder {
+  static const String _geocodeUrl =
+      'https://catalog.api.2gis.com/3.0/items/geocode';
+  static const String _searchUrl = 'https://catalog.api.2gis.com/3.0/items';
+  static const int _timeoutSeconds = 8;
+
+  /// Keeps hits around Batken; without it a half-typed street matches
+  /// businesses in Bishkek.
+  static const String _searchRadiusMeters = '30000';
+
+  static Future<Map<String, dynamic>?> _request(
+    String url,
+    Map<String, String> params,
+  ) async {
+    final apiKey = AppConfig.twoGisApiKey;
+    if (apiKey.isEmpty) return null;
+    try {
+      final uri = Uri.parse(
+        url,
+      ).replace(queryParameters: {...params, 'key': apiKey});
+      final response = await http
+          .get(uri)
+          .timeout(const Duration(seconds: _timeoutSeconds));
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(response.body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static List<dynamic> _items(Map<String, dynamic>? payload) {
+    final result = payload?['result'];
+    if (result is! Map) return const [];
+    final items = result['items'];
+    return items is List ? items : const [];
+  }
+
+  /// "улица Исхака Раззакова, 12" — street and house number when 2GIS has one.
+  static String? _addressOf(dynamic item) {
+    if (item is! Map) return null;
+    final name = (item['address_name'] ?? item['full_name'])?.toString().trim();
+    return (name == null || name.isEmpty) ? null : name;
+  }
+
+  static LatLng? _pointOf(dynamic item) {
+    if (item is! Map) return null;
+    final point = item['point'];
+    if (point is! Map) return null;
+    final lat = (point['lat'] as num?)?.toDouble();
+    final lon = (point['lon'] as num?)?.toDouble();
+    if (lat == null || lon == null) return null;
+    return LatLng(latitude: lat, longitude: lon);
+  }
+
+  static Future<String?> reverse({
+    required double latitude,
+    required double longitude,
+  }) async {
+    // type=building keeps the answer on a house; without it 2GIS replies with
+    // the district or the city, which is useless for a courier.
+    final payload = await _request(_geocodeUrl, {
+      'lat': '$latitude',
+      'lon': '$longitude',
+      'radius': '300',
+      'type': 'building',
+      'fields': 'items.point,items.address,items.full_name',
+    });
+    for (final item in _items(payload)) {
+      final address = _addressOf(item);
+      if (address != null) return address;
+    }
+    return null;
+  }
+
+  static Future<List<AddressSuggestion>> search(
+    String query, {
+    LatLng? near,
+    int limit = 6,
+  }) async {
+    final bias =
+        near ?? const LatLng(latitude: 40.060518, longitude: 70.819638);
+    // The search endpoint (not geocode) answers half-typed streets, which is
+    // what the address field needs while the user is still typing.
+    final payload = await _request(_searchUrl, {
+      'q': query,
+      'point': '${bias.longitude},${bias.latitude}',
+      'radius': _searchRadiusMeters,
+      'type': 'street,building',
+      'page_size': '$limit',
+      'fields': 'items.point,items.address,items.full_name',
+    });
+
+    final results = <AddressSuggestion>[];
+    for (final item in _items(payload)) {
+      final point = _pointOf(item);
+      if (point == null) continue;
+
+      // full_name starts with the locality: "Баткен, улица ..., 12". Streets
+      // carry no address_name, so the locality is split off instead of being
+      // repeated in both lines of the suggestion.
+      final fullName = item is Map
+          ? (item['full_name']?.toString().trim() ?? '')
+          : '';
+      final addressName = item is Map
+          ? (item['address_name']?.toString().trim() ?? '')
+          : '';
+
+      var title = addressName;
+      var locality = '';
+      if (fullName.contains(',')) {
+        locality = fullName.split(',').first.trim();
+        if (title.isEmpty) {
+          title = fullName.substring(fullName.indexOf(',') + 1).trim();
+        }
+      }
+      if (title.isEmpty) title = fullName;
+      if (title.isEmpty) continue;
+
+      results.add(
+        AddressSuggestion(
+          title: title,
+          subtitle: locality == title ? '' : locality,
+          location: point,
+        ),
+      );
+    }
+    return results;
+  }
+
+  static Future<LatLng?> coordinates(String address) async {
+    final found = await search(address, limit: 1);
+    return found.isEmpty ? null : found.first.location;
   }
 }

@@ -55,6 +55,15 @@ class AppConfig {
     defaultValue: '',
   );
 
+  // 2GIS Geocoder key. 2GIS is the only source with real house numbers in
+  // Batken (86% of sampled points, against 13% for OpenStreetMap), so it is
+  // tried before Yandex and OSM.
+  // Pass at build time: --dart-define=TWOGIS_API_KEY=<key>
+  static const String _envTwoGisApiKey = String.fromEnvironment(
+    'TWOGIS_API_KEY',
+    defaultValue: '',
+  );
+
   // OpenRouteService key for driving distance (free tier ~2000 req/day).
   // Pass at build time: --dart-define=ORS_API_KEY=<key>
   static const String _envOrsApiKey = String.fromEnvironment(
@@ -131,6 +140,8 @@ class AppConfig {
   }
 
   static String get yandexApiKey => _envYandexApiKey;
+
+  static String get twoGisApiKey => _envTwoGisApiKey;
 
   static String get orsApiKey => _envOrsApiKey;
 
