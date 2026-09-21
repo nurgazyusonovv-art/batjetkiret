@@ -28,6 +28,13 @@ from app.models.message import Message
 from app.models.password_reset import PasswordReset
 from app.models.order_payment import OrderPayment
 from app.models.enterprise import Enterprise
+from app.models.notification_campaign import NotificationCampaign
+from app.services.campaigns import (
+    deliver_campaign,
+    send_due_campaigns,
+    to_naive_utc,
+    utcnow,
+)
 from app.services.media_upload import upload_image_file
 from app.services.order_status import apply_status_change
 from app.core.security import hash_password
@@ -100,6 +107,8 @@ class NotificationCreate(BaseModel):
     image_url: str | None = None
     enterprise_id: int | None = None
     type: str | None = None
+    # UTC. Null sends immediately; a future time schedules the campaign.
+    scheduled_at: datetime | None = None
 
 
 class AdminCreateOrderRequest(BaseModel):
@@ -427,43 +436,105 @@ def broadcast_notification(
         if not enterprise:
             raise HTTPException(status_code=404, detail="Ишкана табылган жок")
 
-    users = db.query(User).filter(User.is_active == True).all()  # noqa: E712
-
-    notifs = [
-        Notification(
-            user_id=u.id,
-            title=payload.title,
-            message=payload.message,
-            image_url=payload.image_url,
-            enterprise_id=payload.enterprise_id,
-            notification_type=payload.type or "promo",
-            is_read=False,
-        )
-        for u in users
-    ]
-    db.bulk_save_objects(notifs)
-    db.commit()
-
-    # One multicast per 500 devices instead of a request per user — a loop
-    # takes minutes and can time out once there are hundreds of tokens.
-    data = {"type": payload.type or "promo"}
-    if enterprise is not None:
-        # The app needs the category to open the shop's page from the push.
-        data["enterprise_id"] = str(enterprise.id)
-        data["enterprise_category"] = enterprise.category or ""
-    delivered = fcm_service.send_push_to_tokens(
-        [u.fcm_token for u in users if u.fcm_token],
+    scheduled_at = to_naive_utc(payload.scheduled_at)
+    campaign = NotificationCampaign(
         title=payload.title,
-        body=payload.message,
-        data=data,
+        message=payload.message,
         image_url=payload.image_url,
+        enterprise_id=enterprise.id if enterprise is not None else None,
+        notification_type=payload.type or "promo",
+        scheduled_at=scheduled_at,
+        status=NotificationCampaign.STATUS_SCHEDULED,
+        created_by_admin_id=getattr(admin, "id", None),
     )
+    db.add(campaign)
+    db.commit()
+    db.refresh(campaign)
 
+    # A future time leaves the campaign for the scheduler to pick up.
+    if scheduled_at is not None and scheduled_at > utcnow():
+        return {
+            "campaign_id": campaign.id,
+            "scheduled_at": campaign.scheduled_at,
+            "message": "Билдирүү график боюнча жөнөтүлөт",
+        }
+
+    result = deliver_campaign(db, campaign)
     return {
-        "sent_to": len(notifs),
-        "pushed": delivered,
-        "message": f"{len(notifs)} колдонуучуга жөнөтүлдү",
+        "campaign_id": campaign.id,
+        "sent_to": result["sent_to"],
+        "pushed": result["pushed"],
+        "message": f"{result['sent_to']} колдонуучуга жөнөтүлдү",
     }
+
+
+@router.get("/campaigns")
+def list_campaigns(
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Campaign history — scheduled first, then the most recent sends."""
+    campaigns = (
+        db.query(NotificationCampaign)
+        .order_by(NotificationCampaign.created_at.desc())
+        .limit(min(limit, 200))
+        .all()
+    )
+    return [
+        {
+            "id": c.id,
+            "title": c.title,
+            "message": c.message,
+            "image_url": c.image_url,
+            "enterprise_id": c.enterprise_id,
+            "type": c.notification_type,
+            "scheduled_at": c.scheduled_at,
+            "status": c.status,
+            "sent_at": c.sent_at,
+            "sent_count": c.sent_count,
+            "pushed_count": c.pushed_count,
+            "error": c.error,
+            "created_at": c.created_at,
+        }
+        for c in campaigns
+    ]
+
+
+@router.post("/campaigns/{campaign_id}/cancel")
+def cancel_campaign(
+    campaign_id: int,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Cancel a campaign that has not gone out yet."""
+    campaign = db.query(NotificationCampaign).filter(
+        NotificationCampaign.id == campaign_id
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Кампания табылган жок")
+    if campaign.status != NotificationCampaign.STATUS_SCHEDULED:
+        raise HTTPException(
+            status_code=400,
+            detail="Жөнөтүлгөн билдирүүнү кайтарып алуу мүмкүн эмес",
+        )
+
+    campaign.status = NotificationCampaign.STATUS_CANCELLED
+    db.commit()
+    return {"ok": True, "status": campaign.status}
+
+
+@router.post("/campaigns/run-due")
+def run_due_campaigns(
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Send anything that is due right now.
+
+    The scheduler does this on its own; this endpoint exists so an external
+    cron can drive it too, and so admins can flush a campaign after downtime.
+    """
+    return {"sent": send_due_campaigns(db)}
 
 
 @router.post("/notifications/image")

@@ -146,3 +146,46 @@ app.include_router(chat.router)
 _uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 os.makedirs(_uploads_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
+
+
+# ── Scheduled notification campaigns ─────────────────────────────────────────
+
+CAMPAIGN_TICK_SECONDS = 30
+
+
+async def _campaign_scheduler() -> None:
+    """Send campaigns whose scheduled time has arrived.
+
+    Each campaign is claimed with a conditional UPDATE before it is sent, so
+    running more than one web worker cannot deliver the same campaign twice.
+    """
+    import asyncio
+
+    from app.core.database import SessionLocal
+    from app.services.campaigns import send_due_campaigns
+
+    while True:
+        await asyncio.sleep(CAMPAIGN_TICK_SECONDS)
+        try:
+            db = SessionLocal()
+            try:
+                await asyncio.to_thread(send_due_campaigns, db)
+            finally:
+                db.close()
+        except Exception as exc:  # never let the loop die
+            logger.warning("Campaign scheduler tick failed: %s", exc)
+
+
+@app.on_event("startup")
+async def _start_campaign_scheduler() -> None:
+    import asyncio
+
+    app.state.campaign_scheduler = asyncio.create_task(_campaign_scheduler())
+    logger.info("Campaign scheduler started (every %ss)", CAMPAIGN_TICK_SECONDS)
+
+
+@app.on_event("shutdown")
+async def _stop_campaign_scheduler() -> None:
+    task = getattr(app.state, "campaign_scheduler", None)
+    if task is not None:
+        task.cancel()

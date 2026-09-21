@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { notificationsService } from '@/services/notifications';
 import { enterprisesService } from '@/services/enterprises';
-import { Enterprise, Notification } from '@/types';
-import { Trash2, Check, Send, Eraser, ImagePlus, X, Store } from 'lucide-react';
+import { Enterprise, Notification, NotificationCampaign } from '@/types';
+import { Trash2, Check, Send, Eraser, ImagePlus, X, Store, Clock, CalendarX } from 'lucide-react';
 import { fmtDateTime } from '@/utils/date';
 import api from '@/services/api';
 import './NotificationsPage.css';
+
+const STATUS_LABEL: Record<string, string> = {
+  scheduled: 'Күтүүдө',
+  sending: 'Жөнөтүлүүдө',
+  sent: 'Жөнөтүлдү',
+  cancelled: 'Жокко чыгарылды',
+  failed: 'Ката',
+};
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -24,6 +32,20 @@ export default function NotificationsPage() {
   const [bcEnterpriseId, setBcEnterpriseId] = useState<number | ''>('');
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Scheduling. The picker gives local (Bishkek) time; the API takes UTC.
+  const [bcScheduled, setBcScheduled] = useState(false);
+  const [bcWhen, setBcWhen] = useState('');
+  const [campaigns, setCampaigns] = useState<NotificationCampaign[]>([]);
+
+  const loadCampaigns = async () => {
+    try {
+      const res = await api.get<NotificationCampaign[]>('/admin/campaigns');
+      setCampaigns(res.data);
+    } catch {
+      setCampaigns([]);
+    }
+  };
 
   const loadNotifications = async () => {
     try {
@@ -50,6 +72,7 @@ export default function NotificationsPage() {
       .list({ is_active: true, limit: 200 })
       .then(setEnterprises)
       .catch(() => setEnterprises([]));
+    loadCampaigns();
   }, []);
 
   const handlePickImage = async (file: File | undefined) => {
@@ -88,25 +111,52 @@ export default function NotificationsPage() {
       setBcResult({ ok: false, text: 'Аталышты жана текстти толтуруңуз' });
       return;
     }
+    if (bcScheduled && !bcWhen) {
+      setBcResult({ ok: false, text: 'Жөнөтүү убактысын тандаңыз' });
+      return;
+    }
+    if (bcScheduled && new Date(bcWhen).getTime() <= Date.now()) {
+      setBcResult({ ok: false, text: 'Убакыт келечекте болушу керек' });
+      return;
+    }
     setBcSending(true);
     setBcResult(null);
     try {
+      // datetime-local has no zone: treat it as this browser's local time and
+      // let Date give us the UTC instant the backend expects.
+      const scheduledAt =
+        bcScheduled && bcWhen ? new Date(bcWhen).toISOString() : null;
+
       const res = await api.post('/admin/notifications/broadcast', {
         title: bcTitle.trim(),
         message: bcMessage.trim(),
         image_url: bcImageUrl,
         enterprise_id: bcEnterpriseId === '' ? null : Number(bcEnterpriseId),
         type: 'promo',
+        scheduled_at: scheduledAt,
       });
       setBcResult({ ok: true, text: res.data.message });
       setBcTitle('');
       setBcMessage('');
       setBcImageUrl(null);
       setBcEnterpriseId('');
+      setBcScheduled(false);
+      setBcWhen('');
+      loadCampaigns();
     } catch {
       setBcResult({ ok: false, text: 'Жөнөтүүдө ката чыкты' });
     } finally {
       setBcSending(false);
+    }
+  };
+
+  const handleCancelCampaign = async (id: number) => {
+    if (!confirm('Күтүп турган билдирүүнү жокко чыгарасызбы?')) return;
+    try {
+      await api.post(`/admin/campaigns/${id}/cancel`);
+      loadCampaigns();
+    } catch {
+      setBcResult({ ok: false, text: 'Жокко чыгарууда ката чыкты' });
     }
   };
 
@@ -223,6 +273,27 @@ export default function NotificationsPage() {
             </div>
           </div>
 
+          <div className="bc-schedule">
+            <label className="bc-schedule-toggle">
+              <input
+                type="checkbox"
+                checked={bcScheduled}
+                onChange={e => setBcScheduled(e.target.checked)}
+              />
+              <Clock size={15} />
+              График боюнча жөнөтүү
+            </label>
+            {bcScheduled && (
+              <input
+                type="datetime-local"
+                className="bc-datetime"
+                value={bcWhen}
+                min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                onChange={e => setBcWhen(e.target.value)}
+              />
+            )}
+          </div>
+
           {bcImageUrl && (
             <div className="bc-preview">
               <div className="bc-preview-label">Колдонуучу мындай көрөт:</div>
@@ -261,10 +332,56 @@ export default function NotificationsPage() {
             onClick={handleBroadcast}
             disabled={bcSending}
           >
-            {bcSending ? 'Жөнөтүлүүдө...' : <><Send size={15} /> Баарына жөнөтүү</>}
+            {bcSending
+              ? 'Жөнөтүлүүдө...'
+              : bcScheduled
+                ? <><Clock size={15} /> Графикке коюу</>
+                : <><Send size={15} /> Баарына жөнөтүү</>}
           </button>
         </div>
       </div>
+
+      {campaigns.length > 0 && (
+        <div className="campaigns-card">
+          <div className="campaigns-title">
+            <Clock size={16} /> Жарнама кампаниялары
+          </div>
+          <div className="campaigns-list">
+            {campaigns.map(c => (
+              <div key={c.id} className={`campaign-row ${c.status}`}>
+                {c.image_url && (
+                  <img src={c.image_url} alt="" className="campaign-thumb" />
+                )}
+                <div className="campaign-body">
+                  <div className="campaign-head">
+                    <span className="campaign-name">{c.title}</span>
+                    <span className={`campaign-status ${c.status}`}>
+                      {STATUS_LABEL[c.status] ?? c.status}
+                    </span>
+                  </div>
+                  <div className="campaign-meta">
+                    {c.status === 'scheduled' && c.scheduled_at
+                      ? `Жөнөтүлөт: ${fmtDateTime(c.scheduled_at)}`
+                      : c.sent_at
+                        ? `${fmtDateTime(c.sent_at)} — ${c.sent_count} колдонуучу, ${c.pushed_count} түзмөк`
+                        : fmtDateTime(c.created_at)}
+                  </div>
+                  {c.error && <div className="campaign-error">{c.error}</div>}
+                </div>
+                {c.status === 'scheduled' && (
+                  <button
+                    className="campaign-cancel"
+                    title="Жокко чыгаруу"
+                    onClick={() => handleCancelCampaign(c.id)}
+                  >
+                    <CalendarX size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {notifications.length === 0 ? (
         <div className="empty-state">

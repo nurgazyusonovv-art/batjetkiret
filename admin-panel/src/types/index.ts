@@ -137,6 +137,22 @@ export interface PasswordResetRequest {
 }
 
 // Notification Types
+export interface NotificationCampaign {
+  id: number;
+  title: string;
+  message: string;
+  image_url?: string | null;
+  enterprise_id?: number | null;
+  type?: string | null;
+  scheduled_at?: string | null;
+  status: 'scheduled' | 'sending' | 'sent' | 'cancelled' | 'failed';
+  sent_at?: string | null;
+  sent_count: number;
+  pushed_count: number;
+  error?: string | null;
+  created_at: string;
+}
+
 export interface Notification {
   id: number;
   title: string;

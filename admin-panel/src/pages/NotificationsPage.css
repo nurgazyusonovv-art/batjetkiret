@@ -401,3 +401,144 @@
   object-fit: cover;
   border-radius: 10px;
 }
+
+/* ── Scheduling ──────────────────────────────────────────────────────────── */
+.bc-schedule {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.bc-schedule-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #444c59;
+  cursor: pointer;
+}
+
+.bc-datetime {
+  padding: 8px 10px;
+  border: 1px solid #d8dce3;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #1f2937;
+}
+
+/* ── Campaign history ────────────────────────────────────────────────────── */
+.campaigns-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.campaigns-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.campaigns-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.campaign-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #eef0f3;
+  border-radius: 12px;
+  background: #fafbfc;
+}
+
+.campaign-row.scheduled {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.campaign-row.failed {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.campaign-thumb {
+  width: 54px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.campaign-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.campaign-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.campaign-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.campaign-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: #e5e7eb;
+  color: #4b5563;
+  flex-shrink: 0;
+}
+
+.campaign-status.scheduled { background: #ffedd5; color: #c2410c; }
+.campaign-status.sent      { background: #dcfce7; color: #15803d; }
+.campaign-status.sending   { background: #dbeafe; color: #1d4ed8; }
+.campaign-status.cancelled { background: #e5e7eb; color: #6b7280; }
+.campaign-status.failed    { background: #fee2e2; color: #b91c1c; }
+
+.campaign-meta {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.campaign-error {
+  font-size: 11.5px;
+  color: #b91c1c;
+  margin-top: 3px;
+}
+
+.campaign-cancel {
+  border: none;
+  background: transparent;
+  color: #b91c1c;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.campaign-cancel:hover {
+  background: #fee2e2;
+}
