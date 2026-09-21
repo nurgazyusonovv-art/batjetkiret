@@ -101,6 +101,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { path: '/password-resets', icon: KeyRound, label: 'Сырсөз баштан коюу' },
     { path: '/settings', icon: Settings, label: 'Жөндөөлөр' },
     { path: '/banners', icon: Image, label: 'Реклама баннерлери' },
+    { path: '/advertisements', icon: Megaphone, label: 'Колдонуучу жарнамалары' },
     { path: '/ad-popup', icon: Megaphone, label: 'Жарнама жиберүү' },
     { path: '/about', icon: Info, label: 'Программа жөнүндө' },
   ];

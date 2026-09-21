@@ -49,7 +49,7 @@ export default function UsersPage() {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const data = await userService.getUsers({ limit: 200 });
+      const data = await userService.getUsers({ limit: 10000 });
       setUsers(data);
     } catch (err) {
       console.error('Failed to load users:', err);
@@ -369,7 +369,7 @@ export default function UsersPage() {
                 <td>{user.name || '-'}</td>
                 <td>
                   <span className={`role-badge role-${user.role}`}>
-                    {user.role === 'admin' ? 'Админ' : user.role === 'courier' ? 'Курьер' : 'Колдонуучу'}
+                    {user.role === 'admin' ? 'Админ' : user.role === 'courier' ? 'Курьер' : user.role === 'bisnes' ? 'Ишкана' : 'Колдонуучу'}
                   </span>
                 </td>
                 <td className="balance-cell">{user.balance} сом</td>

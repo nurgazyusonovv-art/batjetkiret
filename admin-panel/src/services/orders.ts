@@ -30,7 +30,19 @@ interface BackendAdminOrder {
   hidden_for_courier?: boolean;
   admin_note?: string | null;
   created_at: string;
+  source?: string;
+  order_type?: string;
+  customer_phone?: string | null;
   status_audit?: BackendOrderStatusAudit[];
+}
+
+export interface AdminCreateOrderPayload {
+  phone: string;
+  category: 'delivery' | 'taxi';
+  description: string;
+  from_address: string;
+  to_address: string;
+  admin_note?: string;
 }
 
 function mapOrder(item: BackendAdminOrder): Order {
@@ -61,11 +73,19 @@ function mapOrder(item: BackendAdminOrder): Order {
     hidden_for_user: item.hidden_for_user,
     hidden_for_courier: item.hidden_for_courier,
     admin_note: item.admin_note,
+    source: item.source,
+    order_type: item.order_type,
+    customer_phone: item.customer_phone,
     status_audit: item.status_audit,
   };
 }
 
 export const orderService = {
+  async createOrder(payload: AdminCreateOrderPayload): Promise<Order> {
+    const response = await api.post<{ id: number }>('/admin/orders', payload);
+    return this.getOrderById(response.data.id);
+  },
+
   async getOrders(params?: OrderFilters & PaginationParams): Promise<Order[]> {
     const response = await api.get<BackendAdminOrder[]>('/admin/orders', { params });
     return response.data.map(mapOrder);

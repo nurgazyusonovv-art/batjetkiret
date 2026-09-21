@@ -7,6 +7,7 @@ interface BackendAdminUser {
   phone: string;
   is_courier: boolean;
   is_admin: boolean;
+  is_enterprise?: boolean;
   is_active?: boolean;
   is_online?: boolean;
   balance: number;
@@ -39,10 +40,11 @@ function mapUser(item: BackendAdminUser): User {
     unique_id: item.unique_id,
     phone: item.phone,
     name: item.name ?? item.phone,
-    role: item.is_admin ? 'admin' : item.is_courier ? 'courier' : 'user',
+    role: item.is_admin ? 'admin' : item.is_courier ? 'courier' : item.is_enterprise ? 'bisnes' : 'user',
     is_active: item.is_active ?? true,
     is_online: item.is_online ?? false,
     is_courier: item.is_courier,
+    is_enterprise: item.is_enterprise ?? false,
     balance: item.balance,
     total_orders: item.total_orders,
     completed_orders: item.completed_orders,

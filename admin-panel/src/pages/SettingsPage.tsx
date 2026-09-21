@@ -27,12 +27,16 @@ export default function SettingsPage() {
   // ── Delivery pricing ─────────────────────────────────────────────────────
   const [basePrice, setBasePrice] = useState('80');
   const [perKm, setPerKm] = useState('20');
+  const [extraAfterKm, setExtraAfterKm] = useState('4');
+  const [extraPerKm, setExtraPerKm] = useState('0');
   const [priceSaving, setPriceSaving] = useState(false);
   const [priceMsg, setPriceMsg] = useState('');
 
   // ── Taxi pricing ──────────────────────────────────────────────────────────
   const [taxiBase, setTaxiBase] = useState('100');
   const [taxiPerKm, setTaxiPerKm] = useState('30');
+  const [taxiExtraAfterKm, setTaxiExtraAfterKm] = useState('4');
+  const [taxiExtraPerKm, setTaxiExtraPerKm] = useState('0');
   const [taxiSaving, setTaxiSaving] = useState(false);
   const [taxiMsg, setTaxiMsg] = useState('');
 
@@ -41,6 +45,22 @@ export default function SettingsPage() {
   const [whatsapp, setWhatsapp] = useState('');
   const [contactSaving, setContactSaving] = useState(false);
   const [contactMsg, setContactMsg] = useState('');
+
+  // ── App market prompts ───────────────────────────────────────────────────
+  const [androidLatestVersionCode, setAndroidLatestVersionCode] = useState('22');
+  const [androidUpdateRequired, setAndroidUpdateRequired] = useState(false);
+  const [playMarketUrl, setPlayMarketUrl] = useState('https://play.google.com/store/apps/details?id=kg.batkenexpress.app');
+  const [ratingDialogEnabled, setRatingDialogEnabled] = useState(true);
+  const [ratingMinLaunches, setRatingMinLaunches] = useState('3');
+  const [ratingCooldownDays, setRatingCooldownDays] = useState('14');
+  const [marketSaving, setMarketSaving] = useState(false);
+  const [marketMsg, setMarketMsg] = useState('');
+
+  // ── User advertisements ─────────────────────────────────────────────────
+  const [advertisementPrice, setAdvertisementPrice] = useState('50');
+  const [advertisementDurationDays, setAdvertisementDurationDays] = useState('7');
+  const [advertisementSaving, setAdvertisementSaving] = useState(false);
+  const [advertisementMsg, setAdvertisementMsg] = useState('');
 
   // ── Danger zone ───────────────────────────────────────────────────────────
   const [clearLoading, setClearLoading] = useState(false);
@@ -71,8 +91,20 @@ export default function SettingsPage() {
       if (data[SETTING_KEYS.COURIER_CANCEL_PENALTY]) setPenalty(data[SETTING_KEYS.COURIER_CANCEL_PENALTY].value);
       if (data[SETTING_KEYS.DELIVERY_BASE]) setBasePrice(data[SETTING_KEYS.DELIVERY_BASE].value);
       if (data[SETTING_KEYS.DELIVERY_PER_KM]) setPerKm(data[SETTING_KEYS.DELIVERY_PER_KM].value);
+      if (data[SETTING_KEYS.DELIVERY_EXTRA_AFTER_KM]) setExtraAfterKm(data[SETTING_KEYS.DELIVERY_EXTRA_AFTER_KM].value);
+      if (data[SETTING_KEYS.DELIVERY_EXTRA_PER_KM]) setExtraPerKm(data[SETTING_KEYS.DELIVERY_EXTRA_PER_KM].value);
       if (data[SETTING_KEYS.TAXI_BASE]) setTaxiBase(data[SETTING_KEYS.TAXI_BASE].value);
       if (data[SETTING_KEYS.TAXI_PER_KM]) setTaxiPerKm(data[SETTING_KEYS.TAXI_PER_KM].value);
+      if (data[SETTING_KEYS.TAXI_EXTRA_AFTER_KM]) setTaxiExtraAfterKm(data[SETTING_KEYS.TAXI_EXTRA_AFTER_KM].value);
+      if (data[SETTING_KEYS.TAXI_EXTRA_PER_KM]) setTaxiExtraPerKm(data[SETTING_KEYS.TAXI_EXTRA_PER_KM].value);
+      if (data[SETTING_KEYS.ANDROID_LATEST_VERSION_CODE]) setAndroidLatestVersionCode(data[SETTING_KEYS.ANDROID_LATEST_VERSION_CODE].value);
+      if (data[SETTING_KEYS.ANDROID_UPDATE_REQUIRED]) setAndroidUpdateRequired(data[SETTING_KEYS.ANDROID_UPDATE_REQUIRED].value === 'true');
+      if (data[SETTING_KEYS.PLAY_MARKET_URL]) setPlayMarketUrl(data[SETTING_KEYS.PLAY_MARKET_URL].value);
+      if (data[SETTING_KEYS.RATING_DIALOG_ENABLED]) setRatingDialogEnabled(data[SETTING_KEYS.RATING_DIALOG_ENABLED].value !== 'false');
+      if (data[SETTING_KEYS.RATING_PROMPT_MIN_LAUNCHES]) setRatingMinLaunches(data[SETTING_KEYS.RATING_PROMPT_MIN_LAUNCHES].value);
+      if (data[SETTING_KEYS.RATING_PROMPT_COOLDOWN_DAYS]) setRatingCooldownDays(data[SETTING_KEYS.RATING_PROMPT_COOLDOWN_DAYS].value);
+      if (data[SETTING_KEYS.ADVERTISEMENT_PRICE]) setAdvertisementPrice(data[SETTING_KEYS.ADVERTISEMENT_PRICE].value);
+      if (data[SETTING_KEYS.ADVERTISEMENT_DEFAULT_DURATION_DAYS]) setAdvertisementDurationDays(data[SETTING_KEYS.ADVERTISEMENT_DEFAULT_DURATION_DAYS].value);
       if (data[SETTING_KEYS.CONTACT_TELEGRAM]) setTelegram(data[SETTING_KEYS.CONTACT_TELEGRAM].value);
       if (data[SETTING_KEYS.CONTACT_WHATSAPP]) setWhatsapp(data[SETTING_KEYS.CONTACT_WHATSAPP].value);
     } catch { /* silent */ }
@@ -136,7 +168,9 @@ export default function SettingsPage() {
   const saveDeliveryPricing = async () => {
     const base = parseFloat(basePrice);
     const km = parseFloat(perKm);
-    if (isNaN(base) || base < 0 || isNaN(km) || km < 0) {
+    const extraAfter = parseFloat(extraAfterKm);
+    const extra = parseFloat(extraPerKm);
+    if (isNaN(base) || base < 0 || isNaN(km) || km < 0 || isNaN(extraAfter) || extraAfter < 0 || isNaN(extra) || extra < 0) {
       setPriceMsg('Туура сан киргизиңиз');
       return;
     }
@@ -146,6 +180,8 @@ export default function SettingsPage() {
       await Promise.all([
         settingsService.updateSetting(SETTING_KEYS.DELIVERY_BASE, String(base)),
         settingsService.updateSetting(SETTING_KEYS.DELIVERY_PER_KM, String(km)),
+        settingsService.updateSetting(SETTING_KEYS.DELIVERY_EXTRA_AFTER_KM, String(extraAfter)),
+        settingsService.updateSetting(SETTING_KEYS.DELIVERY_EXTRA_PER_KM, String(extra)),
       ]);
       setPriceMsg('✓ Сакталды');
     } catch {
@@ -158,7 +194,9 @@ export default function SettingsPage() {
   const saveTaxiPricing = async () => {
     const base = parseFloat(taxiBase);
     const km = parseFloat(taxiPerKm);
-    if (isNaN(base) || base < 0 || isNaN(km) || km < 0) {
+    const extraAfter = parseFloat(taxiExtraAfterKm);
+    const extra = parseFloat(taxiExtraPerKm);
+    if (isNaN(base) || base < 0 || isNaN(km) || km < 0 || isNaN(extraAfter) || extraAfter < 0 || isNaN(extra) || extra < 0) {
       setTaxiMsg('Туура сан киргизиңиз');
       return;
     }
@@ -168,6 +206,8 @@ export default function SettingsPage() {
       await Promise.all([
         settingsService.updateSetting(SETTING_KEYS.TAXI_BASE, String(base)),
         settingsService.updateSetting(SETTING_KEYS.TAXI_PER_KM, String(km)),
+        settingsService.updateSetting(SETTING_KEYS.TAXI_EXTRA_AFTER_KM, String(extraAfter)),
+        settingsService.updateSetting(SETTING_KEYS.TAXI_EXTRA_PER_KM, String(extra)),
       ]);
       setTaxiMsg('✓ Сакталды');
     } catch {
@@ -193,17 +233,75 @@ export default function SettingsPage() {
     }
   };
 
+  const saveMarketPrompts = async () => {
+    const latestCode = parseInt(androidLatestVersionCode, 10);
+    const minLaunches = parseInt(ratingMinLaunches, 10);
+    const cooldown = parseInt(ratingCooldownDays, 10);
+    if (
+      isNaN(latestCode) || latestCode < 1 ||
+      isNaN(minLaunches) || minLaunches < 1 ||
+      isNaN(cooldown) || cooldown < 1 ||
+      !playMarketUrl.trim()
+    ) {
+      setMarketMsg('Туура маалымат киргизиңиз');
+      return;
+    }
+    setMarketSaving(true);
+    setMarketMsg('');
+    try {
+      await Promise.all([
+        settingsService.updateSetting(SETTING_KEYS.ANDROID_LATEST_VERSION_CODE, String(latestCode)),
+        settingsService.updateSetting(SETTING_KEYS.ANDROID_UPDATE_REQUIRED, String(androidUpdateRequired)),
+        settingsService.updateSetting(SETTING_KEYS.PLAY_MARKET_URL, playMarketUrl.trim()),
+        settingsService.updateSetting(SETTING_KEYS.RATING_DIALOG_ENABLED, String(ratingDialogEnabled)),
+        settingsService.updateSetting(SETTING_KEYS.RATING_PROMPT_MIN_LAUNCHES, String(minLaunches)),
+        settingsService.updateSetting(SETTING_KEYS.RATING_PROMPT_COOLDOWN_DAYS, String(cooldown)),
+      ]);
+      setMarketMsg('✓ Сакталды');
+    } catch {
+      setMarketMsg('Сактоодо ката кетти');
+    } finally {
+      setMarketSaving(false);
+    }
+  };
+
+  const saveAdvertisementSettings = async () => {
+    const price = parseFloat(advertisementPrice);
+    const days = parseInt(advertisementDurationDays, 10);
+    if (isNaN(price) || price < 0 || isNaN(days) || days < 1 || days > 90) {
+      setAdvertisementMsg('Туура баа жана мөөнөт киргизиңиз');
+      return;
+    }
+    setAdvertisementSaving(true);
+    setAdvertisementMsg('');
+    try {
+      await Promise.all([
+        settingsService.updateSetting(SETTING_KEYS.ADVERTISEMENT_PRICE, String(price)),
+        settingsService.updateSetting(SETTING_KEYS.ADVERTISEMENT_DEFAULT_DURATION_DAYS, String(days)),
+      ]);
+      setAdvertisementMsg('✓ Сакталды');
+    } catch {
+      setAdvertisementMsg('Сактоодо ката кетти');
+    } finally {
+      setAdvertisementSaving(false);
+    }
+  };
+
   const deliveryPreview = useMemo(() => {
     const base = parseFloat(basePrice) || 0;
     const km = parseFloat(perKm) || 0;
-    return [1, 3, 5, 10].map(d => ({ km: d, price: Math.round(base + d * km) }));
-  }, [basePrice, perKm]);
+    const extraAfter = parseFloat(extraAfterKm) || 0;
+    const extra = parseFloat(extraPerKm) || 0;
+    return [1, 3, 5, 10].map(d => ({ km: d, price: Math.round(base + d * km + Math.max(0, d - extraAfter) * extra) }));
+  }, [basePrice, perKm, extraAfterKm, extraPerKm]);
 
   const taxiPreview = useMemo(() => {
     const base = parseFloat(taxiBase) || 0;
     const km = parseFloat(taxiPerKm) || 0;
-    return [1, 3, 5, 10].map(d => ({ km: d, price: Math.round(base + d * km) }));
-  }, [taxiBase, taxiPerKm]);
+    const extraAfter = parseFloat(taxiExtraAfterKm) || 0;
+    const extra = parseFloat(taxiExtraPerKm) || 0;
+    return [1, 3, 5, 10].map(d => ({ km: d, price: Math.round(base + d * km + Math.max(0, d - extraAfter) * extra) }));
+  }, [taxiBase, taxiPerKm, taxiExtraAfterKm, taxiExtraPerKm]);
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return users;
@@ -378,7 +476,7 @@ export default function SettingsPage() {
 
             <div className="sp-formula-field">
               <div className="sp-fee-label">1 км үчүн баа (сом)</div>
-              <div className="sp-fee-desc">Ар бир километр үчүн кошулуучу сумма</div>
+              <div className="sp-fee-desc">Ар бир километр үчүн дайыма кошулуучу сумма</div>
               <div className="sp-fee-input-wrap" style={{ marginTop: 8 }}>
                 <input
                   type="number" min="0" step="1"
@@ -392,7 +490,36 @@ export default function SettingsPage() {
             </div>
 
             <div className="sp-formula-plus">×</div>
-            <div className="sp-formula-km-label">км</div>
+            <div className="sp-formula-field">
+              <div className="sp-fee-label">Кошумча акы баштала турган аралык</div>
+              <div className="sp-fee-desc">Мисалы 4 болсо, 4 кмден ашкан бөлүккө кошумча баа кошулат</div>
+              <div className="sp-fee-input-wrap" style={{ marginTop: 8 }}>
+                <input
+                  type="number" min="0" step="0.1"
+                  value={extraAfterKm}
+                  onChange={e => { setExtraAfterKm(e.target.value); setPriceMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="4"
+                />
+                <span className="sp-fee-unit">кмден кийин</span>
+              </div>
+            </div>
+
+            <div className="sp-formula-plus">+</div>
+            <div className="sp-formula-field">
+              <div className="sp-fee-label">Кошумча баа (сом/км)</div>
+              <div className="sp-fee-desc">Чек аралыктан ашкан ар бир км үчүн кошумча алынат</div>
+              <div className="sp-fee-input-wrap" style={{ marginTop: 8 }}>
+                <input
+                  type="number" min="0" step="1"
+                  value={extraPerKm}
+                  onChange={e => { setExtraPerKm(e.target.value); setPriceMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="0"
+                />
+                <span className="sp-fee-unit">сом/км</span>
+              </div>
+            </div>
           </div>
 
           <div className="sp-delivery-preview">
@@ -447,7 +574,7 @@ export default function SettingsPage() {
 
             <div className="sp-formula-field">
               <div className="sp-fee-label">1 км үчүн баа (сом)</div>
-              <div className="sp-fee-desc">Ар бир километр үчүн кошулуучу сумма</div>
+              <div className="sp-fee-desc">Ар бир километр үчүн дайыма кошулуучу сумма</div>
               <div className="sp-fee-input-wrap" style={{ marginTop: 8 }}>
                 <input
                   type="number" min="0" step="1"
@@ -461,7 +588,36 @@ export default function SettingsPage() {
             </div>
 
             <div className="sp-formula-plus">×</div>
-            <div className="sp-formula-km-label">км</div>
+            <div className="sp-formula-field">
+              <div className="sp-fee-label">Кошумча акы баштала турган аралык</div>
+              <div className="sp-fee-desc">Мисалы 4 болсо, 4 кмден ашкан бөлүккө кошумча баа кошулат</div>
+              <div className="sp-fee-input-wrap" style={{ marginTop: 8 }}>
+                <input
+                  type="number" min="0" step="0.1"
+                  value={taxiExtraAfterKm}
+                  onChange={e => { setTaxiExtraAfterKm(e.target.value); setTaxiMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="4"
+                />
+                <span className="sp-fee-unit">кмден кийин</span>
+              </div>
+            </div>
+
+            <div className="sp-formula-plus">+</div>
+            <div className="sp-formula-field">
+              <div className="sp-fee-label">Кошумча баа (сом/км)</div>
+              <div className="sp-fee-desc">Чек аралыктан ашкан ар бир км үчүн кошумча алынат</div>
+              <div className="sp-fee-input-wrap" style={{ marginTop: 8 }}>
+                <input
+                  type="number" min="0" step="1"
+                  value={taxiExtraPerKm}
+                  onChange={e => { setTaxiExtraPerKm(e.target.value); setTaxiMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="0"
+                />
+                <span className="sp-fee-unit">сом/км</span>
+              </div>
+            </div>
           </div>
 
           <div className="sp-delivery-preview">
@@ -488,7 +644,208 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* ── Section 4: Balance top-up ── */}
+      {/* ── Section 4: App market prompts ── */}
+      <div className="sp-section">
+        <div className="sp-section-title">
+          <Settings size={18} />
+          Тиркеме версиясы жана Play Market диалогдору
+        </div>
+        <p className="sp-section-desc" style={{ marginBottom: 16 }}>
+          Колдонмодо жаңы версия жана Play Marketте баалоо сунуштарын башкаруу.
+        </p>
+
+        <div className="sp-fees-grid">
+          <div className="sp-fee-card sp-fee-card--bordered">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">Акыркы Android versionCode</div>
+              <div className="sp-fee-desc">Play Marketке чыккан акыркы AAB versionCode. Колдонуучудагы versionCode мындан төмөн болсо, жаңыртуу диалогу чыгат.</div>
+            </div>
+            <div className="sp-fee-input-row">
+              <div className="sp-fee-input-wrap" style={{ flex: 1 }}>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={androidLatestVersionCode}
+                  onChange={e => { setAndroidLatestVersionCode(e.target.value); setMarketMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="22"
+                />
+                <span className="sp-fee-unit">code</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="sp-fee-card sp-fee-card--bordered">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">Play Market шилтемеси</div>
+              <div className="sp-fee-desc">Жүктөп алуу жана баалоо баскычтары ушул шилтемени ачат.</div>
+            </div>
+            <div className="sp-fee-input-row">
+              <div className="sp-fee-input-wrap" style={{ flex: 1 }}>
+                <input
+                  type="text"
+                  value={playMarketUrl}
+                  onChange={e => { setPlayMarketUrl(e.target.value); setMarketMsg(''); }}
+                  className="sp-fee-input sp-text-input"
+                  placeholder="https://play.google.com/store/apps/details?id=kg.batkenexpress.app"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="sp-fee-card sp-fee-card--bordered">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">Жаңыртуу милдеттүү болсун</div>
+              <div className="sp-fee-desc">Күйүк болсо, колдонуучу “Кийинчерээк” баскычын көрбөйт.</div>
+            </div>
+            <label className="sp-fee-input-row" style={{ alignItems: 'center', gap: 10 }}>
+              <input
+                type="checkbox"
+                checked={androidUpdateRequired}
+                onChange={e => { setAndroidUpdateRequired(e.target.checked); setMarketMsg(''); }}
+              />
+              <span>{androidUpdateRequired ? 'Милдеттүү' : 'Милдеттүү эмес'}</span>
+            </label>
+          </div>
+
+          <div className="sp-fee-card sp-fee-card--bordered">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">Баалоо диалогу</div>
+              <div className="sp-fee-desc">Колдонуучуга Play Marketте баалап коюу сунушу көрсөтүлөт.</div>
+            </div>
+            <label className="sp-fee-input-row" style={{ alignItems: 'center', gap: 10 }}>
+              <input
+                type="checkbox"
+                checked={ratingDialogEnabled}
+                onChange={e => { setRatingDialogEnabled(e.target.checked); setMarketMsg(''); }}
+              />
+              <span>{ratingDialogEnabled ? 'Күйүк' : 'Өчүк'}</span>
+            </label>
+          </div>
+
+          <div className="sp-fee-card sp-fee-card--bordered">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">Баалоо диалогу канчанчы кирүүдөн кийин чыксын</div>
+              <div className="sp-fee-desc">Мисалы 3 болсо, үчүнчү киргенден кийин сунушталат.</div>
+            </div>
+            <div className="sp-fee-input-row">
+              <div className="sp-fee-input-wrap" style={{ flex: 1 }}>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={ratingMinLaunches}
+                  onChange={e => { setRatingMinLaunches(e.target.value); setMarketMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="3"
+                />
+                <span className="sp-fee-unit">жолу</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="sp-fee-card sp-fee-card--bordered">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">Кайра көрсөтүү аралыгы</div>
+              <div className="sp-fee-desc">“Кийинчерээк” басылса, кайра канча күндөн кийин чыксын.</div>
+            </div>
+            <div className="sp-fee-input-row">
+              <div className="sp-fee-input-wrap" style={{ flex: 1 }}>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={ratingCooldownDays}
+                  onChange={e => { setRatingCooldownDays(e.target.value); setMarketMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="14"
+                />
+                <span className="sp-fee-unit">күн</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="sp-fee-input-row" style={{ marginTop: 16 }}>
+          <button className="sp-save-btn" onClick={saveMarketPrompts} disabled={marketSaving}>
+            <Save size={15} />
+            {marketSaving ? 'Сакталууда...' : 'Сактоо'}
+          </button>
+          {marketMsg && (
+            <div className={`sp-fee-msg ${marketMsg.startsWith('✓') ? 'success' : 'error'}`}>
+              {marketMsg}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Section 5: User advertisements ── */}
+      <div className="sp-section">
+        <div className="sp-section-title">
+          <MessageCircle size={18} />
+          Колдонуучу жарнамалары
+        </div>
+
+        <div className="sp-fees-grid">
+          <div className="sp-fee-card sp-fee-card--bordered">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">Жарнама баасы</div>
+              <div className="sp-fee-desc">Колдонуучу жарнама жөнөткөндө балансынан алынуучу сумма</div>
+            </div>
+            <div className="sp-fee-input-row">
+              <div className="sp-fee-input-wrap">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={advertisementPrice}
+                  onChange={e => { setAdvertisementPrice(e.target.value); setAdvertisementMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="50"
+                />
+                <span className="sp-fee-unit">сом</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="sp-fee-card sp-fee-card--bordered">
+            <div className="sp-fee-info">
+              <div className="sp-fee-label">Активдүү мөөнөт</div>
+              <div className="sp-fee-desc">Админ жактыргандан кийин жарнама канча күн көрүнүп турат</div>
+            </div>
+            <div className="sp-fee-input-row">
+              <div className="sp-fee-input-wrap">
+                <input
+                  type="number"
+                  min="1"
+                  max="90"
+                  step="1"
+                  value={advertisementDurationDays}
+                  onChange={e => { setAdvertisementDurationDays(e.target.value); setAdvertisementMsg(''); }}
+                  className="sp-fee-input"
+                  placeholder="7"
+                />
+                <span className="sp-fee-unit">күн</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="sp-fee-input-row" style={{ marginTop: 16 }}>
+          <button className="sp-save-btn" onClick={saveAdvertisementSettings} disabled={advertisementSaving}>
+            <Save size={15} />
+            {advertisementSaving ? 'Сакталууда...' : 'Сактоо'}
+          </button>
+          {advertisementMsg && (
+            <div className={`sp-fee-msg ${advertisementMsg.startsWith('✓') ? 'success' : 'error'}`}>
+              {advertisementMsg}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Section 5: Balance top-up ── */}
       <div className="sp-section">
         <div className="sp-section-title">
           <Wallet size={18} />

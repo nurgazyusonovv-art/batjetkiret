@@ -1,12 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Search, Filter, Eye, Trash2, CalendarDays, X, MapPin, User, Truck, Package } from 'lucide-react';
+import { Search, Filter, Eye, Trash2, CalendarDays, X, MapPin, User, Truck, Package, Plus, Phone } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { orderService } from '@/services/orders';
 import { Order, OrderStatus } from '@/types';
 import { fmtDate, fmtDateTime } from '@/utils/date';
+import { getErrorMessage } from '@/utils/error';
 import './OrdersPage.css';
 
 const ITEMS_PER_PAGE = 12;
+
+interface CreateOrderForm {
+  phone: string;
+  category: 'delivery' | 'taxi';
+  fromAddress: string;
+  toAddress: string;
+  description: string;
+  adminNote: string;
+}
+
+const EMPTY_CREATE_FORM: CreateOrderForm = {
+  phone: '',
+  category: 'delivery',
+  fromAddress: '',
+  toAddress: '',
+  description: '',
+  adminNote: '',
+};
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   WAITING_COURIER: 'Жаңы',
@@ -68,6 +87,10 @@ export default function OrdersPage() {
   const [notifyTitle, setNotifyTitle] = useState('');
   const [notifyMessage, setNotifyMessage] = useState('');
   const [notifySending, setNotifySending] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [createForm, setCreateForm] = useState<CreateOrderForm>(EMPTY_CREATE_FORM);
 
   const formatDateLabel = (value: string) => {
     if (!value) return 'Күндү тандаңыз';
@@ -82,6 +105,56 @@ export default function OrdersPage() {
   const clearSelectedDate = () => { setSelectedDate(''); setTodayOnly(false); loadOrders(false, '', '', ''); };
   const clearDateFrom = () => { setDateFrom(''); setTodayOnly(false); setSelectedDate(''); loadOrders(false, '', '', dateTo); };
   const clearDateTo  = () => { setDateTo('');   setTodayOnly(false); setSelectedDate(''); loadOrders(false, '', dateFrom, ''); };
+
+  const openCreateOrder = () => {
+    setCreateOpen(true);
+    setCreateError('');
+  };
+
+  const closeCreateOrder = () => {
+    if (createSubmitting) return;
+    setCreateOpen(false);
+    setCreateError('');
+    setCreateForm(EMPTY_CREATE_FORM);
+  };
+
+  const submitCreateOrder = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setCreateError('');
+
+    const phoneDigits = createForm.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 9 || phoneDigits.length > 15) {
+      setCreateError('Телефон номерди туура жазыңыз'); return;
+    }
+    if (!createForm.fromAddress.trim() || !createForm.toAddress.trim()) {
+      setCreateError('Алуу жана жеткирүү даректерин толтуруңуз'); return;
+    }
+    if (!createForm.description.trim()) { setCreateError('Заказдын түшүндүрмөсүн жазыңыз'); return; }
+
+    setCreateSubmitting(true);
+    try {
+      const created = await orderService.createOrder({
+        phone: createForm.phone.trim(),
+        category: createForm.category,
+        description: createForm.description.trim(),
+        from_address: createForm.fromAddress.trim(),
+        to_address: createForm.toAddress.trim(),
+        admin_note: createForm.adminNote.trim() || undefined,
+      });
+      setCreateOpen(false);
+      setCreateForm(EMPTY_CREATE_FORM);
+      await loadOrders(todayOnly, selectedDate, dateFrom, dateTo);
+      setSelectedOrder(created);
+      setStatusDraft(created.status);
+      setStatusNote(created.admin_note ?? '');
+      setNotifyTitle(`Заказ №${created.id} жөнүндө`);
+      setNotifyMessage('');
+    } catch (error) {
+      setCreateError(getErrorMessage(error, 'Заказды түзүү мүмкүн болгон жок'));
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
 
   const loadOrders = useCallback(async (
     onlyToday: boolean, date = '', from = '', to = '',
@@ -248,9 +321,15 @@ export default function OrdersPage() {
     <div className="orders-page">
       {loadError && <div className="error-banner">{loadError}</div>}
 
-      <div className="page-header">
-        <h1>Заказдар</h1>
-        <p className="subtitle">Бардык заказдарды башкаруу — {filteredOrders.length} заказ</p>
+      <div className="orders-heading-row">
+        <div className="page-header">
+          <h1>Заказдар</h1>
+          <p className="subtitle">Бардык заказдарды башкаруу — {filteredOrders.length} заказ</p>
+        </div>
+        <button type="button" className="create-order-btn" onClick={openCreateOrder}>
+          <Plus size={18} />
+          Жаңы заказ
+        </button>
       </div>
 
       {/* ── Filters ── */}
@@ -410,6 +489,127 @@ export default function OrdersPage() {
             <button className="page-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Артка</button>
             <span className="page-indicator">Бет {currentPage} / {totalPages}</span>
             <button className="page-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Алга</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Create order modal ── */}
+      {createOpen && (
+        <div className="create-order-overlay" onMouseDown={closeCreateOrder}>
+          <div className="create-order-modal" onMouseDown={event => event.stopPropagation()}>
+            <div className="create-order-header">
+                <div>
+                  <h2>Жаңы заказ</h2>
+                  <p>Курьер үчүн системадан тышкары заказ түзүү</p>
+              </div>
+              <button type="button" className="create-order-close" onClick={closeCreateOrder} aria-label="Жабуу">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form className="create-order-form" onSubmit={submitCreateOrder}>
+              {createError && <div className="create-order-error">{createError}</div>}
+
+              <div className="create-order-section">
+                <div className="create-order-step">1</div>
+                <div className="create-order-section-content">
+                  <h3>Кардардын байланышы</h3>
+                  <label className="create-field create-field--full">
+                    <span>Телефон номер</span>
+                    <div className="create-input-with-icon">
+                      <Phone size={16} />
+                      <input
+                        type="tel"
+                        value={createForm.phone}
+                        onChange={event => setCreateForm(form => ({ ...form, phone: event.target.value }))}
+                        placeholder="+996 700 000 000"
+                        autoComplete="tel"
+                      />
+                    </div>
+                    <small>Кардар тиркемеде катталган болушу шарт эмес</small>
+                  </label>
+                </div>
+              </div>
+
+              <div className="create-order-section">
+                <div className="create-order-step">2</div>
+                <div className="create-order-section-content">
+                  <h3>Кызмат жана маршрут</h3>
+                  <div className="create-order-modes" role="group" aria-label="Кызмат түрү">
+                    <button
+                      type="button"
+                      className={createForm.category === 'delivery' ? 'active' : ''}
+                      onClick={() => setCreateForm(form => ({ ...form, category: 'delivery' }))}
+                    >
+                      <Package size={17} /> Жеткирүү
+                    </button>
+                    <button
+                      type="button"
+                      className={createForm.category === 'taxi' ? 'active' : ''}
+                      onClick={() => setCreateForm(form => ({ ...form, category: 'taxi' }))}
+                    >
+                      <Truck size={17} /> Такси
+                    </button>
+                  </div>
+                  <div className="create-order-grid">
+                    <label className="create-field create-field--full">
+                      <span>Кайдан алынат</span>
+                      <input
+                        value={createForm.fromAddress}
+                        onChange={event => setCreateForm(form => ({ ...form, fromAddress: event.target.value }))}
+                        placeholder="Мисалы: Баткен, борбордук базар"
+                      />
+                    </label>
+                    <label className="create-field create-field--full">
+                      <span>Кайда жеткирилет</span>
+                      <input
+                        value={createForm.toAddress}
+                        onChange={event => setCreateForm(form => ({ ...form, toAddress: event.target.value }))}
+                        placeholder="Толук жеткирүү дареги"
+                      />
+                    </label>
+                    <div className="create-field create-field--full">
+                      <small>Аралык жана жеткирүү акысы курьер заказды аткарганда GPS жана backend тарифи менен эсептелет.</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="create-order-section">
+                <div className="create-order-step">3</div>
+                <div className="create-order-section-content">
+                  <h3>Заказ жөнүндө</h3>
+                  <label className="create-field create-field--full">
+                    <span>{createForm.category === 'taxi' ? 'Жүргүнчү тууралуу маалымат' : 'Эмне жеткирилет'}</span>
+                    <textarea
+                      rows={3}
+                      maxLength={500}
+                      value={createForm.description}
+                      onChange={event => setCreateForm(form => ({ ...form, description: event.target.value }))}
+                      placeholder={createForm.category === 'taxi' ? 'Жүргүнчүлөрдүн саны, кошумча маалымат' : 'Товарлар же пакет тууралуу маалымат'}
+                    />
+                  </label>
+                  <label className="create-field create-field--full">
+                    <span>Админ эскертмеси</span>
+                    <textarea
+                      rows={2}
+                      maxLength={500}
+                      value={createForm.adminNote}
+                      onChange={event => setCreateForm(form => ({ ...form, adminNote: event.target.value }))}
+                      placeholder="Ички эскертме (милдеттүү эмес)"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="create-order-actions">
+                <button type="button" className="create-order-cancel" onClick={closeCreateOrder} disabled={createSubmitting}>Жокко чыгаруу</button>
+                <button type="submit" className="create-order-submit" disabled={createSubmitting}>
+                  <Plus size={18} />
+                  {createSubmitting ? 'Түзүлүүдө...' : 'Заказ түзүү'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

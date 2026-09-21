@@ -16,6 +16,7 @@ import PasswordResetRequestsPage from './pages/PasswordResetRequestsPage';
 import AboutPage from './pages/AboutPage';
 import BannersPage from './pages/BannersPage';
 import AdPopupPage from './pages/AdPopupPage';
+import AdvertisementsPage from './pages/AdvertisementsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 
@@ -163,6 +164,17 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <BannersPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/advertisements"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <AdvertisementsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

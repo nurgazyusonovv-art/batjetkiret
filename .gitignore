@@ -29,6 +29,7 @@ Thumbs.db
 
 # Logs
 *.log
+backups/
 
 # Flutter/Dart (frontend)
 frontend/.dart_tool/
@@ -61,3 +62,12 @@ enterprise-panel/dist/
 uploads/
 firebase-service-account.json
 .vercel
+
+# Local test venv
+.venv311/
+.venv_test/
+_test_run.db
+
+# Deployment env files (values belong in the hosting provider's dashboard)
+.env.vercel.production
+**/.env.vercel.production

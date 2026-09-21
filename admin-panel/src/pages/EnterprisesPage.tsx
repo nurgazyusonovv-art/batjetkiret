@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Building2, Plus, Pencil, Trash2, CheckCircle, XCircle,
-  Search, X, MapPin, KeyRound, Eye, EyeOff,
+  Search, X, MapPin, KeyRound,
 } from 'lucide-react';
 import { Enterprise, EnterpriseCreate, EnterpriseUpdate } from '@/types';
 import { enterprisesService, EnterpriseCredentials } from '@/services/enterprises';
@@ -218,7 +218,6 @@ export default function EnterprisesPage() {
   const [credPhone, setCredPhone] = useState('');
   const [credPassword, setCredPassword] = useState('');
   const [credName, setCredName] = useState('');
-  const [credShowPwd, setCredShowPwd] = useState(false);
   const [credSaving, setCredSaving] = useState(false);
   const [credError, setCredError] = useState('');
   const [credSuccess, setCredSuccess] = useState('');
@@ -356,7 +355,6 @@ export default function EnterprisesPage() {
     setCredName(e.name);
     setCredError('');
     setCredSuccess('');
-    setCredShowPwd(false);
     try {
       const creds = await enterprisesService.getCredentials(e.id);
       setExistingCreds(creds);
@@ -721,22 +719,11 @@ export default function EnterprisesPage() {
                   </div>
                   <div className="ent-creds-row">
                     <span className="ent-creds-label">Сырсөз:</span>
-                    <div className="ent-creds-pwd-wrap">
-                      <span className="ent-creds-value">
-                        {credShowPwd
-                          ? (existingCreds.panel_password ?? <em style={{ color: '#9ca3af' }}>Сакталган жок</em>)
-                          : (existingCreds.panel_password ? '••••••••' : <em style={{ color: '#9ca3af' }}>Сакталган жок</em>)
-                        }
-                      </span>
-                      <button
-                        type="button"
-                        className="ent-creds-eye"
-                        onClick={() => setCredShowPwd(!credShowPwd)}
-                        title={credShowPwd ? 'Жашыруу' : 'Көрсөтүү'}
-                      >
-                        {credShowPwd ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
-                    </div>
+                    <span className="ent-creds-value">
+                      {existingCreds.has_password
+                        ? 'Орнотулган. Коопсуздук үчүн көрсөтүлбөйт.'
+                        : <em style={{ color: '#9ca3af' }}>Орнотулган эмес</em>}
+                    </span>
                   </div>
                 </div>
               ) : (

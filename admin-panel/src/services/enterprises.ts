@@ -7,7 +7,7 @@ export interface EnterpriseCredentials {
   phone?: string;
   name?: string;
   is_active?: boolean;
-  panel_password?: string;
+  has_password?: boolean;
 }
 
 export const enterprisesService = {
