@@ -20,29 +20,37 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Drop old topup_requests table and create new one with Telegram bot fields
-    op.drop_table('topup_requests')
-    
-    op.create_table(
-        'topup_requests',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=True),
-        sa.Column('unique_id', sa.String(), nullable=False),
-        sa.Column('telegram_user_id', sa.Integer(), nullable=False),
-        sa.Column('telegram_username', sa.String(), nullable=True),
-        sa.Column('screenshot_file_id', sa.String(), nullable=False),
-        sa.Column('amount', sa.Numeric(10, 2), nullable=False),
-        sa.Column('status', sa.String(), server_default='PENDING', nullable=True),
-        sa.Column('admin_note', sa.String(), nullable=True),
-        sa.Column('approved_by_admin_id', sa.Integer(), nullable=True),
-        sa.Column('approved_at', sa.DateTime(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id']),
-        sa.ForeignKeyConstraint(['approved_by_admin_id'], ['users.id']),
-        sa.PrimaryKeyConstraint('id')
+    op.execute(
+        "CREATE TABLE IF NOT EXISTS topup_requests ("
+        "id SERIAL PRIMARY KEY, "
+        "user_id INTEGER REFERENCES users(id), "
+        "unique_id VARCHAR, "
+        "telegram_user_id INTEGER, "
+        "telegram_username VARCHAR, "
+        "screenshot_file_id VARCHAR, "
+        "screenshot_url VARCHAR, "
+        "screenshot_hash VARCHAR, "
+        "amount NUMERIC(10, 2), "
+        "approved_amount NUMERIC(10, 2), "
+        "status VARCHAR DEFAULT 'PENDING', "
+        "admin_note VARCHAR, "
+        "approved_by_admin_id INTEGER REFERENCES users(id), "
+        "approved_at TIMESTAMP, "
+        "expires_at TIMESTAMP, "
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
     )
-    op.create_index(op.f('ix_topup_requests_id'), 'topup_requests', ['id'], unique=False)
-    op.create_index(op.f('ix_topup_requests_unique_id'), 'topup_requests', ['unique_id'], unique=False)
+    op.execute("ALTER TABLE topup_requests ADD COLUMN IF NOT EXISTS unique_id VARCHAR")
+    op.execute("ALTER TABLE topup_requests ADD COLUMN IF NOT EXISTS telegram_user_id INTEGER")
+    op.execute("ALTER TABLE topup_requests ADD COLUMN IF NOT EXISTS telegram_username VARCHAR")
+    op.execute("ALTER TABLE topup_requests ADD COLUMN IF NOT EXISTS screenshot_file_id VARCHAR")
+    op.execute("ALTER TABLE topup_requests ADD COLUMN IF NOT EXISTS screenshot_url VARCHAR")
+    op.execute("ALTER TABLE topup_requests ADD COLUMN IF NOT EXISTS screenshot_hash VARCHAR")
+    op.execute("ALTER TABLE topup_requests ADD COLUMN IF NOT EXISTS amount NUMERIC(10, 2)")
+    op.execute("ALTER TABLE topup_requests ADD COLUMN IF NOT EXISTS approved_amount NUMERIC(10, 2)")
+    op.execute("ALTER TABLE topup_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_topup_requests_id ON topup_requests (id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_topup_requests_unique_id ON topup_requests (unique_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_topup_requests_screenshot_hash ON topup_requests (screenshot_hash)")
 
 
 def downgrade() -> None:

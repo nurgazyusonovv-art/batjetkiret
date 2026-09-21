@@ -20,7 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 VALID_STATUS_SQL = (
     "status IN ('WAITING_COURIER', 'ACCEPTED', 'ON_THE_WAY', "
-    "'DELIVERED', 'COMPLETED', 'CANCELLED')"
+    "'PREPARING', 'READY', 'DELIVERED', 'COMPLETED', 'CANCELLED')"
 )
 
 
@@ -35,36 +35,12 @@ def upgrade() -> None:
         server_default=sa.text("'WAITING_COURIER'"),
     )
 
-    op.create_check_constraint(
-        "ck_orders_status_valid",
-        "orders",
-        VALID_STATUS_SQL,
-    )
-
-    op.create_index(
-        "ix_orders_user_id_created_at",
-        "orders",
-        ["user_id", "created_at"],
-        unique=False,
-    )
-    op.create_index(
-        "ix_orders_courier_id_created_at",
-        "orders",
-        ["courier_id", "created_at"],
-        unique=False,
-    )
-    op.create_index(
-        "ix_orders_status_created_at",
-        "orders",
-        ["status", "created_at"],
-        unique=False,
-    )
-    op.create_index(
-        "ix_chat_rooms_order_id_type",
-        "chat_rooms",
-        ["order_id", "type"],
-        unique=False,
-    )
+    op.execute("ALTER TABLE orders DROP CONSTRAINT IF EXISTS ck_orders_status_valid")
+    op.execute(f"ALTER TABLE orders ADD CONSTRAINT ck_orders_status_valid CHECK ({VALID_STATUS_SQL})")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_orders_user_id_created_at ON orders (user_id, created_at)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_orders_courier_id_created_at ON orders (courier_id, created_at)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_orders_status_created_at ON orders (status, created_at)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_chat_rooms_order_id_type ON chat_rooms (order_id, type)")
 
 
 def downgrade() -> None:

@@ -20,9 +20,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Add unique_id column to users table
-    op.add_column('users', sa.Column('unique_id', sa.String(), nullable=True))
-    op.create_index(op.f('ix_users_unique_id'), 'users', ['unique_id'], unique=True)
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS unique_id VARCHAR")
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_unique_id ON users (unique_id)")
 
 
 def downgrade() -> None:

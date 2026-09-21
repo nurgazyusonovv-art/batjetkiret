@@ -75,6 +75,43 @@ def settle_hold(
     return True
 
 
+def charge_or_adjust_hold(
+    db: Session,
+    user: User,
+    order_id: int,
+    amount: float | Decimal,
+    final_type: str,
+) -> Decimal:
+    """Charge an exact fee, reconciling any amount already held for the order.
+
+    Dynamic fees may only be known after delivery. Existing orders can still have
+    a fixed HOLD from the old flow, so adjust the balance by the difference and
+    turn that ledger row into the final charge. New orders get one charge row.
+    """
+    amount_decimal = _to_decimal(amount)
+    if amount_decimal < 0:
+        raise ValueError("Fee amount cannot be negative")
+
+    hold = _open_hold(db, user.id, order_id)
+    if hold is not None:
+        held_amount = -hold.amount
+        user.balance -= amount_decimal - held_amount
+        hold.amount = -amount_decimal
+        hold.type = final_type
+        return amount_decimal
+
+    user.balance -= amount_decimal
+    db.add(
+        Transaction(
+            user_id=user.id,
+            order_id=order_id,
+            amount=-amount_decimal,
+            type=final_type,
+        )
+    )
+    return amount_decimal
+
+
 def release_hold(db: Session, user: User, order_id: int) -> Decimal:
     """Give a reserved HOLD back to the user (order cancelled before completion).
     Idempotent: a second call is a no-op. Returns the released amount.

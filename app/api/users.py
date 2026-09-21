@@ -8,15 +8,15 @@ from sqlalchemy import or_
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.models.order import Order
-from app.models.chat_room import ChatRoom
+from app.models.chat import ChatRoom
 from app.models.message import Message
 from app.models.order_status_log import OrderStatusLog
-from app.models.courier_rating import CourierRating
+from app.models.rating import CourierRating
 from app.models.user_rating import UserRating
 from app.models.transaction import Transaction
 from app.models.notification import Notification
 from app.models.password_reset import PasswordReset
-from app.models.topup_request import TopUpRequest
+from app.models.topup import TopUpRequest
 
 
 class UpdateFcmTokenRequest(BaseModel):
@@ -282,4 +282,3 @@ def delete_me(
     db.delete(user)
     db.commit()
     return {"ok": True, "message": "Account successfully deleted"}
-

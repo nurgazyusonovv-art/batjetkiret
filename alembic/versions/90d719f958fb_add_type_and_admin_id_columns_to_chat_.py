@@ -20,24 +20,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema: Add type and admin_id columns to chat_rooms."""
-    # Add 'type' column with default value 'ORDER'
-    # For existing rows, default to 'ORDER' type (normal order-related chat)
-    op.add_column(
-        'chat_rooms',
-        sa.Column('type', sa.String(), nullable=True)
-    )
-    
-    # Set all existing rows to 'ORDER' type
+    op.execute("ALTER TABLE chat_rooms ADD COLUMN IF NOT EXISTS type VARCHAR")
     op.execute("UPDATE chat_rooms SET type = 'ORDER' WHERE type IS NULL")
-    
-    # Make type NOT NULL after setting default values
-    op.alter_column('chat_rooms', 'type', nullable=False)
-    
-    # Add 'admin_id' column (nullable, for admin support chats)
-    op.add_column(
-        'chat_rooms',
-        sa.Column('admin_id', sa.Integer(), nullable=True)
-    )
+    op.execute("ALTER TABLE chat_rooms ALTER COLUMN type SET NOT NULL")
+    op.execute("ALTER TABLE chat_rooms ADD COLUMN IF NOT EXISTS admin_id INTEGER")
 
 
 def downgrade() -> None:

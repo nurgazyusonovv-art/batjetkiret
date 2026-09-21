@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, lazyload
 from sqlalchemy import func, or_
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timedelta
 
 from app.api.deps import get_db, get_current_user
@@ -12,7 +12,14 @@ from app.models.enterprise import Enterprise
 from app.models.user import User
 from app.models.chat import ChatRoom
 from app.models.transaction import Transaction
-from app.services.wallet import charge_platform_fee, hold_amount, settle_hold, release_hold, _open_hold
+from app.services.wallet import (
+    charge_or_adjust_hold,
+    charge_platform_fee,
+    hold_amount,
+    settle_hold,
+    release_hold,
+    _open_hold,
+)
 from app.services.order_status import apply_status_change
 from app.core.limiter import limiter
 from app.models.setting import Setting
@@ -22,6 +29,7 @@ from app.services.pricing import calculate_price
 router = APIRouter(prefix="/courier/orders", tags=["Courier Orders"])
 
 COURIER_ORDER_SERVICE_FEE_DEFAULT = Decimal("5")
+EXTERNAL_ORDER_COMMISSION_RATE = Decimal("0.02")
 ACTIVE_COURIER_STATUSES = (
     "ACCEPTED",
     "PREPARING",
@@ -36,6 +44,17 @@ ACTIVE_COURIER_STATUSES = (
 class ExternalQuoteRequest(BaseModel):
     order_type: str
     distance_km: float
+
+
+class ExternalOrderCompleteRequest(BaseModel):
+    distance_km: float
+
+
+def _external_order_commission(total_price: float | Decimal) -> Decimal:
+    """Return 2% rounded to a whole som using standard half-up rounding."""
+    return (
+        Decimal(str(total_price)) * EXTERNAL_ORDER_COMMISSION_RATE
+    ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
 @router.post("/external-quote")
@@ -66,6 +85,7 @@ def external_order_quote(
         extra_price_per_km=extra_per_km,
     )
     extra_km = max(0.0, distance_km - extra_after_km)
+    commission = _external_order_commission(total)
     return {
         "order_type": order_type,
         "distance_km": round(distance_km, 3),
@@ -75,6 +95,8 @@ def external_order_quote(
         "extra_price_per_km": extra_per_km,
         "extra_km": round(extra_km, 3),
         "total_price": round(total, 2),
+        "commission_percent": 2,
+        "courier_commission": int(commission),
     }
 
 
@@ -180,14 +202,24 @@ def my_courier_orders(
             "created_at": o.created_at,
             "enterprise_id": o.enterprise_id,
             "enterprise_name": enterprise_names.get(o.enterprise_id) if o.enterprise_id else None,
+            "source": o.source,
+            "order_type": o.order_type,
+            "customer_phone": o.customer_phone,
         }
         
         # Include user info
-        order_dict["user"] = {
-            "id": o.user.id,
-            "name": o.user.name,
-            "phone": o.user.phone,
-        }
+        if o.source == "admin_external":
+            order_dict["user"] = {
+                "id": None,
+                "name": "Сырткы кардар",
+                "phone": o.customer_phone,
+            }
+        elif o.user:
+            order_dict["user"] = {
+                "id": o.user.id,
+                "name": o.user.name,
+                "phone": o.user.phone,
+            }
         
         # Include courier info  
         if o.courier:
@@ -195,6 +227,10 @@ def my_courier_orders(
                 "id": o.courier.id,
                 "name": o.courier.name,
                 "phone": o.courier.phone,
+                "transport": o.courier.courier_transport or "walking",
+                "vehicle_plate": o.courier.courier_vehicle_plate,
+                "vehicle_brand": o.courier.courier_vehicle_brand,
+                "vehicle_color": o.courier.courier_vehicle_color,
             }
         
         result.append(order_dict)
@@ -261,6 +297,9 @@ def available_orders(
             "created_at": o.created_at,
             "enterprise_id": o.enterprise_id,
             "enterprise_name": enterprise_names.get(o.enterprise_id) if o.enterprise_id else None,
+            "source": o.source,
+            "order_type": o.order_type,
+            "customer_phone": o.customer_phone,
         }
         for o in orders
     ]
@@ -274,13 +313,9 @@ def accept_order(
     if not current_user.is_courier:
         raise HTTPException(status_code=403, detail="Not a courier")
 
-    # Reserve the service fee at acceptance — balance must cover it up front.
+    # Regular orders reserve a fixed fee up front. External order commission is
+    # calculated from the final GPS-based price and charged on completion.
     fee = _get_service_fee(db)
-    if (current_user.balance or Decimal("0")) < fee:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Заказ кабыл алуу үчүн балансыңызда {fee} сом болушу керек",
-        )
 
     active_order = _active_courier_order(db, current_user.id)
     if active_order and active_order.id != order_id:
@@ -303,6 +338,15 @@ def accept_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    if (
+        order.source != "admin_external"
+        and (current_user.balance or Decimal("0")) < fee
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Заказ кабыл алуу үчүн балансыңызда {fee} сом болушу керек",
+        )
+
     is_enterprise_available = order.status in ("ACCEPTED", "READY") and order.enterprise_id is not None and order.courier_id is None
     if order.status != "WAITING_COURIER" and not is_enterprise_available:
         raise HTTPException(status_code=409, detail="Order is not available")
@@ -318,23 +362,27 @@ def accept_order(
     )
     order.courier_id = current_user.id
 
-    existing_chat = (
-        db.query(ChatRoom)
-        .filter(ChatRoom.order_id == order.id, ChatRoom.type == "ORDER")
-        .first()
-    )
-    if existing_chat is None:
-        chat = ChatRoom(
-            type="ORDER",
-            order_id=order.id,
-            user_id=order.user_id,
-            courier_id=current_user.id,
+    if order.source != "admin_external":
+        existing_chat = (
+            db.query(ChatRoom)
+            .filter(ChatRoom.order_id == order.id, ChatRoom.type == "ORDER")
+            .first()
         )
-        db.add(chat)
+        if existing_chat is None:
+            chat = ChatRoom(
+                type="ORDER",
+                order_id=order.id,
+                user_id=order.user_id,
+                courier_id=current_user.id,
+            )
+            db.add(chat)
 
     # Reserve (hold) the courier service fee now. If a hold already exists for this
     # order (re-accept of own order), skip. Rolls back with the rest on failure.
-    if _open_hold(db, current_user.id, order.id) is None:
+    if (
+        order.source != "admin_external"
+        and _open_hold(db, current_user.id, order.id) is None
+    ):
         try:
             hold_amount(db, current_user, order.id, float(fee))
         except ValueError:
@@ -481,6 +529,80 @@ def start_delivery(
 
     return {"message": "Delivery started"}
 
+
+@router.post("/{order_id}/complete-external")
+def complete_external_admin_order(
+    order_id: int,
+    body: ExternalOrderCompleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Complete an admin-created external order using measured GPS distance."""
+    if not current_user.is_courier:
+        raise HTTPException(status_code=403, detail="Not a courier")
+
+    order = (
+        db.query(Order)
+        .options(lazyload(Order.user), lazyload(Order.courier))
+        .filter(Order.id == order_id)
+        .with_for_update()
+        .first()
+    )
+    if not order or order.courier_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Заказ табылган жок")
+    if order.source != "admin_external":
+        raise HTTPException(status_code=400, detail="Бул системадан тышкары заказ эмес")
+    if order.status == "COMPLETED":
+        return {
+            "message": "Order already completed",
+            "order_id": order.id,
+            "distance_km": float(order.distance_km),
+            "total_price": float(order.price),
+            "courier_commission": int(order.courier_commission or 0),
+            "current_balance": float(current_user.balance or 0),
+        }
+    if order.status == "CANCELLED":
+        raise HTTPException(status_code=400, detail="Заказ жокко чыгарылган")
+
+    # orders.distance_km is NUMERIC(5, 2), so keep the persisted value inside
+    # the database column's representable range.
+    distance_km = max(0.0, min(float(body.distance_km or 0), 999.99))
+    pricing = (
+        get_taxi_pricing(db)
+        if order.order_type == "taxi" or order.category == "taxi"
+        else get_delivery_pricing(db)
+    )
+    total_price = calculate_price(distance_km, *pricing)
+    commission = _external_order_commission(total_price)
+
+    order.distance_km = round(distance_km, 2)
+    order.price = round(float(total_price), 2)
+    order.courier_commission = commission
+    apply_status_change(
+        db=db,
+        order=order,
+        new_status="COMPLETED",
+        actor_user_id=current_user.id,
+    )
+    charge_or_adjust_hold(
+        db,
+        current_user,
+        order.id,
+        commission,
+        "SERVICE_FEE_EXTERNAL",
+    )
+    db.commit()
+
+    return {
+        "message": "Order completed",
+        "order_id": order.id,
+        "distance_km": round(distance_km, 2),
+        "total_price": round(float(total_price), 2),
+        "courier_commission": int(commission),
+        "current_balance": float(current_user.balance or 0),
+    }
+
+
 @router.post("/{order_id}/delivered")
 def mark_delivered(
     order_id: int,
@@ -540,7 +662,7 @@ def courier_statistics(
         db.query(func.sum(Transaction.amount))
         .filter(
             Transaction.user_id == current_user.id,
-            Transaction.type == "SERVICE_FEE_COURIER",
+            Transaction.type.in_(("SERVICE_FEE_COURIER", "SERVICE_FEE_EXTERNAL")),
         )
         .scalar() or Decimal("0")
     )
@@ -550,12 +672,12 @@ def courier_statistics(
     # Today's stats — local (UTC+6) midnight as a UTC instant matching created_at storage
     today_start = _local_day_start_utc(0)
     
-    # Today completed orders (tracked by SERVICE_FEE_COURIER transaction time).
+    # Today completed orders (tracked by either regular or external fee time).
     today_completed_order_ids = (
         db.query(Transaction.order_id)
         .filter(
             Transaction.user_id == current_user.id,
-            Transaction.type == "SERVICE_FEE_COURIER",
+            Transaction.type.in_(("SERVICE_FEE_COURIER", "SERVICE_FEE_EXTERNAL")),
             Transaction.created_at >= today_start,
         )
         .all()

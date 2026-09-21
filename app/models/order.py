@@ -40,8 +40,9 @@ class Order(Base):
 
     enterprise_id = Column(Integer, ForeignKey("enterprises.id"), nullable=True)
     intercity_city_id = Column(Integer, nullable=True)
-    source = Column(String, default="online")    # 'online' | 'local' | 'dine_in'
-    order_type = Column(String, default="delivery")  # 'delivery' | 'dine_in'
+    source = Column(String, default="online")    # 'online' | 'local' | 'dine_in' | 'admin_external'
+    order_type = Column(String, default="delivery")  # 'delivery' | 'taxi' | 'dine_in'
+    customer_phone = Column(String, nullable=True)
     table_number = Column(String, nullable=True)
 
     status = Column(String, default="WAITING_COURIER")

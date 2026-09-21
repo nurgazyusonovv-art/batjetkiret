@@ -21,6 +21,15 @@ class User(Base):
     is_online = Column(Boolean, default=False)
     is_enterprise = Column(Boolean, default=False)  # enterprise portal user
     enterprise_id = Column(Integer, nullable=True)  # linked enterprise (no FK to avoid circular dep)
+    courier_transport = Column(
+        String,
+        nullable=False,
+        default="walking",
+        server_default="walking",
+    )
+    courier_vehicle_plate = Column(String, nullable=True)
+    courier_vehicle_brand = Column(String, nullable=True)
+    courier_vehicle_color = Column(String, nullable=True)
 
     current_latitude = Column(Float, nullable=True)
     current_longitude = Column(Float, nullable=True)

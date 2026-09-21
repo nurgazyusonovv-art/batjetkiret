@@ -68,6 +68,11 @@ def notify_online_couriers_about_order(db: Session, order: Order) -> int:
     if not couriers:
         return 0
 
+    title = (
+        "Системадан тышкары заказ"
+        if order.source == "admin_external"
+        else "Жаңы заказ"
+    )
     courier_ids = [courier.id for courier in couriers]
     already_notified = {
         user_id
@@ -75,7 +80,7 @@ def notify_online_couriers_about_order(db: Session, order: Order) -> int:
         .filter(
             Notification.user_id.in_(courier_ids),
             Notification.order_id == order.id,
-            Notification.title == "Жаңы заказ",
+            Notification.title == title,
         )
         .all()
     }
@@ -83,20 +88,24 @@ def notify_online_couriers_about_order(db: Session, order: Order) -> int:
     if not recipients:
         return 0
 
-    distance = float(order.distance_km or 0)
-    price = float(order.price or 0)
-    body = f"{order.from_address} → {order.to_address} · {distance:.1f} км · {price:.0f} сом"
+    if order.source == "admin_external":
+        body = f"{order.from_address} → {order.to_address} · Баасы жолдон эсептелет"
+    else:
+        distance = float(order.distance_km or 0)
+        price = float(order.price or 0)
+        body = f"{order.from_address} → {order.to_address} · {distance:.1f} км · {price:.0f} сом"
     data = {
         "order_id": str(order.id),
         "type": "new_order",
         "action": "open_available_orders",
+        "source": order.source or "online",
     }
 
     for courier in recipients:
         db.add(
             Notification(
                 user_id=courier.id,
-                title="Жаңы заказ",
+                title=title,
                 message=body,
                 order_id=order.id,
             )
@@ -109,7 +118,7 @@ def notify_online_couriers_about_order(db: Session, order: Order) -> int:
         try:
             fcm_service.send_push_to_user(
                 courier,
-                title="Жаңы заказ",
+                title=title,
                 body=body,
                 data=data,
                 channel_id="urgent_orders_v3",
@@ -124,7 +133,7 @@ def notify_online_couriers_about_order(db: Session, order: Order) -> int:
             notify_user(
                 db,
                 user_id=courier.id,
-                title="Жаңы заказ",
+                title=title,
                 body=body,
                 data=data,
             )

@@ -99,7 +99,11 @@ def apply_status_change(
     order.status = new_status
 
     # Push notifications to customer on key status changes
-    if new_status in _USER_PUSH_MESSAGES and order.user_id:
+    if (
+        new_status in _USER_PUSH_MESSAGES
+        and order.user_id
+        and order.source != "admin_external"
+    ):
         title, body = _USER_PUSH_MESSAGES[new_status]
         push_data = {"order_id": str(order.id), "status": new_status, "type": "order_status"}
         push_body = f"Заказ #{order.id} — {body}"
