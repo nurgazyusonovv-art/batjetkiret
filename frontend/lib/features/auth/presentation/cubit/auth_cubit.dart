@@ -46,6 +46,7 @@ class AuthCubit extends Cubit<AuthState> {
     required String phone,
     required String password,
     String? name,
+    String? referralCode,
   }) async {
     if (state.isLoading) return;
     emit(state.copyWith(isLoading: true, clearError: true, clearSuccess: true));
@@ -58,6 +59,7 @@ class AuthCubit extends Cubit<AuthState> {
               phone: phone,
               name: (name ?? '').trim(),
               password: password,
+              referralCode: referralCode,
             );
 
       await TokenStorage.saveToken(token);

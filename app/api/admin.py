@@ -2279,6 +2279,8 @@ SETTING_DEFAULTS = {
     "rating_dialog_enabled": ("true", "Play Market баалоо диалогун көрсөтүү (true/false)"),
     "rating_prompt_min_launches": ("3", "Баалоо диалогу көрсөтүлгөнгө чейинки минималдуу кирүү саны"),
     "rating_prompt_cooldown_days": ("14", "Баалоо диалогун кайра көрсөтүү аралыгы (күн)"),
+    "referral_bonus": ("20", "Дос чакырганда берилүүчү бонус (сом)"),
+    "referral_daily_limit": ("5", "Бир колдонуучуга бир күндө төлөнүүчү чакыруу бонустарынын саны"),
     "advertisement_price": ("50", "Колдонуучу жарнама жарыялаганда алынуучу баа (сом)"),
     "advertisement_default_duration_days": ("7", "Жарнаманын демейки активдүү мөөнөтү (күн)"),
     "contact_telegram":       ("",    "Администратордун Telegram username (@жок)"),

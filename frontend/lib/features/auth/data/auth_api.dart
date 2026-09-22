@@ -12,11 +12,20 @@ class AuthApi {
     required String phone,
     required String name,
     required String password,
+    String? referralCode,
   }) async {
+    final code = (referralCode ?? '').trim();
     final response = await _post(
       Uri.parse('${AppConfig.baseUrl}/auth/register'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'phone': phone, 'name': name, 'password': password}),
+      body: jsonEncode({
+        'phone': phone,
+        'name': name,
+        'password': password,
+        // Optional: a friend's invite code. The server ignores an unknown one
+        // rather than refusing the registration.
+        if (code.isNotEmpty) 'referral_code': code,
+      }),
     );
 
     final data = _decode(response.body);

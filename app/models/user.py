@@ -1,4 +1,13 @@
-from sqlalchemy import Column, Integer, String, Boolean, Numeric, DateTime, Float
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+)
 from sqlalchemy.sql import func
 from app.core.database import Base
 
@@ -30,6 +39,14 @@ class User(Base):
     courier_vehicle_plate = Column(String, nullable=True)
     courier_vehicle_brand = Column(String, nullable=True)
     courier_vehicle_color = Column(String, nullable=True)
+
+    # Who invited this user, set once at registration and never changed.
+    referred_by_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     current_latitude = Column(Float, nullable=True)
     current_longitude = Column(Float, nullable=True)

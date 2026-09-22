@@ -10,10 +10,13 @@ def _to_decimal(amount: float | Decimal) -> Decimal:
     return Decimal(str(amount))
 
 
-def topup(db: Session, user: User, amount: float):
+def topup(db: Session, user: User, amount: float, kind: str = "TOPUP"):
     """Credit a user's balance (admin approval of a payment proof).
     Caller is responsible for commit so the credit and the request-status update
-    that follows it are committed atomically (no double-credit on partial failure)."""
+    that follows it are committed atomically (no double-credit on partial failure).
+
+    `kind` labels the transaction so credits that are not payment top-ups —
+    a referral bonus, say — stay distinguishable in the ledger."""
     amount_decimal = _to_decimal(amount)
 
     user.balance += amount_decimal
@@ -21,7 +24,7 @@ def topup(db: Session, user: User, amount: float):
         Transaction(
             user_id=user.id,
             amount=amount_decimal,
-            type="TOPUP",
+            type=kind,
         )
     )
 

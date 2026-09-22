@@ -2,7 +2,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart'
+    show Clipboard, ClipboardData, rootBundle;
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -16,6 +17,7 @@ import 'package:frontend/features/profile/presentation/contact_admin_page.dart';
 import 'package:frontend/features/profile/presentation/change_password_page.dart';
 import 'package:frontend/features/profile/presentation/about_page.dart';
 import 'package:frontend/features/profile/presentation/how_to_order_page.dart';
+import '../data/referral_api.dart';
 import '../data/user_api.dart' as user_api_lib;
 import 'package:frontend/features/profile/presentation/topup_page.dart';
 import 'package:frontend/features/profile/presentation/topup_history_page.dart';
@@ -41,6 +43,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    _loadReferrals();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final user = _profileCubit.state.user;
@@ -249,6 +252,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 14),
                   ],
                   _buildMenuSection(user),
+                  const SizedBox(height: 14),
+                  _buildReferralCard(),
                   const SizedBox(height: 14),
                   _buildLogoutButton(),
                   const SizedBox(height: 12),
@@ -1274,6 +1279,145 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // ── Menu section ──────────────────────────────────────────────────────────────
 
+  /// Invite code, how many friends joined with it and what that earned.
+  /// Hidden until the summary loads so the profile never shows an empty box.
+  Widget _buildReferralCard() {
+    final summary = _referrals;
+    if (summary == null || summary.code.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primarySoft,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.card_giftcard_rounded,
+                color: AppColors.primary,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Досуңузду чакырыңыз',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Досуңуз катталганда сиздин кодуңузду жазса, '
+            'балансыңызга ${summary.bonus.round()} сом кошулат.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: Colors.brown[400],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          summary.code,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: summary.code));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Код көчүрүлдү'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: const Icon(
+                          Icons.copy_rounded,
+                          size: 19,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 46,
+                child: ElevatedButton.icon(
+                  onPressed: _shareApp,
+                  icon: const Icon(Icons.share_outlined, size: 18),
+                  label: const Text('Бөлүшүү'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (summary.invitedCount > 0) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.people_outline, size: 16, color: Colors.brown[400]),
+                const SizedBox(width: 6),
+                Text(
+                  '${summary.invitedCount} дос кошулду',
+                  style: TextStyle(fontSize: 13, color: Colors.brown[400]),
+                ),
+                const Spacer(),
+                Text(
+                  '${summary.earned.round()} сом табылды',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildMenuSection(User user) {
     final items = [
       _MenuItem(
@@ -1621,10 +1765,24 @@ class _ProfilePageState extends State<ProfilePage> {
 
   /// Share the app with the logo attached, so the post carries a picture in
   /// WhatsApp/Instagram instead of a bare link.
+  ReferralSummary? _referrals;
+
+  Future<void> _loadReferrals() async {
+    final summary = await ReferralApi().fetch(widget.token);
+    if (!mounted) return;
+    setState(() => _referrals = summary);
+  }
+
   Future<void> _shareApp() async {
-    const text =
-        '🚀 Баткен Экспресс — тез жана ыңгайлуу жеткирүү кызматы!\n'
-        'Буйрутма бер: https://batjetkiret.vercel.app';
+    final code = _referrals?.code ?? '';
+    // The friend types this code when registering — that is what links the
+    // signup back to the inviter and pays the bonus.
+    final text = code.isEmpty
+        ? '🚀 Баткен Экспресс — тез жана ыңгайлуу жеткирүү кызматы!\n'
+              'Буйрутма бер: https://batjetkiret.vercel.app'
+        : '🚀 Баткен Экспресс — тез жана ыңгайлуу жеткирүү кызматы!\n'
+              'Тиркемени жүктөп ал: https://batjetkiret.vercel.app\n\n'
+              'Катталганда менин кодумду жаз: $code';
 
     try {
       final logo = await rootBundle.load('assets/images/logo.png');

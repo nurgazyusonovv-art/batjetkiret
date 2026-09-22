@@ -5,6 +5,8 @@ class RegisterRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     password: str = Field(..., min_length=6, max_length=100)
     is_courier: bool = False
+    # A friend's invite code ("BJ000123"); optional and never blocks signup.
+    referral_code: str | None = Field(default=None, max_length=32)
     
     @field_validator('phone')
     def phone_must_contain_digits(cls, v):

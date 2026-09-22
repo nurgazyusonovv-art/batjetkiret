@@ -5,10 +5,12 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
+from app.models.transaction import Transaction
+from app.services.referrals import referral_bonus
 from app.models.order import Order
 from app.models.chat import ChatRoom
 from app.models.message import Message
@@ -163,6 +165,35 @@ def update_location(
     user.location_updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/me/referrals")
+def my_referrals(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """The user's invite code, how many joined with it and what it earned."""
+    invited = (
+        db.query(func.count(User.id))
+        .filter(User.referred_by_user_id == current_user.id)
+        .scalar()
+        or 0
+    )
+    earned = (
+        db.query(func.coalesce(func.sum(Transaction.amount), 0))
+        .filter(
+            Transaction.user_id == current_user.id,
+            Transaction.type == "REFERRAL_BONUS",
+        )
+        .scalar()
+        or 0
+    )
+    return {
+        "code": current_user.unique_id,
+        "invited_count": int(invited),
+        "earned": float(earned),
+        "bonus": referral_bonus(db),
+    }
 
 
 @router.post("/me/fcm-token")

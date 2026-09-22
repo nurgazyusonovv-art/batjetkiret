@@ -75,6 +75,7 @@ class _AuthPageState extends State<AuthPage>
   final _phoneController = TextEditingController();
   final _nameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _referralController = TextEditingController();
   bool _obscurePassword = true;
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -95,6 +96,7 @@ class _AuthPageState extends State<AuthPage>
     _phoneController.dispose();
     _nameController.dispose();
     _passwordController.dispose();
+    _referralController.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -118,6 +120,7 @@ class _AuthPageState extends State<AuthPage>
       phone: _fullPhone,
       password: _passwordController.text,
       name: _nameController.text.trim(),
+      referralCode: _referralController.text,
     );
   }
 
@@ -387,6 +390,31 @@ class _AuthPageState extends State<AuthPage>
                 return null;
               },
             ),
+
+            // Invite code (register only) — a friend's code credits them a
+            // bonus. Optional: a wrong or empty code never blocks signup.
+            if (!state.isLogin) ...[
+              const SizedBox(height: 16),
+              _buildLabel('Досуңуздун коду (милдеттүү эмес)'),
+              const SizedBox(height: 8),
+              _buildTextField(
+                controller: _referralController,
+                hint: 'Мисалы: BJ000123',
+                icon: Icons.card_giftcard_rounded,
+                textInputAction: TextInputAction.done,
+                onSubmit: (_) => _submit(),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Досуңуз сизди чакырган болсо, анын кодун жазыңыз — '
+                'ага бонус түшөт.',
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.35,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
 
             // Forgot password
             if (state.isLogin) ...[

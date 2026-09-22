@@ -15,6 +15,7 @@ from app.models.password_reset import PasswordReset
 from app.models.notification import Notification
 from app.core.security import generate_reset_code
 from app.services import fcm as fcm_service
+from app.services.referrals import apply_referral
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 logger = logging.getLogger(__name__)
@@ -283,6 +284,13 @@ def register(request: Request, data: RegisterRequest, db: Session = Depends(get_
         unique_id=generate_unique_id(db)  # Generate unique payment reference ID
     )
     db.add(user)
+    db.flush()
+
+    # Pay the inviter, if this signup came from someone's code. Failures here
+    # are swallowed inside apply_referral — an invite problem must never cost
+    # the new user their account.
+    apply_referral(db, user, data.referral_code)
+
     db.commit()
     db.refresh(user)
 
