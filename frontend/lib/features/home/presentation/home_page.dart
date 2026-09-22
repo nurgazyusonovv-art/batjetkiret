@@ -30,6 +30,8 @@ import 'package:frontend/features/orders/presentation/order_success_page.dart';
 import 'package:frontend/features/profile/data/support_api.dart';
 import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:frontend/features/profile/presentation/topup_page.dart';
+import 'package:frontend/core/services/courier_location_service.dart';
+import 'package:frontend/features/taxi/presentation/taxi_order_page.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/features/auth/presentation/auth_page.dart';
@@ -282,6 +284,13 @@ class _HomePageState extends State<HomePage> {
         widget.token,
         isOnline,
       );
+      // Dispatch offers a ride to the nearest drivers, so an online courier
+      // keeps reporting where they are — and stops the moment they go off.
+      if (isOnline) {
+        CourierLocationService.start(widget.token);
+      } else {
+        CourierLocationService.stop();
+      }
       if (!mounted) return;
       await context.read<HomeCubit>().refreshAvailableOrders(widget.token);
     } catch (error) {
@@ -481,6 +490,15 @@ class _HomePageState extends State<HomePage> {
     final homeState = context.watch<HomeCubit>().state;
     final profileState = context.watch<ProfileCubit>().state;
     final user = profileState.user;
+
+    // A courier who was already online when the app opened has to resume
+    // reporting; the toggle only covers changes made in this session.
+    if (user != null &&
+        user.isCourier &&
+        user.isOnline &&
+        !CourierLocationService.isRunning) {
+      CourierLocationService.start(widget.token);
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -881,7 +899,7 @@ class _HomePageState extends State<HomePage> {
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _openTaxiOrder(user, startAtAddressStep: true),
+          onTap: () => _openTaxiOrder(user),
           child: Ink(
             decoration: BoxDecoration(
               gradient: const LinearGradient(
@@ -1268,21 +1286,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ── Service navigation ───────────────────────────────────────────────────────
-  // [startAtAddressStep] skips picking a taxi firm — the "Кайда барабыз?" bar
-  // goes straight to the route, the Такси card keeps the firm list.
-  void _openTaxiOrder(dynamic user, {bool startAtAddressStep = false}) {
-    final taxi = models.categories.firstWhere(
-      (c) => c.id == 'taxi',
-      orElse: () => models.categories.first,
-    );
+  /// City taxi has its own flow — the delivery wizard's steps, enterprises and
+  /// item lists have nothing to do with hailing a car.
+  void _openTaxiOrder(dynamic user) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => OrderCreatePage(
+        builder: (_) => TaxiOrderPage(
           token: widget.token,
-          selectedCategory: taxi,
-          initialFromAddress: _homeAddress ?? user?.address,
-          initialFromLocation: _homeAddress == null ? null : _homeUserLocation,
-          startAtAddressStep: startAtAddressStep,
+          initialPickup: _homeUserLocation,
+          initialPickupAddress: _homeAddress ?? user?.address,
         ),
       ),
     );
@@ -1382,10 +1394,6 @@ class OrderCreatePage extends StatefulWidget {
   final String? initialFromAddress;
   final int? initialEnterpriseId;
 
-  /// Skip enterprise selection and open straight on the address step — used by
-  /// the home "Кайда барабыз?" bar, where the user only wants to name a route.
-  final bool startAtAddressStep;
-
   /// Coordinates for [initialFromAddress], so the pickup pin is exact and the
   /// distance does not have to be geocoded back from the address text.
   final LatLng? initialFromLocation;
@@ -1396,7 +1404,6 @@ class OrderCreatePage extends StatefulWidget {
     required this.selectedCategory,
     this.initialFromAddress,
     this.initialEnterpriseId,
-    this.startAtAddressStep = false,
     this.initialFromLocation,
   });
 
@@ -1467,9 +1474,6 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       _setAddressText(_fromAddressController, widget.initialFromAddress!);
     }
     _selectedFromLocation = widget.initialFromLocation;
-    if (widget.startAtAddressStep) {
-      _cubit.goToPickupStep();
-    }
     // Typing in an address field searches Yandex (debounced).
     _fromAddressController.addListener(
       () => _onAddressChanged(_fromAddressController, isFrom: true),
@@ -1483,14 +1487,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       () =>
           setState(() => _enterpriseSearch = _enterpriseSearchController.text),
     );
-    // The enterprise list is only needed by the selection step we skipped.
-    if (!widget.startAtAddressStep) {
-      _fetchEnterprises().then((_) {
-        if (widget.initialEnterpriseId != null && mounted) {
-          _autoSelectEnterprise(widget.initialEnterpriseId!);
-        }
-      });
-    }
+    _fetchEnterprises().then((_) {
+      if (widget.initialEnterpriseId != null && mounted) {
+        _autoSelectEnterprise(widget.initialEnterpriseId!);
+      }
+    });
     _fetchAppSettings();
     _fetchUserLocation();
   }
@@ -1655,13 +1656,6 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   }
 
   void _goToPreviousStep() {
-    // Opened straight on the address step → back leaves the flow instead of
-    // dropping into the enterprise selection the user never saw.
-    if (widget.startAtAddressStep &&
-        _cubit.state.currentStep == OrderCreateStep.pickupLocation) {
-      Navigator.of(context).pop();
-      return;
-    }
     // Opened straight into an enterprise's menu from home → back returns home,
     // not the (skipped) enterprise-selection step.
     if (widget.initialEnterpriseId != null &&

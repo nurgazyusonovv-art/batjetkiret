@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import exists
 from sqlalchemy.orm import Session
@@ -8,9 +9,16 @@ from app.models.order import Order
 from app.models.order_payment import OrderPayment
 from app.models.user import User
 from app.services import fcm as fcm_service
+from app.services.pricing import haversine_km
 
 
 logger = logging.getLogger(__name__)
+
+# A taxi ride is offered to drivers around the passenger first. Radius is
+# generous for a town the size of Batken, and a location older than this says
+# nothing about where the driver is now.
+NEARBY_RADIUS_KM = 7.0
+LOCATION_FRESHNESS = timedelta(minutes=20)
 
 ACTIVE_COURIER_STATUSES = (
     "ACCEPTED",
@@ -67,6 +75,8 @@ def notify_online_couriers_about_order(db: Session, order: Order) -> int:
     )
     if not couriers:
         return 0
+
+    couriers = _prefer_nearby(couriers, order)
 
     title = (
         "Системадан тышкары заказ"
@@ -141,3 +151,42 @@ def notify_online_couriers_about_order(db: Session, order: Order) -> int:
         logger.exception("Failed to send courier web push for order_id=%s", order.id)
 
     return len(recipients)
+
+
+def _prefer_nearby(couriers: list[User], order: Order) -> list[User]:
+    """Narrow the list to drivers around the pickup point, nearest first.
+
+    Falls back to everyone when the order has no pickup coordinates or nobody
+    nearby has reported a fresh location — an order nobody is told about is
+    worse than one offered a little too widely.
+    """
+    if order.from_latitude is None or order.from_longitude is None:
+        return couriers
+
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - LOCATION_FRESHNESS
+    nearby: list[tuple[float, User]] = []
+    for courier in couriers:
+        if courier.current_latitude is None or courier.current_longitude is None:
+            continue
+        updated = courier.location_updated_at
+        if updated is None or updated < cutoff:
+            continue
+        distance = haversine_km(
+            float(order.from_latitude),
+            float(order.from_longitude),
+            float(courier.current_latitude),
+            float(courier.current_longitude),
+        )
+        if distance <= NEARBY_RADIUS_KM:
+            nearby.append((distance, courier))
+
+    if not nearby:
+        logger.info(
+            "Order %s: no driver with a fresh location nearby, offering to all %d online",
+            order.id,
+            len(couriers),
+        )
+        return couriers
+
+    nearby.sort(key=lambda pair: pair[0])
+    return [courier for _distance, courier in nearby]

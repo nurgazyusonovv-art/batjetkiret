@@ -33,6 +33,9 @@ class User(Base):
 
     current_latitude = Column(Float, nullable=True)
     current_longitude = Column(Float, nullable=True)
+    # Dispatch only counts a courier as nearby while this is fresh — a location
+    # from yesterday says nothing about who can reach the passenger now.
+    location_updated_at = Column(DateTime, nullable=True)
 
     fcm_token = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())

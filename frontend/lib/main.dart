@@ -17,6 +17,7 @@ import 'core/notifications/notification_overlay.dart';
 import 'core/notifications/notifications_service.dart';
 import 'core/services/app_market_prompt_service.dart';
 import 'core/services/fcm_service.dart';
+import 'core/services/courier_location_service.dart';
 import 'core/services/notification_navigator.dart';
 import 'features/auth/presentation/auth_page.dart';
 import 'features/profile/data/user_api.dart';
@@ -474,6 +475,8 @@ class _MainNavigationState extends State<MainNavigation>
     _notificationPollTimer?.cancel();
     _newOrderSubscription?.cancel();
     NotificationNavigator.clear();
+    // Stop broadcasting the courier's position when the session ends.
+    CourierLocationService.stop();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

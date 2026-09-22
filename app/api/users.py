@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Literal
 
@@ -157,6 +159,8 @@ def update_location(
         raise HTTPException(status_code=404, detail="User not found")
     user.current_latitude = request.latitude
     user.current_longitude = request.longitude
+    # Dispatch treats a stale location as unknown, so record when it arrived.
+    user.location_updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     return {"ok": True}
 
