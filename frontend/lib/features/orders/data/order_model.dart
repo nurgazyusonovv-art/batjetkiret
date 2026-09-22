@@ -213,9 +213,10 @@ class Order {
       estimatedPrice: (json['price'] ?? json['estimated_price']) != null
           ? ((json['price'] ?? json['estimated_price']) as num).toDouble()
           : null,
-      courierName: courier?['name'],
-      courierPhone: courier?['phone'],
-      courierId: courier?['id'],
+      // /orders/{id} returns these flat, order lists return a nested courier.
+      courierName: courier?['name'] ?? json['courier_name'],
+      courierPhone: courier?['phone'] ?? json['courier_phone'],
+      courierId: courier?['id'] ?? json['courier_id'],
       courierTransport:
           (courier?['transport'] ?? json['courier_transport'] ?? 'walking')
               .toString(),

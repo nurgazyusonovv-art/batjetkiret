@@ -25,7 +25,7 @@ import 'package:frontend/features/orders/data/order_api.dart';
 import 'package:frontend/features/home/presentation/order_payment_sheet.dart';
 import 'package:frontend/features/orders/presentation/order_detail_page.dart';
 import 'package:frontend/features/orders/presentation/external_trip_tracker_page.dart';
-import 'package:frontend/features/orders/presentation/order_success_page.dart';
+import 'package:frontend/features/orders/presentation/delivery_tracking_page.dart';
 import 'package:frontend/features/profile/data/support_api.dart';
 import 'package:frontend/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:frontend/features/profile/presentation/topup_page.dart';
@@ -1595,15 +1595,28 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               amount: amount,
             ),
           );
-          if (mounted) Navigator.of(context).pop();
+          if (!mounted) return;
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) =>
+                  DeliveryTrackingPage(token: widget.token, orderId: orderId),
+            ),
+          );
           return;
         }
       }
 
       final orderId = orderData['id'] as int?;
+      if (orderId == null) {
+        Navigator.of(context).pop();
+        return;
+      }
+      // Ordering used to end on a static confirmation; now the customer
+      // watches the courier being found and reaching them.
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => OrderSuccessPage(orderId: orderId ?? 0),
+          builder: (_) =>
+              DeliveryTrackingPage(token: widget.token, orderId: orderId),
         ),
       );
     } catch (error) {

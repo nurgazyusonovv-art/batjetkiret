@@ -215,6 +215,32 @@ class OrderApi {
     }
   }
 
+  /// One order, fresh from the server — used by screens that follow an order
+  /// while it is running.
+  Future<Order> getOrderById({
+    required String token,
+    required int orderId,
+  }) async {
+    final response = await http
+        .get(
+          Uri.parse('${AppConfig.baseUrl}/orders/$orderId'),
+          headers: {'Authorization': 'Bearer $token'},
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 401) {
+      AuthEventBus.instance.fireUnauthorized();
+      throw const UnauthorizedException();
+    }
+    if (response.statusCode != 200) {
+      final decoded = jsonDecode(response.body);
+      final detail = decoded is Map<String, dynamic> ? decoded['detail'] : null;
+      throw Exception(
+        detail is String ? detail : 'Заказды жүктөө мүмкүн болбоду',
+      );
+    }
+    return Order.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
   Future<List<Order>> getMyOrders(String token) async {
     try {
       final response = await http.get(
