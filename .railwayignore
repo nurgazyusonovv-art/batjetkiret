@@ -40,3 +40,9 @@ backups
 *.sqlite
 *.sqlite3
 .DS_Store
+
+# Secrets live in Railway's own variables — never bake them into the image.
+.env
+.env.*
+*/.env
+*/.env.*
