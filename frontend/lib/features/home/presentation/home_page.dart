@@ -17,7 +17,6 @@ import 'package:frontend/features/home/data/ad_popup_api.dart';
 import 'banner_carousel.dart';
 import 'ad_popup_overlay.dart';
 import 'delivery_page.dart';
-import 'package:frontend/features/common/widgets/map_picker.dart';
 import 'package:frontend/features/home/presentation/cubit/home_cubit.dart';
 import 'package:frontend/features/home/presentation/cubit/order_create_cubit.dart';
 import 'package:frontend/features/home/presentation/cubit/order_create_state.dart';
@@ -48,80 +47,14 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   List<BannerItem> _banners = [];
 
-  // ── Services home (taxi / delivery entry points) ────────────────────────────
-  LatLng? _homeUserLocation;
-  String? _homeAddress;
-  bool _loadingHomeLocation = false;
   bool _updatingCourierOnlineStatus = false;
 
   @override
   void initState() {
     super.initState();
     _fetchBanners();
-    _fetchHomeUserLocation();
     _maybeShowWelcomeBonus();
     _checkAndShowPopup();
-  }
-
-  // Silent location read — only if permission is already granted (no prompt here).
-  Future<void> _fetchHomeUserLocation() async {
-    try {
-      final permission = await Geolocator.checkPermission();
-      if (permission != LocationPermission.always &&
-          permission != LocationPermission.whileInUse) {
-        return;
-      }
-      await _readLocation();
-    } catch (_) {}
-  }
-
-  // Explicit refresh — may prompt for permission (user tapped the GPS button).
-  Future<void> _refreshHomeLocation() async {
-    if (_loadingHomeLocation) return;
-    setState(() => _loadingHomeLocation = true);
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('GPS уруксаты берилген жок'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-      await _readLocation(highAccuracy: true);
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _loadingHomeLocation = false);
-    }
-  }
-
-  Future<void> _readLocation({bool highAccuracy = false}) async {
-    final pos = await Geolocator.getCurrentPosition(
-      desiredAccuracy: highAccuracy
-          ? LocationAccuracy.high
-          : LocationAccuracy.low,
-    );
-    if (!mounted) return;
-    setState(
-      () => _homeUserLocation = LatLng(
-        latitude: pos.latitude,
-        longitude: pos.longitude,
-      ),
-    );
-    final address = await RealGeocoder.getAddressFromCoordinates(
-      latitude: pos.latitude,
-      longitude: pos.longitude,
-    );
-    if (!mounted) return;
-    setState(() => _homeAddress = address);
   }
 
   @override
@@ -859,258 +792,25 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ── Services home: destination bar, location, banners, service cards ────────
+  // ── Services home: banners and the service cards ────────────────────────────
   Widget _buildServicesHome(dynamic user) {
     return RefreshIndicator(
       color: AppColors.primary,
-      onRefresh: () async {
-        // Silent location read here — the GPS button is where we may prompt.
-        await Future.wait([_fetchBanners(), _fetchHomeUserLocation()]);
-      },
+      onRefresh: _fetchBanners,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(top: 2, bottom: 20),
+        padding: const EdgeInsets.only(top: 4, bottom: 20),
         children: [
-          _buildDestinationBar(user),
-          const SizedBox(height: 12),
-          _buildCurrentLocationCard(),
-          const SizedBox(height: 12),
-          _buildMiniMapCard(),
           if (_banners.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(0, 16, 0, 0),
+              padding: const EdgeInsets.only(bottom: 4),
               child: BannerCarousel(banners: _banners),
             ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           _buildServicesHeader(),
           const SizedBox(height: 12),
           _buildServiceCards(user),
         ],
-      ),
-    );
-  }
-
-  // Big "where to?" bar — the primary entry point into a taxi order.
-  Widget _buildDestinationBar(dynamic user) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => _openTaxiOrder(user),
-          child: Ink(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [AppColors.accent4, AppColors.accent5],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.accent5.withValues(alpha: 0.25),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              child: Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.22),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.search,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Кайда барабыз?',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -0.4,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Дарек тандоо',
-                          style: TextStyle(fontSize: 13, color: Colors.white70),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(
-                    Icons.arrow_forward,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCurrentLocationCard() {
-    final hasAddress = (_homeAddress ?? '').isNotEmpty;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.035),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.place, color: Color(0xFF16A34A), size: 26),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Учурдагы жайгашкан жер',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    hasAddress
-                        ? _homeAddress!
-                        : (_loadingHomeLocation
-                              ? 'Аныкталып жатат...'
-                              : 'Жайгашкан жериңизди аныктаңыз'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              onPressed: _loadingHomeLocation ? null : _refreshHomeLocation,
-              icon: _loadingHomeLocation
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.my_location, size: 22),
-              color: AppColors.textPrimary,
-              tooltip: 'Жайгашкан жерди жаңылоо',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Lightweight map teaser — tapping opens the real picker so the user can
-  // adjust the pin without waiting for an embedded map to boot on home.
-  Widget _buildMiniMapCard() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: GestureDetector(
-        onTap: _openLocationPicker,
-        child: Container(
-          height: 150,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEFF3EA),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
-          ),
-          child: Stack(
-            children: [
-              Positioned.fill(child: CustomPaint(painter: _MiniMapPainter())),
-              // Pin + accuracy halo in the middle, like a live map would show.
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.place, size: 34, color: Color(0xFF16A34A)),
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF3B82F6).withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF2563EB),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                right: 12,
-                bottom: 12,
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.my_location,
-                    size: 21,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -1164,7 +864,7 @@ class _HomePageState extends State<HomePage> {
                     title: 'Такси',
                     subtitle: 'Шаар боюнча',
                     action: 'Такси чакыруу',
-                    onTap: () => _openTaxiOrder(user),
+                    onTap: _openTaxiOrder,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1288,14 +988,12 @@ class _HomePageState extends State<HomePage> {
   // ── Service navigation ───────────────────────────────────────────────────────
   /// City taxi has its own flow — the delivery wizard's steps, enterprises and
   /// item lists have nothing to do with hailing a car.
-  void _openTaxiOrder(dynamic user) {
+  void _openTaxiOrder() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => TaxiOrderPage(
-          token: widget.token,
-          initialPickup: _homeUserLocation,
-          initialPickupAddress: _homeAddress ?? user?.address,
-        ),
+        // The taxi screen finds the pickup point itself — the home page no
+        // longer tracks where the user is.
+        builder: (_) => TaxiOrderPage(token: widget.token),
       ),
     );
   }
@@ -1312,26 +1010,6 @@ class _HomePageState extends State<HomePage> {
   void _openDeliveryPage() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => DeliveryPage(token: widget.token)),
-    );
-  }
-
-  Future<void> _openLocationPicker() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => MapPickerWidget(
-          initialLocation: _homeUserLocation,
-          initialAddress: _homeAddress,
-          title: 'Жайгашкан жериңизди тандаңыз',
-          onLocationSelected: (location, address) {
-            if (!mounted) return;
-            setState(() {
-              _homeUserLocation = location;
-              _homeAddress = address;
-            });
-          },
-        ),
-      ),
     );
   }
 
@@ -4343,68 +4021,4 @@ class _EnterpriseProductDetailPageState
       child: Icon(icon, color: filled ? Colors.white : AppColors.textPrimary),
     ),
   );
-}
-
-/// Stylised street grid for the home map teaser — blocks, roads and a river,
-/// drawn locally so the home screen never waits on a map SDK.
-class _MiniMapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final block = Paint()..color = const Color(0xFFE3EBDC);
-    final road = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 9
-      ..strokeCap = StrokeCap.square;
-    final river = Paint()
-      ..color = const Color(0xFFBFDCEF)
-      ..strokeWidth = 12
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    // Building blocks
-    for (var row = 0; row < 3; row++) {
-      for (var col = 0; col < 4; col++) {
-        final rect = Rect.fromLTWH(
-          col * size.width / 4 + 12,
-          row * size.height / 3 + 10,
-          size.width / 4 - 24,
-          size.height / 3 - 20,
-        );
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(rect, const Radius.circular(4)),
-          block,
-        );
-      }
-    }
-
-    // Roads
-    for (var col = 1; col < 4; col++) {
-      final x = col * size.width / 4;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), road);
-    }
-    for (var row = 1; row < 3; row++) {
-      final y = row * size.height / 3;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), road);
-    }
-
-    // River sweeping across the lower third
-    final path = Path()
-      ..moveTo(0, size.height * 0.74)
-      ..quadraticBezierTo(
-        size.width * 0.3,
-        size.height * 0.62,
-        size.width * 0.55,
-        size.height * 0.76,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.8,
-        size.height * 0.9,
-        size.width,
-        size.height * 0.78,
-      );
-    canvas.drawPath(path, river);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
