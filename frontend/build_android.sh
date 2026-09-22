@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Android APK Build Script with Yandex Maps API Key
+# Android APK Build Script with 2GIS Maps API Key
 
 set -e
 
 cd "$(dirname "$0")"
 
-echo "📦 Android Build with Yandex Maps"
+echo "📦 Android Build with 2GIS Maps"
 echo "=================================="
 
 # Check .gradle files

@@ -1,7 +1,10 @@
-import 'package:dio/dio.dart';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+
+import '../../../core/config.dart';
+import '../../../core/utils/distance_calculator.dart';
 
 class PickedLocation {
   final double lat;
@@ -27,9 +30,11 @@ class MapPickerPage extends StatefulWidget {
 }
 
 class _MapPickerPageState extends State<MapPickerPage> {
-  late final MapController _mapController;
-  late LatLng _center;
+  late final WebViewController _controller;
+  late double _centerLat;
+  late double _centerLon;
   bool _confirming = false;
+  bool _mapLoading = true;
 
   // Batken city default
   static const _defaultLat = 40.0631;
@@ -38,60 +43,113 @@ class _MapPickerPageState extends State<MapPickerPage> {
   @override
   void initState() {
     super.initState();
-    _mapController = MapController();
-    _center = LatLng(
-      widget.initialLat ?? _defaultLat,
-      widget.initialLon ?? _defaultLon,
-    );
+    _centerLat = widget.initialLat ?? _defaultLat;
+    _centerLon = widget.initialLon ?? _defaultLon;
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.white)
+      ..addJavaScriptChannel(
+        'MapCenter',
+        onMessageReceived: (message) {
+          try {
+            final data = jsonDecode(message.message) as Map<String, dynamic>;
+            final lat = (data['lat'] as num).toDouble();
+            final lon = (data['lon'] as num).toDouble();
+            if (mounted) {
+              setState(() {
+                _centerLat = lat;
+                _centerLon = lon;
+              });
+            }
+          } catch (_) {}
+        },
+      )
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) {
+            if (mounted) setState(() => _mapLoading = false);
+          },
+        ),
+      )
+      ..loadHtmlString(_mapHtml(), baseUrl: 'https://2gis.com');
+  }
+
+  String _mapHtml() {
+    final key = AppConfig.twoGisApiKey;
+    return '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://mapgl.2gis.com/api/js/v1"></script>
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+    #map { position: absolute; inset: 0; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = new mapgl.Map('map', {
+      center: [$_centerLon, $_centerLat],
+      zoom: 16,
+      key: '$key'
+    });
+
+    function report() {
+      var c = map.getCenter();
+      MapCenter.postMessage(JSON.stringify({ lat: c[1], lon: c[0] }));
+    }
+
+    map.on('moveend', report);
+    map.on('zoomend', report);
+
+    // MapGL measures the container when it is built; inside a WebView/iframe
+    // that can still be 0x0, which leaves a blank canvas. Re-measure once the
+    // real size lands.
+    function fixSize() { try { map.invalidateSize(); } catch (e) {} }
+    window.addEventListener('resize', fixSize);
+    if (window.ResizeObserver) {
+      new ResizeObserver(fixSize).observe(document.getElementById('map'));
+    }
+    setTimeout(fixSize, 100);
+    setTimeout(fixSize, 600);
+    setTimeout(fixSize, 1500);
+
+    function zoomBy(delta) {
+      map.setZoom(map.getZoom() + delta);
+    }
+  </script>
+</body>
+</html>
+    ''';
   }
 
   Future<void> _confirm() async {
     setState(() => _confirming = true);
     String? address;
     if (widget.needAddress) {
-      address = await _reverseGeocode(_center.latitude, _center.longitude);
+      address = await _reverseGeocode(_centerLat, _centerLon);
     }
     if (mounted) {
       Navigator.pop(context, PickedLocation(
-        lat: _center.latitude,
-        lon: _center.longitude,
+        lat: _centerLat,
+        lon: _centerLon,
         address: address,
       ));
     }
   }
 
   Future<String?> _reverseGeocode(double lat, double lon) async {
+    // Same 2GIS-first geocoder the rest of the app uses, so the address the
+    // enterprise picks matches what customers see.
     try {
-      final dio = Dio();
-      final resp = await dio.get(
-        'https://nominatim.openstreetmap.org/reverse',
-        queryParameters: {
-          'lat': lat,
-          'lon': lon,
-          'format': 'json',
-          'accept-language': 'ru',
-        },
-        options: Options(
-          headers: {'User-Agent': 'BatJetKiret/1.0'},
-          receiveTimeout: const Duration(seconds: 8),
-        ),
+      final address = await RealGeocoder.getAddressFromCoordinates(
+        latitude: lat,
+        longitude: lon,
       );
-      final data = resp.data as Map<String, dynamic>;
-      final addr = data['address'] as Map<String, dynamic>?;
-      if (addr != null) {
-        final road = addr['road'] ?? addr['neighbourhood'] ?? addr['suburb'] ?? '';
-        final house = addr['house_number'] ?? '';
-        final city = addr['city'] ?? addr['town'] ?? addr['village'] ?? addr['county'] ?? '';
-        final parts = [
-          if ((road as String).isNotEmpty) road,
-          if ((house as String).isNotEmpty) house,
-          if ((city as String).isNotEmpty) city,
-        ];
-        if (parts.isNotEmpty) return parts.join(', ');
-      }
-      final full = data['display_name'] as String?;
-      if (full != null && full.length > 80) return full.substring(0, 80);
-      return full;
+      return address.isEmpty ? null : address;
     } catch (_) {
       return null;
     }
@@ -110,29 +168,14 @@ class _MapPickerPageState extends State<MapPickerPage> {
       ),
       body: Stack(children: [
         // ── Map ────────────────────────────────────────────────────────────
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: _center,
-            initialZoom: 14.5,
-            onMapEvent: (event) {
-              if (event is MapEventMoveEnd ||
-                  event is MapEventScrollWheelZoom ||
-                  event is MapEventDoubleTapZoom) {
-                if (mounted) {
-                  setState(() => _center = _mapController.camera.center);
-                }
-              }
-            },
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'kg.batjetkiret.enterprise',
-              maxZoom: 19,
+        WebViewWidget(controller: _controller),
+        if (_mapLoading)
+          const Positioned.fill(
+            child: ColoredBox(
+              color: Colors.white,
+              child: Center(child: CircularProgressIndicator()),
             ),
-          ],
-        ),
+          ),
 
         // ── Center pin (tip aligns with map center) ────────────────────────
         Positioned.fill(
@@ -152,17 +195,11 @@ class _MapPickerPageState extends State<MapPickerPage> {
           top: 12,
           child: Column(children: [
             _zoomBtn(Icons.add, () {
-              _mapController.move(
-                _mapController.camera.center,
-                _mapController.camera.zoom + 1,
-              );
+              _controller.runJavaScript('if(window.zoomBy) zoomBy(1);');
             }),
             const SizedBox(height: 6),
             _zoomBtn(Icons.remove, () {
-              _mapController.move(
-                _mapController.camera.center,
-                _mapController.camera.zoom - 1,
-              );
+              _controller.runJavaScript('if(window.zoomBy) zoomBy(-1);');
             }),
           ]),
         ),
@@ -202,8 +239,8 @@ class _MapPickerPageState extends State<MapPickerPage> {
                     size: 16, color: Color(0xFF9CA3AF)),
                 const SizedBox(width: 6),
                 Text(
-                  '${_center.latitude.toStringAsFixed(5)},  '
-                  '${_center.longitude.toStringAsFixed(5)}',
+                  '${_centerLat.toStringAsFixed(5)},  '
+                  '${_centerLon.toStringAsFixed(5)}',
                   style: const TextStyle(
                       fontSize: 12, color: Color(0xFF6B7280)),
                 ),

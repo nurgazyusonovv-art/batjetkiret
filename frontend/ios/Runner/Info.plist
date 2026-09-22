@@ -91,6 +91,7 @@
 	<array>
 		<string>whatsapp</string>
 		<string>tel</string>
+		<string>dgis</string>
 	</array>
 </dict>
 </plist>

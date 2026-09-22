@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# iOS Build Script with Yandex Maps API Key
+# iOS Build Script with map/geocoder API keys
 
 set -e
 
 cd "$(dirname "$0")"
 
-echo "📱 iOS Build with Yandex Maps"
+echo "📱 iOS Build with 2GIS Maps"
 echo "=============================="
 
 # Check .env

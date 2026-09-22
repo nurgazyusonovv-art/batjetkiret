@@ -4,10 +4,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'dart:convert';
+import '../../../core/config.dart';
 import '../../../core/utils/distance_calculator.dart';
 import 'web_map_interop.dart';
 
-/// Interactive map widget — uses WebView on mobile, Leaflet iframe on web.
+/// Interactive map widget — 2GIS MapGL in a WebView on mobile, iframe on web.
 class MapPickerWidget extends StatefulWidget {
   final LatLng? initialLocation;
   final String? initialAddress;
@@ -119,7 +120,7 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
     }
   }
 
-  // ── Web: tap handler (Leaflet → geocoding) ──────────────────────────────
+  // ── Web: tap handler (2GIS → geocoding) ─────────────────────────────────
 
   Future<void> _handleWebMapTap(double lat, double lon) async {
     if (_isReverseGeocoding) return;
@@ -177,52 +178,76 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
   String _getHtmlContent() {
     final lat = _selectedLocation?.latitude ?? 40.060518;
     final lon = _selectedLocation?.longitude ?? 70.819638;
+    // 2GIS draws Batken's streets and house numbers — the same source the
+    // address search reads, so what the user sees matches the address they get.
+    final key = AppConfig.twoGisApiKey;
     return '''
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU" type="text/javascript"></script>
+    <script src="https://mapgl.2gis.com/api/js/v1"></script>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; }
-        #map { width: 100%; height: 100%; }
+        #map { position: absolute; inset: 0; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
     <div id="map"></div>
     <script type="text/javascript">
         let myMap;
-        let placemark;
-        ymaps.ready(init);
+        let marker;
+
         function init() {
-            myMap = new ymaps.Map("map", {
-                center: [$lat, $lon],
-                zoom: 12,
-                controls: ['zoomControl', 'geolocationControl']
+            myMap = new mapgl.Map('map', {
+                center: [$lon, $lat],
+                zoom: 16,
+                key: '$key',
+                zoomControl: 'bottomRight',
             });
-            myMap.events.add('click', function (e) {
-                const coords = e.get('coords');
+            myMap.on('click', function (e) {
+                const c = e.lngLat;
                 FlutterMap.postMessage(JSON.stringify({
                     type: 'click',
-                    lat: coords[0],
-                    lon: coords[1]
+                    lat: c[1],
+                    lon: c[0]
                 }));
             });
             updateMarker($lat, $lon);
+
+            // MapGL measures the container when it is built; inside a WebView
+            // that can still be 0x0, which leaves a blank canvas. Re-measure
+            // once the real size lands.
+            var el = document.getElementById('map');
+            if (window.ResizeObserver) {
+                new ResizeObserver(fixSize).observe(el);
+            }
+            setTimeout(fixSize, 100);
+            setTimeout(fixSize, 600);
+            setTimeout(fixSize, 1500);
         }
+
+        function fixSize() {
+            try { if (myMap) myMap.invalidateSize(); } catch (e) {}
+        }
+
+        window.addEventListener('resize', fixSize);
+
         function moveToLocation(lat, lon) {
-            if (myMap) myMap.setCenter([lat, lon], 13, { duration: 300 });
-        }
-        function updateMarker(lat, lon) {
             if (myMap) {
-                if (placemark) myMap.geoObjects.remove(placemark);
-                placemark = new ymaps.Placemark([lat, lon], {
-                    hintContent: 'Тандалган жайгашкан жер'
-                }, { preset: 'islands#redDotIcon' });
-                myMap.geoObjects.add(placemark);
+                myMap.setCenter([lon, lat]);
+                myMap.setZoom(17);
             }
         }
+
+        function updateMarker(lat, lon) {
+            if (!myMap) return;
+            if (marker) marker.destroy();
+            marker = new mapgl.Marker(myMap, { coordinates: [lon, lat] });
+        }
+
+        init();
     </script>
 </body>
 </html>
@@ -236,7 +261,7 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
     return kIsWeb ? _buildWebLayout(context) : _buildMobileLayout(context);
   }
 
-  /// Web: interactive Leaflet.js map in an iframe
+  /// Web: interactive 2GIS map in an iframe
   Widget _buildWebLayout(BuildContext context) {
     final initialLat = _selectedLocation?.latitude ?? 40.060518;
     final initialLon = _selectedLocation?.longitude ?? 70.819638;
@@ -257,7 +282,7 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
       ),
       body: Stack(
         children: [
-          // Full-screen Leaflet map
+          // Full-screen 2GIS map
           buildWebMapView(
             initialLat: initialLat,
             initialLon: initialLon,
@@ -364,7 +389,7 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
     );
   }
 
-  /// Mobile: WebView-based Yandex map
+  /// Mobile: WebView-based 2GIS map
   Widget _buildMobileLayout(BuildContext context) {
     return Scaffold(
       appBar: AppBar(

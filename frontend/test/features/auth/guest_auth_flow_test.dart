@@ -27,6 +27,7 @@ class _RecordingAuthCubit extends AuthCubit {
     required String phone,
     required String password,
     String? name,
+    String? referralCode,
   }) async {
     submitCount++;
     submittedPhone = phone;

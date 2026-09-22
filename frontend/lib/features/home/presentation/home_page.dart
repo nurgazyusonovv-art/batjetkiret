@@ -2173,15 +2173,20 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                         onTap: () async {
                           final lat = ent.lat!;
                           final lon = ent.lon!;
+                          // 2GIS app first, then any installed map app, then
+                          // the 2GIS site.
+                          final dgisUri = Uri.parse('dgis://2gis.ru/geo/$lon,$lat');
                           final geoUri = Uri.parse('geo:$lat,$lon?q=$lat,$lon');
-                          if (await canLaunchUrl(geoUri)) {
+                          if (await canLaunchUrl(dgisUri)) {
+                            await launchUrl(dgisUri);
+                          } else if (await canLaunchUrl(geoUri)) {
                             await launchUrl(
                               geoUri,
                               mode: LaunchMode.externalApplication,
                             );
                           } else {
                             final webUri = Uri.parse(
-                              'https://maps.google.com/?q=$lat,$lon',
+                              'https://2gis.ru/geo/$lon,$lat',
                             );
                             await launchUrl(
                               webUri,

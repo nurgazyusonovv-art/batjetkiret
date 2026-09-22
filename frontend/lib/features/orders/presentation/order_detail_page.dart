@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'web_map_helper.dart';
+import '../../../core/config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/utils/distance_calculator.dart';
@@ -1472,7 +1473,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     const SizedBox(height: 24),
                   ],
 
-                  // Yandex Maps button for courier
+                  // 2GIS Maps button for courier
                   if (widget.isCourier &&
                       currentOrder.toLatitude != null &&
                       currentOrder.toLongitude != null) ...[
@@ -1480,7 +1481,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton.icon(
-                        onPressed: () => _openYandexMaps(
+                        onPressed: () => _open2GisMaps(
                           currentOrder.toLatitude!,
                           currentOrder.toLongitude!,
                         ),
@@ -1568,11 +1569,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
   }
 
-  Future<void> _openYandexMaps(double lat, double lon) async {
-    final appUrl = Uri.parse(
-      'yandexmaps://maps.yandex.ru/?pt=$lon,$lat&z=15&l=map',
-    );
-    final webUrl = Uri.parse('https://maps.yandex.ru/?pt=$lon,$lat&z=15&l=map');
+  Future<void> _open2GisMaps(double lat, double lon) async {
+    // Open the point in the 2GIS app when installed, otherwise on the site.
+    final appUrl = Uri.parse('dgis://2gis.ru/geo/$lon,$lat');
+    final webUrl = Uri.parse('https://2gis.ru/geo/$lon,$lat');
     if (await canLaunchUrl(appUrl)) {
       await launchUrl(appUrl);
     } else {
@@ -2686,7 +2686,7 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
           widget.courierLat,
           widget.courierLon,
         ),
-        baseUrl: 'https://yandex.ru',
+        baseUrl: 'https://2gis.com',
       );
   }
 
@@ -2742,10 +2742,10 @@ class _OrderRouteMapState extends State<_OrderRouteMap> {
     double? userLon, [
     double? courierLat,
     double? courierLon,
-  ]) => _buildYandexMapHtml(from, to, userLat, userLon, courierLat, courierLon);
+  ]) => _build2GisMapHtml(from, to, userLat, userLon, courierLat, courierLon);
 }
 
-String _buildYandexMapHtml(
+String _build2GisMapHtml(
   LatLng from,
   LatLng to,
   double? userLat,
@@ -2758,11 +2758,12 @@ String _buildYandexMapHtml(
   final hasUser = userLat != null && userLon != null;
   final hasCourier = courierLat != null && courierLon != null;
   final initUserMark = hasUser
-      ? 'userMark = new ymaps.Placemark([$userLat, $userLon], { hintContent: "Менин жайгашкан жерим" }, { preset: "islands#blueCircleDotIcon" }); map.geoObjects.add(userMark);'
+      ? 'updateUserPos($userLat, $userLon);'
       : '';
   final initCourierMark = hasCourier
-      ? 'courierMark = new ymaps.Placemark([$courierLat, $courierLon], { hintContent: "Курьер" }, { preset: "islands#orangeDeliveryIcon" }); map.geoObjects.add(courierMark);'
+      ? 'updateCourierPos($courierLat, $courierLon);'
       : '';
+  final key = AppConfig.twoGisApiKey;
 
   return '''
 <!DOCTYPE html>
@@ -2770,72 +2771,126 @@ String _buildYandexMapHtml(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
+  <script src="https://mapgl.2gis.com/api/js/v1"></script>
   <style>
-    html, body, #map { margin: 0; padding: 0; width: 100%; height: 100%; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+    #map { position: absolute; inset: 0; width: 100%; height: 100%; }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <script>
-    ymaps.ready(function () {
-      var map = new ymaps.Map('map', {
-        center: [$centerLat, $centerLon],
-        zoom: 12,
-        controls: ['zoomControl']
-      });
-
-      var from = [${from.latitude}, ${from.longitude}];
-      var to = [${to.latitude}, ${to.longitude}];
-
-      map.geoObjects.add(new ymaps.Placemark(from, { hintContent: 'Чыгаруу' }, { preset: 'islands#greenDotIcon' }));
-      map.geoObjects.add(new ymaps.Placemark(to, { hintContent: 'Жеткирүү' }, { preset: 'islands#redDotIcon' }));
-
-      var userMark = null;
-      var courierMark = null;
-      $initUserMark
-      $initCourierMark
-
-      window.updateUserPos = function(lat, lon) {
-        if (userMark) {
-          userMark.geometry.setCoordinates([lat, lon]);
-        } else {
-          userMark = new ymaps.Placemark([lat, lon], { hintContent: 'Менин жайгашкан жерим' }, { preset: 'islands#blueCircleDotIcon' });
-          map.geoObjects.add(userMark);
-        }
-      };
-      window.updateCourierPos = function(lat, lon) {
-        if (courierMark) {
-          courierMark.geometry.setCoordinates([lat, lon]);
-        } else {
-          courierMark = new ymaps.Placemark([lat, lon], { hintContent: 'Курьер' }, { preset: 'islands#orangeDeliveryIcon' });
-          map.geoObjects.add(courierMark);
-        }
-      };
-
-      function drawFallback() {
-        map.geoObjects.add(new ymaps.Polyline([from, to], {}, { strokeColor: '#1E88E5', strokeWidth: 4, opacity: 0.8 }));
-        map.setBounds(map.geoObjects.getBounds(), { checkZoomRange: true, zoomMargin: 32 });
-      }
-
-      var fromLon = ${from.longitude};
-      var fromLat = ${from.latitude};
-      var toLon = ${to.longitude};
-      var toLat = ${to.latitude};
-
-      fetch('https://router.project-osrm.org/route/v1/driving/' + fromLon + ',' + fromLat + ';' + toLon + ',' + toLat + '?overview=full&geometries=geojson')
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (data.code === 'Ok' && data.routes && data.routes[0]) {
-            var coords = data.routes[0].geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
-            map.geoObjects.add(new ymaps.Polyline(coords, {}, { strokeColor: '#1E88E5', strokeWidth: 5, opacity: 0.9 }));
-            map.setBounds(map.geoObjects.getBounds(), { checkZoomRange: true, zoomMargin: 32 });
-          } else {
-            drawFallback();
-          }
-        })
-        .catch(function() { drawFallback(); });
+    var map = new mapgl.Map('map', {
+      center: [$centerLon, $centerLat],
+      zoom: 12,
+      key: '$key',
+      zoomControl: 'bottomRight'
     });
+
+    var from = [${from.longitude}, ${from.latitude}];
+    var to = [${to.longitude}, ${to.latitude}];
+
+    // MapGL measures the container when it is built; inside a WebView/iframe
+    // that can still be 0x0, which leaves a blank canvas. Re-measure once the
+    // real size lands.
+    function fixSize() { try { map.invalidateSize(); } catch (e) {} }
+    window.addEventListener('resize', fixSize);
+    if (window.ResizeObserver) {
+      new ResizeObserver(fixSize).observe(document.getElementById('map'));
+    }
+    setTimeout(fixSize, 100);
+    setTimeout(fixSize, 600);
+    setTimeout(fixSize, 1500);
+
+    function pinIcon(color) {
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">'
+        + '<path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.27 21.73 0 14 0z" fill="' + color + '"/>'
+        + '<circle cx="14" cy="14" r="5.5" fill="#ffffff"/></svg>';
+      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+
+    function addPin(coords, color, text) {
+      return new mapgl.Marker(map, {
+        coordinates: coords,
+        icon: pinIcon(color),
+        size: [28, 40],
+        anchor: [14, 40],
+        label: { text: text, offset: [0, -46], fontSize: 12, color: '#222222', haloRadius: 3, haloColor: '#ffffff' }
+      });
+    }
+
+    addPin(from, '#2E9E4F', 'Чыгаруу');
+    addPin(to, '#E53935', 'Жеткирүү');
+
+    var userMark = null;
+    var courierMark = null;
+
+    window.updateUserPos = function (lat, lon) {
+      if (userMark) {
+        userMark.setCoordinates([lon, lat]);
+      } else {
+        userMark = addPin([lon, lat], '#1E88E5', 'Мен');
+      }
+    };
+    window.updateCourierPos = function (lat, lon) {
+      if (courierMark) {
+        courierMark.setCoordinates([lon, lat]);
+      } else {
+        courierMark = addPin([lon, lat], '#FB8C00', 'Курьер');
+      }
+    };
+
+    $initUserMark
+    $initCourierMark
+
+    function fitTo(coords) {
+      var minLon = coords[0][0], maxLon = coords[0][0];
+      var minLat = coords[0][1], maxLat = coords[0][1];
+      coords.forEach(function (c) {
+        if (c[0] < minLon) minLon = c[0];
+        if (c[0] > maxLon) maxLon = c[0];
+        if (c[1] < minLat) minLat = c[1];
+        if (c[1] > maxLat) maxLat = c[1];
+      });
+      // A small preview canvas can be too small for the padded bounds; MapGL
+      // then refuses to move, so fall back to centering on the midpoint.
+      try {
+        map.fitBounds(
+          { northEast: [maxLon, maxLat], southWest: [minLon, minLat] },
+          { padding: { top: 24, right: 24, bottom: 24, left: 24 } }
+        );
+      } catch (e) {
+        map.setCenter([(minLon + maxLon) / 2, (minLat + maxLat) / 2]);
+      }
+    }
+
+    function drawFallback() {
+      new mapgl.Polyline(map, {
+        coordinates: [from, to],
+        width: 4,
+        color: '#1E88E5'
+      });
+      fitTo([from, to]);
+    }
+
+    fetch('https://router.project-osrm.org/route/v1/driving/'
+        + from[0] + ',' + from[1] + ';' + to[0] + ',' + to[1]
+        + '?overview=full&geometries=geojson')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.code === 'Ok' && data.routes && data.routes[0]) {
+          var coords = data.routes[0].geometry.coordinates;
+          new mapgl.Polyline(map, {
+            coordinates: coords,
+            width: 5,
+            color: '#1E88E5'
+          });
+          fitTo(coords);
+        } else {
+          drawFallback();
+        }
+      })
+      .catch(function () { drawFallback(); });
   </script>
 </body>
 </html>
@@ -2844,7 +2899,7 @@ String _buildYandexMapHtml(
 
 // ─── Web Map Preview (web-only: static thumbnail → fullscreen iframe dialog) ──
 
-class _WebMapPreview extends StatelessWidget {
+class _WebMapPreview extends StatefulWidget {
   const _WebMapPreview({
     required this.from,
     required this.to,
@@ -2861,22 +2916,42 @@ class _WebMapPreview extends StatelessWidget {
   final double? courierLat;
   final double? courierLon;
 
-  String get _staticUrl {
-    final centerLat = (from.latitude + to.latitude) / 2;
-    final centerLon = (from.longitude + to.longitude) / 2;
-    final fromPt = '${from.longitude},${from.latitude},pm2grm';
-    final toPt = '${to.longitude},${to.latitude},pm2rdm';
-    String pt = '$fromPt~$toPt';
-    if (courierLat != null && courierLon != null) {
-      pt += '~$courierLon,$courierLat,pm2blm';
-    }
-    return 'https://static-maps.yandex.ru/1.x/?ll=$centerLon,$centerLat&z=12&size=650,400&l=map&pt=$pt';
+  @override
+  State<_WebMapPreview> createState() => _WebMapPreviewState();
+}
+
+class _WebMapPreviewState extends State<_WebMapPreview> {
+  late final String _previewViewId;
+  late final String _previewHtml;
+
+  LatLng get from => widget.from;
+  LatLng get to => widget.to;
+  double? get userLat => widget.userLat;
+  double? get userLon => widget.userLon;
+  double? get courierLat => widget.courierLat;
+  double? get courierLon => widget.courierLon;
+
+  @override
+  void initState() {
+    super.initState();
+    // 2GIS has no free static-image API, so the preview is a live map too.
+    _previewViewId =
+        'dgis_preview_${DateTime.now().microsecondsSinceEpoch}';
+    _previewHtml = _build2GisMapHtml(
+      from,
+      to,
+      userLat,
+      userLon,
+      courierLat,
+      courierLon,
+    );
+    registerWebIframe(_previewViewId, _previewHtml);
   }
 
   void _openFullscreen(BuildContext context) {
     final viewId =
         'ymap_fs_${from.latitude}_${from.longitude}_${DateTime.now().microsecondsSinceEpoch}';
-    final html = _buildYandexMapHtml(
+    final html = _build2GisMapHtml(
       from,
       to,
       userLat,
@@ -2936,36 +3011,23 @@ class _WebMapPreview extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(
-              _staticUrl,
-              fit: BoxFit.cover,
-              loadingBuilder: (_, child, progress) {
-                if (progress == null) return child;
-                return const ColoredBox(
-                  color: Color(0xFFE8E8E8),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              },
-              errorBuilder: (_, __, ___) => const ColoredBox(
-                color: Color(0xFFE8E8E8),
-                child: Center(
-                  child: Icon(Icons.map_outlined, size: 48, color: Colors.grey),
-                ),
-              ),
-            ),
+            buildWebIframeMap(_previewHtml, _previewViewId),
             Positioned(
               top: 8,
               right: 8,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.fullscreen,
-                  size: 20,
-                  color: Colors.black87,
+              child: GestureDetector(
+                onTap: () => _openFullscreen(context),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.fullscreen,
+                    size: 20,
+                    color: Colors.black87,
+                  ),
                 ),
               ),
             ),

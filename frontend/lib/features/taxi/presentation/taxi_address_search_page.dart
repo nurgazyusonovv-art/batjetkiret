@@ -123,6 +123,10 @@ class _TaxiAddressSearchPageState extends State<TaxiAddressSearchPage> {
   }
 
   Future<void> _pickOnMap() async {
+    // The picker reports its pick through the callback, but it is still the
+    // top route at that moment — popping here would close the picker and drop
+    // the address. Remember it, and close this page once the picker is gone.
+    TaxiPlace? picked;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         fullscreenDialog: true,
@@ -130,11 +134,12 @@ class _TaxiAddressSearchPageState extends State<TaxiAddressSearchPage> {
           initialLocation: widget.near,
           title: widget.title,
           onLocationSelected: (location, address) {
-            _pick(TaxiPlace(address: address, location: location));
+            picked = TaxiPlace(address: address, location: location);
           },
         ),
       ),
     );
+    if (picked != null) _pick(picked!);
   }
 
   void _pick(TaxiPlace place) {
