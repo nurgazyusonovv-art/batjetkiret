@@ -1095,10 +1095,6 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   // Address controllers
   final _fromAddressController = TextEditingController();
   final _toAddressController = TextEditingController();
-  // House / flat number: map data in Batken has almost no house numbers, so
-  // the customer supplies it and we append it to the geocoded street.
-  final _fromHouseController = TextEditingController();
-  final _toHouseController = TextEditingController();
   final _notesController = TextEditingController();
 
   // Map coordinates
@@ -1159,8 +1155,6 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     _toAddressController.addListener(
       () => _onAddressChanged(_toAddressController, isFrom: false),
     );
-    _fromHouseController.addListener(() => setState(() {}));
-    _toHouseController.addListener(() => setState(() {}));
     _enterpriseSearchController.addListener(
       () =>
           setState(() => _enterpriseSearch = _enterpriseSearchController.text),
@@ -1180,8 +1174,6 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     _cubit.close();
     _fromAddressController.dispose();
     _toAddressController.dispose();
-    _fromHouseController.dispose();
-    _toHouseController.dispose();
     _notesController.dispose();
     _enterpriseSearchController.dispose();
     super.dispose();
@@ -1321,8 +1313,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
   void _goToNextStep({String? overrideFrom, String? overrideTo}) {
     final message = _cubit.goToNextStep(
-      fromAddress: overrideFrom ?? _fromAddressFull,
-      toAddress: overrideTo ?? _toAddressFull,
+      fromAddress: overrideFrom ?? _fromAddressController.text,
+      toAddress: overrideTo ?? _toAddressController.text,
       fromLocation: _selectedFromLocation,
       toLocation: _selectedToLocation,
     );
@@ -1360,7 +1352,6 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     );
     // Auto-fill from address from enterprise
     _setAddressText(_fromAddressController, ent.address ?? '');
-    _fromHouseController.clear();
     if (ent.lat != null && ent.lon != null) {
       setState(() {
         _selectedFromLocation = LatLng(latitude: ent.lat!, longitude: ent.lon!);
@@ -1379,7 +1370,6 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   void _onManualEnterprise() {
     _cubit.goToPickupStep();
     _setAddressText(_fromAddressController, '');
-    _fromHouseController.clear();
     setState(() => _selectedFromLocation = null);
   }
 
@@ -1568,8 +1558,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       final orderData = await _cubit.createOrder(
         token: widget.token,
         category: widget.selectedCategory.id,
-        fromAddress: _fromAddressFull,
-        toAddress: _toAddressFull,
+        fromAddress: _fromAddressController.text,
+        toAddress: _toAddressController.text,
         description: description,
         fromLocation: _selectedFromLocation,
         toLocation: _selectedToLocation,
@@ -1678,24 +1668,6 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       _addressSuggestions = results;
       _loadingSuggestions = false;
     });
-  }
-
-  /// Street plus the hand-typed house number, which is what the courier sees.
-  String get _fromAddressFull =>
-      _withHouse(_fromAddressController.text, _fromHouseController.text);
-
-  String get _toAddressFull =>
-      _withHouse(_toAddressController.text, _toHouseController.text);
-
-  String _withHouse(String address, String house) {
-    final street = address.trim();
-    final number = house.trim();
-    if (number.isEmpty) return street;
-    if (street.isEmpty) return number;
-    // Skip when the geocoder already returned this number in the street line.
-    final tokens = street.split(RegExp(r'[\s,]+'));
-    if (tokens.contains(number)) return street;
-    return '$street, $number';
   }
 
   /// Fill an address field from code without triggering a new search.
@@ -1857,7 +1829,6 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
   Widget _buildAddressField({
     required TextEditingController controller,
-    required TextEditingController houseController,
     required String hint,
     required String label,
     required bool isFrom,
@@ -1943,27 +1914,6 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                     ],
                   ),
           ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            SizedBox(
-              width: 170,
-              child: AppTextField(
-                controller: houseController,
-                hintText: 'Үй / батир №',
-                textInputAction: TextInputAction.done,
-                prefixIcon: const Icon(Icons.home_outlined),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Картада үй номерлери жок — өзүңүз жазыңыз',
-                style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -3163,8 +3113,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           const SizedBox(height: 16),
           _buildAddressField(
             controller: _fromAddressController,
-            houseController: _fromHouseController,
-            hint: 'Көчөнүн атын жазыңыз',
+            hint: 'Көчө жана үй номери (мис. Токтогул 44)',
             label: 'Жөнөтүүнүн адресси',
             isFrom: true,
           ),
@@ -3173,7 +3122,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           const SizedBox(height: 16),
           _buildMapSection(
             location: _selectedFromLocation,
-            address: _fromAddressFull,
+            address: _fromAddressController.text,
             mapLabel: 'Картадан тандаңыз',
             onChanged: (loc, addr) {
               setState(() {
@@ -3211,8 +3160,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           const SizedBox(height: 16),
           _buildAddressField(
             controller: _toAddressController,
-            houseController: _toHouseController,
-            hint: 'Көчөнүн атын жазыңыз',
+            hint: 'Көчө жана үй номери (мис. Токтогул 44)',
             label: 'Жеткирүүнүн адресси',
             isFrom: false,
           ),
@@ -3221,7 +3169,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           const SizedBox(height: 16),
           _buildMapSection(
             location: _selectedToLocation,
-            address: _toAddressFull,
+            address: _toAddressController.text,
             mapLabel: 'Картадан тандаңыз',
             onChanged: (loc, addr) {
               setState(() {
@@ -3297,14 +3245,18 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
                 _buildAddressRow(
                   icon: Icons.location_on,
                   label: 'Кайдан',
-                  value: _fromAddressFull.isNotEmpty ? _fromAddressFull : '—',
+                  value: _fromAddressController.text.isNotEmpty
+                      ? _fromAddressController.text
+                      : '—',
                   color: Colors.green.shade700,
                 ),
                 Divider(color: Colors.green.shade200, height: 16),
                 _buildAddressRow(
                   icon: Icons.flag,
                   label: 'Кайда',
-                  value: _toAddressFull.isNotEmpty ? _toAddressFull : '—',
+                  value: _toAddressController.text.isNotEmpty
+                      ? _toAddressController.text
+                      : '—',
                   color: Colors.blue.shade700,
                 ),
               ],

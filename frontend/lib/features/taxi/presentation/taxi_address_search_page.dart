@@ -22,7 +22,7 @@ class TaxiAddressSearchPage extends StatefulWidget {
   const TaxiAddressSearchPage({
     super.key,
     required this.title,
-    this.hint = 'Көчөнүн атын жазыңыз',
+    this.hint = 'Көчө жана үй номери (мис. Токтогул 44)',
     this.near,
     this.allowMyLocation = true,
   });
