@@ -6,6 +6,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'dart:convert';
 import '../../../core/config.dart';
 import '../../../core/utils/distance_calculator.dart';
+import 'map_key_missing.dart';
 import 'web_map_interop.dart';
 
 /// Interactive map widget — 2GIS MapGL in a WebView on mobile, iframe on web.
@@ -258,6 +259,12 @@ class _MapPickerWidgetState extends State<MapPickerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    if (AppConfig.twoGisApiKey.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.title ?? 'Карта')),
+        body: const MapKeyMissingView(),
+      );
+    }
     return kIsWeb ? _buildWebLayout(context) : _buildMobileLayout(context);
   }
 

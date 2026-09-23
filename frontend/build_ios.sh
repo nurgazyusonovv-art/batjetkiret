@@ -20,7 +20,14 @@ if [ -f ".env" ]; then
     source .env
     api_key_flag="--dart-define=YANDEX_API_KEY=$YANDEX_API_KEY"
     # Routing / address search keys (optional — the app falls back gracefully)
-    [ -n "$TWOGIS_API_KEY" ] && api_key_flag="$api_key_flag --dart-define=TWOGIS_API_KEY=$TWOGIS_API_KEY"
+    # The map is unusable without this key and 2GIS only says so at runtime,
+    # so refuse to build rather than ship a blank map.
+    if [ -z "$TWOGIS_API_KEY" ]; then
+        echo "❌ TWOGIS_API_KEY .env файлында жок — карта иштебей калат."
+        echo "   .env ичине кошуңуз: TWOGIS_API_KEY=<ачкыч>"
+        exit 1
+    fi
+    api_key_flag="$api_key_flag --dart-define=TWOGIS_API_KEY=$TWOGIS_API_KEY"
     [ -n "$ORS_API_KEY" ] && api_key_flag="$api_key_flag --dart-define=ORS_API_KEY=$ORS_API_KEY"
     [ -n "$OSRM_BASE_URL" ] && api_key_flag="$api_key_flag --dart-define=OSRM_BASE_URL=$OSRM_BASE_URL"
     echo "✅ API keys loaded from .env"

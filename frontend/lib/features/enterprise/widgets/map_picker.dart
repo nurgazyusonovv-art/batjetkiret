@@ -5,6 +5,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../core/config.dart';
 import '../../../core/utils/distance_calculator.dart';
+import '../../common/widgets/map_key_missing.dart';
 
 class PickedLocation {
   final double lat;
@@ -168,8 +169,11 @@ class _MapPickerPageState extends State<MapPickerPage> {
       ),
       body: Stack(children: [
         // ── Map ────────────────────────────────────────────────────────────
-        WebViewWidget(controller: _controller),
-        if (_mapLoading)
+        if (AppConfig.twoGisApiKey.isEmpty)
+          const Positioned.fill(child: MapKeyMissingView())
+        else
+          WebViewWidget(controller: _controller),
+        if (_mapLoading && AppConfig.twoGisApiKey.isNotEmpty)
           const Positioned.fill(
             child: ColoredBox(
               color: Colors.white,
