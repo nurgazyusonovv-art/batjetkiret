@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ky">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Баткен Экспресс — такси, тамак-аш, курьер</title>
+<meta name="description" content="Баткен Экспресс тиркемеси: такси чакырыңыз, тамак-аш жана азык-түлүк заказ кылыңыз, курьер жибериңиз. iPhone жана Android үчүн бекер.">
+<meta name="theme-color" content="#FF1717">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Баткен Экспресс">
+<meta property="og:title" content="Баткен Экспресс — такси, тамак-аш, курьер">
+<meta property="og:description" content="Баары бир тиркемеде. iPhone жана Android үчүн бекер жүктөп алыңыз.">
+<meta property="og:image" content="https://batjetkiret.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://batjetkiret.vercel.app/">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="icon-180.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+
+<style>
+  :root{
+    --red:#FF1717; --red-dark:#D80E0E; --yellow:#FFD84D;
+    --ink:#14181F; --muted:#5A6472; --line:#E6E9EE;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:'Montserrat',-apple-system,BlinkMacSystemFont,'Segoe UI',
+                Roboto,'Helvetica Neue',Arial,sans-serif;
+    color:var(--ink); background:#fff; line-height:1.5;
+    display:flex; flex-direction:column; min-height:100dvh;
+  }
+
+  /* ── шапка ── */
+  .hero{
+    background:var(--red); color:#fff; text-align:center;
+    padding:32px 20px 30px; border-bottom:5px solid var(--yellow);
+  }
+  .hero img{width:116px;height:116px;object-fit:contain;display:block;margin:0 auto}
+
+  /* ── негизги ── */
+  main{
+    flex:1; width:100%; max-width:560px; margin:0 auto;
+    padding:30px 20px 8px; text-align:center;
+  }
+  h1{
+    font-size:clamp(25px,7.2vw,34px); font-weight:900; line-height:1.14;
+    letter-spacing:-.4px; text-transform:uppercase;
+  }
+  h1 em{color:var(--red);font-style:normal}
+  .lede{margin-top:12px;font-size:16px;font-weight:600;color:var(--muted)}
+
+  /* ── жүктөө баскычтары ── */
+  .btns{margin-top:26px;display:flex;flex-direction:column;gap:12px}
+  .btn{
+    display:flex; align-items:center; gap:14px; text-align:left;
+    padding:14px 18px; border-radius:15px; text-decoration:none;
+    background:var(--ink); color:#fff; position:relative;
+    border:2px solid var(--ink); transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(20,24,31,.22)}
+  .btn:active{transform:translateY(0)}
+  .btn svg{width:30px;height:30px;flex:none;fill:currentColor}
+  .btn .t{display:flex;flex-direction:column;line-height:1.2}
+  .btn .t small{font-size:12px;font-weight:600;opacity:.75}
+  .btn .t strong{font-size:19px;font-weight:800;letter-spacing:-.2px}
+
+  /* сиздин түзмөгүңүз аныкталганда */
+  .btn.suggested{background:var(--red);border-color:var(--red)}
+  .btn .tag{
+    display:none; position:absolute; top:-10px; right:14px;
+    background:var(--yellow); color:var(--ink); font-size:11px; font-weight:800;
+    letter-spacing:.3px; padding:3px 9px; border-radius:999px;
+    text-transform:uppercase;
+  }
+  .btn.suggested .tag{display:block}
+
+  /* ── кызматтар ── */
+  .services{
+    margin-top:34px; display:grid; grid-template-columns:repeat(3,1fr);
+    gap:14px 10px;
+  }
+  .svc{display:flex;flex-direction:column;align-items:center;gap:7px}
+  .svc i{
+    width:50px;height:50px;border-radius:50%;background:#FFF1F1;
+    border:1px solid #FFD5D5; display:flex;align-items:center;justify-content:center;
+  }
+  .svc svg{width:24px;height:24px;fill:none;stroke:var(--red);stroke-width:1.9;
+           stroke-linecap:round;stroke-linejoin:round}
+  .svc span{font-size:12.5px;font-weight:700}
+
+  /* ── аяк ── */
+  footer{
+    margin-top:32px; padding:18px 20px calc(18px + env(safe-area-inset-bottom));
+    border-top:1px solid var(--line); text-align:center;
+    font-size:12.5px; color:var(--muted);
+  }
+  footer b{color:var(--ink);font-weight:800}
+
+  @media (min-width:520px){
+    .btns{flex-direction:row}
+    .btn{flex:1}
+  }
+</style>
+</head>
+<body>
+
+  <header class="hero">
+    <img src="logo.png" alt="Баткен Экспресс" width="116" height="116">
+  </header>
+
+  <main>
+    <h1>Такси, тамак-аш, курьер —<br><em>баары бир тиркемеде</em></h1>
+    <p class="lede">Заказыңызды телефонуңуздан бир нече тийүү менен бериңиз.</p>
+
+    <div class="btns">
+      <a class="btn" id="ios"
+         href="https://apps.apple.com/kg/app/batken-express/id6804351978">
+        <span class="tag">Сиздин түзмөк</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.37 12.76c.02 2.4 2.1 3.2 2.13 3.21-.02.06-.33 1.14-1.1 2.26-.66.96-1.35 1.92-2.44 1.94-1.07.02-1.41-.63-2.63-.63-1.22 0-1.6.61-2.61.65-1.05.04-1.85-1.04-2.51-2-1.36-1.97-2.4-5.56-1-7.99.69-1.2 1.93-1.97 3.28-1.99 1.03-.02 2 .69 2.63.69.63 0 1.81-.86 3.05-.73.52.02 1.98.21 2.92 1.58-.08.05-1.74 1.02-1.72 3.01M14.4 5.5c.56-.68.94-1.62.84-2.56-.81.03-1.79.54-2.37 1.21-.52.6-.97 1.56-.85 2.48.9.07 1.82-.46 2.38-1.13"/></svg>
+        <span class="t"><small>Жүктөп алуу</small><strong>App Store</strong></span>
+      </a>
+
+      <a class="btn" id="android"
+         href="https://play.google.com/store/apps/details?id=kg.batkenexpress.app">
+        <span class="tag">Сиздин түзмөк</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18a.38.38 0 0 0-.14-.52.38.38 0 0 0-.52.14l-1.87 3.23a11.4 11.4 0 0 0-9.82 0L5.22 5.92a.38.38 0 0 0-.52-.14.38.38 0 0 0-.14.52L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52M7 15.25a1 1 0 1 1 0-2 1 1 0 0 1 0 2m10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2"/></svg>
+        <span class="t"><small>Жүктөп алуу</small><strong>Google Play</strong></span>
+      </a>
+    </div>
+
+    <div class="services">
+      <div class="svc"><i><svg viewBox="0 0 24 24"><path d="M7 3v8a3 3 0 0 0 6 0V3M10 11v10M17 3c-1.5 2-2 4-2 6s.5 3 2 3 2-1 2-3-.5-4-2-6zM17 12v9"/></svg></i><span>Тамак-аш</span></div>
+      <div class="svc"><i><svg viewBox="0 0 24 24"><path d="M3 7h18l-2 13H5L3 7zM8 7V5a4 4 0 0 1 8 0v2"/></svg></i><span>Азык-түлүк</span></div>
+      <div class="svc"><i><svg viewBox="0 0 24 24"><path d="M12 6.5v11M6.5 12h11" stroke-width="3"/></svg></i><span>Дарыкана</span></div>
+      <div class="svc"><i><svg viewBox="0 0 24 24"><path d="M12 22v-8"/><path d="M12 14c-3.3 0-6-2.7-6-6 0 0 2.6-.6 3.7 1.5C10.4 6.7 12 5 12 5s1.6 1.7 2.3 4.5C15.4 7.4 18 8 18 8c0 3.3-2.7 6-6 6z"/></svg></i><span>Гүлдөр</span></div>
+      <div class="svc"><i><svg viewBox="0 0 24 24"><path d="M4 16h16M5 16l1.6-5.4A2 2 0 0 1 8.5 9h7a2 2 0 0 1 1.9 1.6L19 16v4h-3v-2H8v2H5v-4zM9 6h6"/></svg></i><span>Такси</span></div>
+      <div class="svc"><i><svg viewBox="0 0 24 24"><path d="M3 8l9-4 9 4-9 4-9-4zM3 8v8l9 4 9-4V8M12 12v8"/></svg></i><span>Курьер</span></div>
+    </div>
+  </main>
+
+  <footer>
+    <b>Баткен Экспресс</b> · Тиркеме бекер · iPhone жана Android
+  </footer>
+
+<script>
+  // Түзмөктү аныктап, ылайыктуу баскычты биринчи коюп белгилейбиз.
+  // Автоматтык багыттоо жок — тандоо колдонуучуда калат.
+  (function () {
+    var ua = navigator.userAgent || '';
+
+    // Android'ди биринчи текшеребиз: анын UA'сы бир мааниде.
+    // iPadOS 13+ өзүн Mac катары көрсөткөндүктөн, аны сенсор аркылуу
+    // аныктоого туура келет — ал шарт Android'де жалган иштеп кетпесин.
+    var isAndroid = /Android/.test(ua);
+    var isIOS = !isAndroid && (
+      /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    );
+    if (!isIOS && !isAndroid) return;
+
+    var pick = document.getElementById(isIOS ? 'ios' : 'android');
+    pick.classList.add('suggested');
+    pick.parentNode.prepend(pick);
+  })();
+</script>
+
+</body>
+</html>
