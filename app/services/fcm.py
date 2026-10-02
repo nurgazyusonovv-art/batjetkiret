@@ -166,7 +166,7 @@ def send_push(
                     ),
                 ),
                 headers={"apns-priority": "10"},
-                fcm_options=_messaging.APNSFcmOptions(image=image_url)
+                fcm_options=_messaging.APNSFCMOptions(image=image_url)
                 if image_url
                 else None,
             )
@@ -267,7 +267,7 @@ def send_push_to_tokens(
                         ),
                     ),
                     headers={"apns-priority": "10"},
-                    fcm_options=_messaging.APNSFcmOptions(image=image_url)
+                    fcm_options=_messaging.APNSFCMOptions(image=image_url)
                     if image_url
                     else None,
                 ),
