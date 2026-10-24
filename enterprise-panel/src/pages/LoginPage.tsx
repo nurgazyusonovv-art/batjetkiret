@@ -21,8 +21,19 @@ export default function LoginPage() {
       subscribeToPush().catch(() => {});
       navigate('/');
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { detail?: string } } };
-      setError(e?.response?.data?.detail ?? 'Логин же сырсөз туура эмес');
+      const e = err as { response?: { status?: number; data?: { detail?: string } } };
+      // No response means the server was never reached — saying "wrong
+      // password" then sends people retyping a password that is correct.
+      if (!e?.response) {
+        setError('Сервер менен байланыш жок. Интернетти текшерип, кайра аракет кылыңыз.');
+      } else {
+        setError(
+          e.response.data?.detail ??
+            (e.response.status === 401
+              ? 'Логин же сырсөз туура эмес'
+              : `Сервер катасы (${e.response.status}). Кийинчерээк кайталаңыз.`),
+        );
+      }
     } finally {
       setLoading(false);
     }

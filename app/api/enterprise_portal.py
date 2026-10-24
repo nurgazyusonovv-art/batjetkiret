@@ -61,9 +61,27 @@ class LoginRequest(BaseModel):
 @router.post("/login")
 def enterprise_login(data: LoginRequest, db: Session = Depends(get_db)):
     from app.api.auth import _normalize_phone_variants
-    user = db.query(User).filter(User.phone.in_(_normalize_phone_variants(data.phone))).first()
-    if not user or not verify_password(data.password, user.hashed_password):
+    # One number can belong to two accounts stored in different formats — a
+    # customer as +996… and the enterprise login an admin typed as 0…. Taking
+    # whichever row came first refused the owner's correct enterprise password,
+    # so check every match and prefer the enterprise account.
+    candidates = (
+        db.query(User)
+        .filter(User.phone.in_(_normalize_phone_variants(data.phone)))
+        .order_by(User.id)
+        .all()
+    )
+
+    def _password_ok(u: User) -> bool:
+        try:
+            return verify_password(data.password, u.hashed_password)
+        except ValueError:  # legacy/unknown hash on one of the matches
+            return False
+
+    matched = [u for u in candidates if _password_ok(u)]
+    if not matched:
         raise HTTPException(status_code=401, detail="Телефон же сырсөз туура эмес")
+    user = next((u for u in matched if u.is_enterprise and u.enterprise_id), matched[0])
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Каттоо эсеби бөгөттөлгөн")
     if not user.is_enterprise or not user.enterprise_id:
