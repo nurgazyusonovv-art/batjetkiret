@@ -4,6 +4,7 @@ Every request goes through the real FastAPI app (routing, auth, validation)
 against an in-memory SQLite database. Only the outside world is stubbed:
 FCM / web push / courier notifications and the R2 image store.
 """
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -24,6 +25,7 @@ ENTERPRISE_PHONE = "+996700100200"
 ENTERPRISE_PASSWORD = "secret123"
 CUSTOMER_PHONE = "+996700300400"
 CUSTOMER_PASSWORD = "custpass1"
+CAMPAIGN_DAY = timedelta(hours=24, minutes=1)
 
 
 @pytest.fixture()
@@ -431,3 +433,181 @@ def test_login_prefers_enterprise_account_when_number_is_shared(env):
     db.commit()
     assert _login(c, phone="+996700900800").status_code == 200
     db.close()
+
+
+# ── Promo notifications submitted by an enterprise ──────────────────────────
+
+
+@pytest.fixture()
+def promo(env, monkeypatch):
+    """Adds an admin, a menu item and a recorder for campaign pushes."""
+    from app.services import fcm
+
+    multicasts = []
+    monkeypatch.setattr(
+        fcm,
+        "send_push_to_tokens",
+        lambda tokens, **k: multicasts.append({"tokens": list(tokens), **k}) or len(tokens),
+    )
+    db = env["Session"]()
+    admin = User(
+        phone="+996700000001",
+        name="Админ",
+        hashed_password=hash_password("admin-pass"),
+        is_active=True,
+        is_admin=True,
+    )
+    customer = db.get(User, env["customer_id"])
+    customer.fcm_token = "customer-device"
+    db.add(admin)
+    db.commit()
+    c = env["client"]
+    ent_h = _auth(_ok(_login(c))["access_token"])
+    plov = _ok(c.post("/enterprise-portal/products", headers=ent_h, json={"name": "Палоо", "price": 250}))
+    env.update(
+        ent_h=ent_h,
+        admin_h=_auth(create_access_token(admin.id)),
+        plov_id=plov["id"],
+        multicasts=multicasts,
+    )
+    db.close()
+    return env
+
+
+def _submit(c, h, **overrides):
+    body = {
+        "title": "Палоо 20% арзан",
+        "message": "Бүгүн гана!",
+        "image_url": "https://media.test/notifications/plov.jpg",
+    }
+    body.update(overrides)
+    return c.post("/enterprise-portal/campaigns", headers=h, json=body)
+
+
+def test_enterprise_promo_waits_for_admin_then_reaches_everyone(promo):
+    from app.models.notification import Notification
+
+    c, h, admin_h = promo["client"], promo["ent_h"], promo["admin_h"]
+
+    picture = _ok(c.post(
+        "/enterprise-portal/notifications/image",
+        headers=h,
+        files={"file": ("promo.png", b"\x89PNG fake", "image/png")},
+    ))
+    assert picture["url"].startswith(f"https://media.test/notifications/enterprise-{promo['enterprise_id']}/")
+
+    submitted = _ok(_submit(c, h, image_url=picture["url"], product_id=promo["plov_id"]))
+    assert submitted["status"] == "pending_review"
+    assert submitted["product_name"] == "Палоо"
+
+    # Nothing reaches users before review — not even through the scheduler.
+    from app.services.campaigns import send_due_campaigns
+
+    db = promo["Session"]()
+    assert send_due_campaigns(db) == 0
+    assert db.query(Notification).count() == 0
+    assert promo["multicasts"] == []
+
+    # The admin sees it with the shop and the menu item.
+    listed = next(x for x in _ok(c.get("/admin/campaigns", headers=admin_h)) if x["id"] == submitted["id"])
+    assert listed["status"] == "pending_review"
+    assert listed["created_by_enterprise_name"] == "Тест Ашкана"
+    assert listed["product_name"] == "Палоо"
+
+    approved = _ok(c.post(f"/admin/campaigns/{submitted['id']}/approve", headers=admin_h, json={}))
+    assert approved["sent_to"] == 3  # owner, customer, admin: every active user
+
+    rows = db.query(Notification).all()
+    assert len(rows) == 3
+    assert {r.image_url for r in rows} == {picture["url"]}
+    assert {r.enterprise_id for r in rows} == {promo["enterprise_id"]}
+
+    push = promo["multicasts"][0]
+    assert push["tokens"] == ["customer-device"]
+    assert push["image_url"] == picture["url"]
+    assert push["data"] == {
+        "type": "promo",
+        "enterprise_id": str(promo["enterprise_id"]),
+        "enterprise_category": "food",
+        "product_id": str(promo["plov_id"]),
+    }
+    assert any(kind == "web" for kind, *_ in promo["pushes"])  # enterprise told
+
+    mine = _ok(c.get("/enterprise-portal/campaigns", headers=h))
+    assert mine["campaigns"][0]["status"] == "sent"
+    assert mine["campaigns"][0]["sent_count"] == 3
+
+    # A second approval (double click, second admin) must not send it again.
+    again = c.post(f"/admin/campaigns/{submitted['id']}/approve", headers=admin_h, json={})
+    assert again.status_code == 400
+    assert len(promo["multicasts"]) == 1
+    db.close()
+
+
+def test_enterprise_promo_limit_is_one_per_day(promo):
+    from app.models.notification_campaign import NotificationCampaign
+
+    c, h, admin_h = promo["client"], promo["ent_h"], promo["admin_h"]
+
+    first = _ok(_submit(c, h))
+    blocked = _submit(c, h)
+    assert blocked.status_code == 429
+    assert blocked.json()["detail"].startswith("Күнүнө бир гана билдирүү жөнөтсө болот.")
+    assert _ok(c.get("/enterprise-portal/campaigns", headers=h))["next_allowed_at"] is not None
+
+    # Withdrawing a draft gives the day back.
+    _ok(c.post(f"/enterprise-portal/campaigns/{first['id']}/cancel", headers=h))
+    second = _ok(_submit(c, h))
+
+    # So does a rejection, and the enterprise sees why.
+    rejected = _ok(c.post(
+        f"/admin/campaigns/{second['id']}/reject", headers=admin_h, json={"note": "Сүрөт бүдөмүк"},
+    ))
+    assert rejected["status"] == "rejected"
+    mine = _ok(c.get("/enterprise-portal/campaigns", headers=h))
+    assert mine["campaigns"][0]["review_note"] == "Сүрөт бүдөмүк"
+    assert mine["next_allowed_at"] is None
+    assert c.post(f"/admin/campaigns/{second['id']}/approve", headers=admin_h, json={}).status_code == 400
+
+    third = _ok(_submit(c, h))
+    assert _submit(c, h).status_code == 429
+    # A reviewed draft can no longer be withdrawn.
+    _ok(c.post(f"/admin/campaigns/{third['id']}/approve", headers=admin_h, json={}))
+    assert c.post(f"/enterprise-portal/campaigns/{third['id']}/cancel", headers=h).status_code == 400
+
+    # 24 hours later the enterprise may submit again.
+    db = promo["Session"]()
+    row = db.get(NotificationCampaign, third["id"])
+    row.created_at = row.created_at - CAMPAIGN_DAY
+    db.commit()
+    db.close()
+    _ok(_submit(c, h))
+
+
+def test_enterprise_promo_validation(promo, env):
+    c, h = promo["client"], promo["ent_h"]
+
+    assert _submit(c, h, title="  ").status_code == 400
+    assert _submit(c, h, message="x" * 501).status_code == 400
+    assert _submit(c, h, image_url="http://insecure.test/x.jpg").status_code == 400
+
+    # A product from another shop cannot be advertised.
+    db = env["Session"]()
+    from app.models.enterprise_product import EnterpriseProduct
+
+    other = Enterprise(name="Башка", category="food", owner_user_id=env["customer_id"], is_active=True)
+    db.add(other)
+    db.flush()
+    foreign = EnterpriseProduct(enterprise_id=other.id, name="Бөтөн", price=1)
+    db.add(foreign)
+    db.commit()
+    assert _submit(c, h, product_id=foreign.id).status_code == 400
+    db.close()
+
+    # No picture is fine; none of the failures above used up the day.
+    assert _ok(_submit(c, h, image_url=None))["image_url"] is None
+
+    # Customers and enterprises cannot review campaigns.
+    customer_h = _auth(create_access_token(env["customer_id"]))
+    assert c.post("/admin/campaigns/1/approve", headers=customer_h, json={}).status_code == 403
+    assert c.post("/admin/campaigns/1/approve", headers=h, json={}).status_code == 403

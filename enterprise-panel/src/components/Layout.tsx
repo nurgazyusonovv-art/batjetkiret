@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Package, LogOut, ShoppingCart,
   UtensilsCrossed, History, BarChart2, CreditCard, Settings,
-  X, Info, MoreHorizontal,
+  X, Info, MoreHorizontal, Megaphone,
 } from 'lucide-react';
 import { authService } from '../services/auth';
 import { ordersService } from '../services/orders';
@@ -15,6 +15,7 @@ const navItems = [
   { path: '/payments', icon: CreditCard, label: 'Төлөмдөр' },
   { path: '/create-order', icon: ShoppingCart, label: 'Заказ түзүү' },
   { path: '/products', icon: UtensilsCrossed, label: 'Меню' },
+  { path: '/promo', icon: Megaphone, label: 'Жарнама' },
   { path: '/history', icon: History, label: 'Тарых' },
   { path: '/reports', icon: BarChart2, label: 'Отчет' },
   { path: '/settings', icon: Settings, label: 'Жөндөөлөр' },

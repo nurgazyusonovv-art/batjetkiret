@@ -8,6 +8,8 @@ import api from '@/services/api';
 import './NotificationsPage.css';
 
 const STATUS_LABEL: Record<string, string> = {
+  pending_review: 'Текшерүүдө',
+  rejected: 'Четке кагылды',
   scheduled: 'Күтүүдө',
   sending: 'Жөнөтүлүүдө',
   sent: 'Жөнөтүлдү',
@@ -160,6 +162,38 @@ export default function NotificationsPage() {
     }
   };
 
+  const reviewError = (err: unknown, fallback: string) => {
+    const e = err as { response?: { data?: { detail?: unknown } } };
+    const detail = e?.response?.data?.detail;
+    return typeof detail === 'string' ? detail : fallback;
+  };
+
+  // Enterprise-submitted campaigns wait here until an admin approves or rejects them.
+  const handleApproveCampaign = async (c: NotificationCampaign) => {
+    if (!confirm(`«${c.title}» бардык колдонуучуларга азыр жөнөтүлөт. Ырастайсызбы?`)) return;
+    try {
+      const res = await api.post(`/admin/campaigns/${c.id}/approve`, {});
+      setBcResult({ ok: true, text: res.data.message });
+    } catch (err) {
+      setBcResult({ ok: false, text: reviewError(err, 'Ырастоодо ката чыкты') });
+    } finally {
+      loadCampaigns();
+    }
+  };
+
+  const handleRejectCampaign = async (c: NotificationCampaign) => {
+    const note = prompt('Четке кагуунун себеби (ишкана көрөт):', '');
+    if (note === null) return;
+    try {
+      await api.post(`/admin/campaigns/${c.id}/reject`, { note });
+      setBcResult({ ok: true, text: 'Билдирүү четке кагылды' });
+    } catch (err) {
+      setBcResult({ ok: false, text: reviewError(err, 'Четке кагууда ката чыкты') });
+    } finally {
+      loadCampaigns();
+    }
+  };
+
   const handleDelete = async (id: number) => {
     if (!confirm('Ошол билдирүүнү чындай эле өчүргүсүз бе?')) return;
 
@@ -195,6 +229,7 @@ export default function NotificationsPage() {
   }
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const pendingReview = campaigns.filter(c => c.status === 'pending_review').length;
 
   return (
     <div className="notifications-page">
@@ -345,6 +380,9 @@ export default function NotificationsPage() {
         <div className="campaigns-card">
           <div className="campaigns-title">
             <Clock size={16} /> Жарнама кампаниялары
+            {pendingReview > 0 && (
+              <span className="campaigns-pending-badge">{pendingReview} текшерүүдө</span>
+            )}
           </div>
           <div className="campaigns-list">
             {campaigns.map(c => (
@@ -359,6 +397,15 @@ export default function NotificationsPage() {
                       {STATUS_LABEL[c.status] ?? c.status}
                     </span>
                   </div>
+                  {c.created_by_enterprise_name && (
+                    <div className="campaign-source">
+                      <Store size={12} /> {c.created_by_enterprise_name}
+                      {c.product_name ? ` · ${c.product_name}` : ''}
+                    </div>
+                  )}
+                  {c.status === 'pending_review' && (
+                    <div className="campaign-message">{c.message}</div>
+                  )}
                   <div className="campaign-meta">
                     {c.status === 'scheduled' && c.scheduled_at
                       ? `Жөнөтүлөт: ${fmtDateTime(c.scheduled_at)}`
@@ -367,7 +414,26 @@ export default function NotificationsPage() {
                         : fmtDateTime(c.created_at)}
                   </div>
                   {c.error && <div className="campaign-error">{c.error}</div>}
+                  {c.review_note && <div className="campaign-meta">Себеп: {c.review_note}</div>}
                 </div>
+                {c.status === 'pending_review' && (
+                  <div className="campaign-review">
+                    <button
+                      className="campaign-approve"
+                      title="Ырастап, баарына жөнөтүү"
+                      onClick={() => handleApproveCampaign(c)}
+                    >
+                      <Check size={15} /> Ырастоо
+                    </button>
+                    <button
+                      className="campaign-reject"
+                      title="Четке кагуу"
+                      onClick={() => handleRejectCampaign(c)}
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                )}
                 {c.status === 'scheduled' && (
                   <button
                     className="campaign-cancel"

@@ -1,0 +1,398 @@
+.ep-promo {
+  max-width: 980px;
+}
+
+.ep-promo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.ep-promo-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ep-promo-title h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.ep-promo-refresh {
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px;
+  cursor: pointer;
+  color: #64748b;
+  display: flex;
+}
+
+.ep-promo-hint {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.ep-promo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+.ep-promo-form {
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ep-promo-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  margin-top: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.ep-promo-count {
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.ep-promo-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1e293b;
+  background: #fff;
+}
+
+.ep-promo-input:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+.ep-promo-textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.ep-promo-upload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1.5px dashed #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+  border-radius: 10px;
+  padding: 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ep-promo-upload:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ep-promo-image {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1.5px solid #e2e8f0;
+}
+
+.ep-promo-image img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+}
+
+.ep-promo-image-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  background: rgba(15, 23, 42, 0.7);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ep-promo-result {
+  font-size: 13px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-top: 6px;
+}
+
+.ep-promo-result.ok {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.ep-promo-result.err {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.ep-promo-send {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 12px;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  cursor: pointer;
+}
+
+.ep-promo-send:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ep-promo-limit {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+}
+
+.ep-promo-preview {
+  position: sticky;
+  top: 16px;
+}
+
+.ep-promo-preview-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.ep-promo-phone {
+  background: linear-gradient(160deg, #1e293b, #334155);
+  border-radius: 22px;
+  padding: 16px 12px;
+}
+
+.ep-promo-push {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.ep-promo-push-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.ep-promo-push-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.ep-promo-push-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  overflow-wrap: anywhere;
+}
+
+.ep-promo-push-body {
+  font-size: 13px;
+  color: #334155;
+  margin-top: 2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ep-promo-push-image {
+  display: block;
+  width: 100%;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.ep-promo-preview-note {
+  color: #cbd5e1;
+  font-size: 12px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.ep-promo-history-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 28px 0 12px;
+}
+
+.ep-promo-empty {
+  color: #94a3b8;
+  font-size: 14px;
+  padding: 20px 0;
+}
+
+.ep-promo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ep-promo-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.ep-promo-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.ep-promo-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ep-promo-row-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.ep-promo-row-title {
+  font-weight: 700;
+  color: #1e293b;
+  overflow-wrap: anywhere;
+}
+
+.ep-promo-status {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 20px;
+  padding: 2px 10px;
+  white-space: nowrap;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.ep-promo-status.pending_review {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.ep-promo-status.sent {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.ep-promo-status.rejected,
+.ep-promo-status.failed {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.ep-promo-row-text {
+  font-size: 13px;
+  color: #475569;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ep-promo-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.ep-promo-row-note {
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.ep-promo-row-note.rejected {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.ep-promo-cancel {
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px;
+  cursor: pointer;
+  color: #64748b;
+  display: flex;
+  flex-shrink: 0;
+}
+
+@media (max-width: 820px) {
+  .ep-promo-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ep-promo-preview {
+    position: static;
+  }
+}
