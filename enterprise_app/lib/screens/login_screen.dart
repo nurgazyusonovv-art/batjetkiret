@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
@@ -37,14 +38,30 @@ class _LoginScreenState extends State<LoginScreen> {
       await AuthService.saveToken(token);
       widget.onLogin();
     } catch (e) {
-      String msg = e.toString();
-      if (msg.contains('401') || msg.contains('Телефон')) {
-        msg = 'Телефон же сырсөз туура эмес';
-      } else if (msg.contains('SocketException') || msg.contains('connection')) {
-        msg = 'Интернет байланышы жок';
-      }
-      setState(() { _error = msg; _loading = false; });
+      setState(() { _error = _loginErrorMessage(e); _loading = false; });
     }
+  }
+
+  /// The server explains a refused login in `detail` (blocked account, not an
+  /// enterprise user, inactive enterprise); show that instead of Dio's dump.
+  String _loginErrorMessage(Object e) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      if (data is Map && data['detail'] is String) {
+        return data['detail'] as String;
+      }
+      switch (e.response?.statusCode) {
+        case 401:
+          return 'Телефон же сырсөз туура эмес';
+        case 403:
+          return 'Кирүүгө уруксат жок. Администратор менен байланышыңыз.';
+      }
+      if (e.response == null) {
+        return 'Интернет байланышы жок';
+      }
+      return 'Сервер катасы (${e.response?.statusCode}). Кийинчерээк кайталаңыз.';
+    }
+    return 'Белгисиз ката чыкты. Кайра аракет кылыңыз.';
   }
 
   @override
