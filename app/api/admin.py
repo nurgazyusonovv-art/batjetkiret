@@ -29,7 +29,9 @@ from app.models.password_reset import PasswordReset
 from app.models.order_payment import OrderPayment
 from app.models.enterprise import Enterprise
 from app.models.notification_campaign import NotificationCampaign
+from app.models.enterprise_product import EnterpriseProduct
 from app.services.campaigns import (
+    claim_campaign,
     deliver_campaign,
     send_due_campaigns,
     to_naive_utc,
@@ -481,6 +483,16 @@ def list_campaigns(
         .limit(min(limit, 200))
         .all()
     )
+    enterprise_ids = {c.created_by_enterprise_id for c in campaigns if c.created_by_enterprise_id}
+    product_ids = {c.product_id for c in campaigns if c.product_id}
+    enterprise_names = (
+        {e.id: e.name for e in db.query(Enterprise).filter(Enterprise.id.in_(enterprise_ids)).all()}
+        if enterprise_ids else {}
+    )
+    product_names = (
+        {p.id: p.name for p in db.query(EnterpriseProduct).filter(EnterpriseProduct.id.in_(product_ids)).all()}
+        if product_ids else {}
+    )
     return [
         {
             "id": c.id,
@@ -496,9 +508,119 @@ def list_campaigns(
             "pushed_count": c.pushed_count,
             "error": c.error,
             "created_at": c.created_at,
+            "created_by_enterprise_id": c.created_by_enterprise_id,
+            "created_by_enterprise_name": enterprise_names.get(c.created_by_enterprise_id),
+            "product_id": c.product_id,
+            "product_name": product_names.get(c.product_id),
+            "review_note": c.review_note,
         }
         for c in campaigns
     ]
+
+
+class CampaignReview(BaseModel):
+    note: str | None = None
+
+
+def _tell_enterprise(db: Session, campaign: NotificationCampaign, title: str, body: str) -> None:
+    """Best-effort web push to the panel of the enterprise that submitted it."""
+    if not campaign.created_by_enterprise_id:
+        return
+    try:
+        from app.services.web_push import notify_enterprise
+
+        notify_enterprise(
+            db,
+            enterprise_id=campaign.created_by_enterprise_id,
+            title=title,
+            body=body,
+            data={"type": "campaign_review", "campaign_id": campaign.id},
+        )
+    except Exception:
+        pass
+
+
+@router.post("/campaigns/{campaign_id}/approve")
+def approve_campaign(
+    campaign_id: int,
+    body: CampaignReview = CampaignReview(),
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Approve an enterprise's promo notification and send it to every user now."""
+    campaign = db.query(NotificationCampaign).filter(
+        NotificationCampaign.id == campaign_id
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Кампания табылган жок")
+    # The claim is the status check: a second click (or a second admin) loses.
+    if not claim_campaign(db, campaign_id, from_status=NotificationCampaign.STATUS_PENDING_REVIEW):
+        raise HTTPException(status_code=400, detail="Бул билдирүү текшерүүнү күтпөйт")
+
+    db.refresh(campaign)
+    campaign.reviewed_at = utcnow()
+    campaign.review_note = (body.note or "").strip() or None
+    try:
+        result = deliver_campaign(db, campaign)
+    except Exception as exc:
+        db.rollback()
+        campaign.status = NotificationCampaign.STATUS_FAILED
+        campaign.error = str(exc)[:500]
+        db.commit()
+        raise HTTPException(status_code=500, detail="Жөнөтүүдө ката чыкты")
+
+    _tell_enterprise(
+        db, campaign,
+        "✅ Билдирүүңүз жөнөтүлдү",
+        f"«{campaign.title}» {result['sent_to']} колдонуучуга жөнөтүлдү",
+    )
+    return {
+        "campaign_id": campaign.id,
+        "sent_to": result["sent_to"],
+        "pushed": result["pushed"],
+        "message": f"{result['sent_to']} колдонуучуга жөнөтүлдү",
+    }
+
+
+@router.post("/campaigns/{campaign_id}/reject")
+def reject_campaign(
+    campaign_id: int,
+    body: CampaignReview = CampaignReview(),
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    """Reject an enterprise's promo notification; the enterprise sees the reason."""
+    campaign = db.query(NotificationCampaign).filter(
+        NotificationCampaign.id == campaign_id
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Кампания табылган жок")
+    rejected = (
+        db.query(NotificationCampaign)
+        .filter(
+            NotificationCampaign.id == campaign_id,
+            NotificationCampaign.status == NotificationCampaign.STATUS_PENDING_REVIEW,
+        )
+        .update(
+            {
+                "status": NotificationCampaign.STATUS_REJECTED,
+                "review_note": (body.note or "").strip() or None,
+                "reviewed_at": utcnow(),
+            },
+            synchronize_session=False,
+        )
+    )
+    db.commit()
+    if rejected != 1:
+        raise HTTPException(status_code=400, detail="Бул билдирүү текшерүүнү күтпөйт")
+
+    db.refresh(campaign)
+    _tell_enterprise(
+        db, campaign,
+        "❌ Билдирүүңүз четке кагылды",
+        campaign.review_note or f"«{campaign.title}» админ тарабынан четке кагылды",
+    )
+    return {"ok": True, "status": campaign.status, "review_note": campaign.review_note}
 
 
 @router.post("/campaigns/{campaign_id}/cancel")

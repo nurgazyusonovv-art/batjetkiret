@@ -62,6 +62,8 @@ def deliver_campaign(db: Session, campaign: NotificationCampaign) -> dict:
             # The app needs the category to open the shop's page from the push.
             data["enterprise_id"] = str(enterprise.id)
             data["enterprise_category"] = enterprise.category or ""
+    if campaign.product_id:
+        data["product_id"] = str(campaign.product_id)
 
     # One multicast per 500 devices — a request per user takes minutes.
     delivered = fcm_service.send_push_to_tokens(
@@ -81,17 +83,21 @@ def deliver_campaign(db: Session, campaign: NotificationCampaign) -> dict:
     return {"sent_to": len(users), "pushed": delivered}
 
 
-def claim_campaign(db: Session, campaign_id: int) -> bool:
-    """Move a scheduled campaign to 'sending'; False if someone else got it.
+def claim_campaign(
+    db: Session,
+    campaign_id: int,
+    from_status: str = NotificationCampaign.STATUS_SCHEDULED,
+) -> bool:
+    """Move a campaign from `from_status` to 'sending'; False if someone else got it.
 
     The status check lives in the UPDATE itself, so two workers racing for the
-    same campaign cannot both win and send it twice.
+    same campaign (or two admins approving it) cannot both win and send it twice.
     """
     claimed = (
         db.query(NotificationCampaign)
         .filter(
             NotificationCampaign.id == campaign_id,
-            NotificationCampaign.status == NotificationCampaign.STATUS_SCHEDULED,
+            NotificationCampaign.status == from_status,
         )
         .update(
             {"status": NotificationCampaign.STATUS_SENDING},

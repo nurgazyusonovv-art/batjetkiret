@@ -145,12 +145,18 @@ export interface NotificationCampaign {
   enterprise_id?: number | null;
   type?: string | null;
   scheduled_at?: string | null;
-  status: 'scheduled' | 'sending' | 'sent' | 'cancelled' | 'failed';
+  status: 'pending_review' | 'scheduled' | 'sending' | 'sent' | 'cancelled' | 'failed' | 'rejected';
   sent_at?: string | null;
   sent_count: number;
   pushed_count: number;
   error?: string | null;
   created_at: string;
+  // Set when an enterprise submitted the campaign from its own panel.
+  created_by_enterprise_id?: number | null;
+  created_by_enterprise_name?: string | null;
+  product_id?: number | null;
+  product_name?: string | null;
+  review_note?: string | null;
 }
 
 export interface Notification {

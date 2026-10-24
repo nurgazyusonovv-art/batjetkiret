@@ -23,6 +23,7 @@ from app.models.enterprise import Enterprise
 from app.models.enterprise_category import EnterpriseCategory
 from app.models.enterprise_product import EnterpriseProduct
 from app.models.order_payment import OrderPayment
+from app.models.notification_campaign import NotificationCampaign
 from app.services.media_upload import upload_image_file
 from app.services.order_status import apply_status_change
 
@@ -1076,6 +1077,186 @@ def reject_payment(
     payment.note = body.note
     db.commit()
     return _payment_dict(payment)
+
+
+# ── Promo notifications (admin-reviewed) ─────────────────────────────────────
+#
+# An enterprise drafts a picture notification about its shop or one menu item.
+# It goes to every active user, but only after an admin approves it, and each
+# enterprise gets one submission per 24 hours so customers are not flooded.
+
+CAMPAIGN_COOLDOWN = timedelta(hours=24)
+# Rejected and cancelled drafts never reached anyone, so they don't use up the day.
+_CAMPAIGN_COUNTS_TOWARD_LIMIT = (
+    NotificationCampaign.STATUS_PENDING_REVIEW,
+    NotificationCampaign.STATUS_SCHEDULED,
+    NotificationCampaign.STATUS_SENDING,
+    NotificationCampaign.STATUS_SENT,
+    NotificationCampaign.STATUS_FAILED,
+)
+
+
+class EnterpriseCampaignCreate(BaseModel):
+    title: str
+    message: str
+    image_url: Optional[str] = None
+    product_id: Optional[int] = None
+
+
+def _campaign_dict(c: NotificationCampaign, product_name: Optional[str] = None) -> dict:
+    return {
+        "id": c.id,
+        "title": c.title,
+        "message": c.message,
+        "image_url": c.image_url,
+        "product_id": c.product_id,
+        "product_name": product_name,
+        "status": c.status,
+        "review_note": c.review_note,
+        "sent_count": c.sent_count,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+        "sent_at": c.sent_at.isoformat() if c.sent_at else None,
+    }
+
+
+def _last_counted_campaign(db: Session, enterprise_id: int) -> Optional[NotificationCampaign]:
+    return (
+        db.query(NotificationCampaign)
+        .filter(
+            NotificationCampaign.created_by_enterprise_id == enterprise_id,
+            NotificationCampaign.status.in_(_CAMPAIGN_COUNTS_TOWARD_LIMIT),
+            NotificationCampaign.created_at >= datetime.utcnow() - CAMPAIGN_COOLDOWN,
+        )
+        .order_by(NotificationCampaign.created_at.desc())
+        .first()
+    )
+
+
+def _next_allowed_at(db: Session, enterprise_id: int) -> Optional[datetime]:
+    last = _last_counted_campaign(db, enterprise_id)
+    return last.created_at + CAMPAIGN_COOLDOWN if last else None
+
+
+@router.post("/notifications/image")
+async def upload_campaign_image(
+    file: UploadFile = File(...),
+    auth: Tuple = Depends(require_enterprise),
+):
+    """Upload a promo picture; FCM needs a public HTTPS URL, so it goes to R2."""
+    from uuid import uuid4
+
+    _user, e = auth
+    uploaded = await upload_image_file(
+        file=file,
+        key_prefix=f"notifications/enterprise-{e.id}/{uuid4().hex}",
+        max_bytes=3 * 1024 * 1024,
+    )
+    return {"url": uploaded.url}
+
+
+@router.get("/campaigns")
+def list_my_campaigns(db: Session = Depends(get_db), auth: Tuple = Depends(require_enterprise)):
+    """This enterprise's promo notifications, newest first, plus when the next one is allowed."""
+    _user, e = auth
+    campaigns = (
+        db.query(NotificationCampaign)
+        .filter(NotificationCampaign.created_by_enterprise_id == e.id)
+        .order_by(NotificationCampaign.created_at.desc(), NotificationCampaign.id.desc())
+        .limit(50)
+        .all()
+    )
+    product_ids = {c.product_id for c in campaigns if c.product_id}
+    names = (
+        {p.id: p.name for p in db.query(EnterpriseProduct).filter(EnterpriseProduct.id.in_(product_ids)).all()}
+        if product_ids else {}
+    )
+    next_at = _next_allowed_at(db, e.id)
+    return {
+        "campaigns": [_campaign_dict(c, names.get(c.product_id)) for c in campaigns],
+        "next_allowed_at": next_at.isoformat() if next_at else None,
+    }
+
+
+@router.post("/campaigns")
+def submit_campaign(
+    data: EnterpriseCampaignCreate,
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    """Submit a promo notification for admin review."""
+    _user, e = auth
+    title = data.title.strip()
+    message = data.message.strip()
+    if not title or not message:
+        raise HTTPException(status_code=400, detail="Аталышты жана текстти толтуруңуз")
+    if len(title) > 100:
+        raise HTTPException(status_code=400, detail="Аталыш 100 белгиден ашпашы керек")
+    if len(message) > 500:
+        raise HTTPException(status_code=400, detail="Текст 500 белгиден ашпашы керек")
+
+    image_url = (data.image_url or "").strip() or None
+    # FCM only shows pictures from a public HTTPS address.
+    if image_url and not image_url.startswith("https://"):
+        raise HTTPException(status_code=400, detail="Сүрөттүн дареги https:// менен башталышы керек")
+
+    product = None
+    if data.product_id is not None:
+        product = db.query(EnterpriseProduct).filter(
+            EnterpriseProduct.id == data.product_id,
+            EnterpriseProduct.enterprise_id == e.id,
+        ).first()
+        if not product:
+            raise HTTPException(status_code=400, detail="Товар табылган жок")
+
+    next_at = _next_allowed_at(db, e.id)
+    if next_at is not None:
+        import os
+        local = next_at + timedelta(hours=int(os.getenv("TZ_OFFSET_HOURS", "6")))
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Күнүнө бир гана билдирүү жөнөтсө болот. "
+                f"Кийинкисин {local.strftime('%d.%m %H:%M')} кийин жөнөтө аласыз."
+            ),
+        )
+
+    campaign = NotificationCampaign(
+        title=title,
+        message=message,
+        image_url=image_url,
+        enterprise_id=e.id,
+        created_by_enterprise_id=e.id,
+        product_id=product.id if product else None,
+        notification_type="promo",
+        status=NotificationCampaign.STATUS_PENDING_REVIEW,
+        # Explicit naive UTC: the 24h limit compares against utcnow().
+        created_at=datetime.utcnow(),
+    )
+    db.add(campaign)
+    db.commit()
+    db.refresh(campaign)
+    return _campaign_dict(campaign, product.name if product else None)
+
+
+@router.post("/campaigns/{campaign_id}/cancel")
+def cancel_my_campaign(
+    campaign_id: int,
+    db: Session = Depends(get_db),
+    auth: Tuple = Depends(require_enterprise),
+):
+    """Withdraw a submission the admin has not reviewed yet."""
+    _user, e = auth
+    campaign = db.query(NotificationCampaign).filter(
+        NotificationCampaign.id == campaign_id,
+        NotificationCampaign.created_by_enterprise_id == e.id,
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Билдирүү табылган жок")
+    if campaign.status != NotificationCampaign.STATUS_PENDING_REVIEW:
+        raise HTTPException(status_code=400, detail="Текшерилген билдирүүнү кайтарып алуу мүмкүн эмес")
+    campaign.status = NotificationCampaign.STATUS_CANCELLED
+    db.commit()
+    return _campaign_dict(campaign)
 
 
 # ── Web Push notifications ────────────────────────────────────────────────────
