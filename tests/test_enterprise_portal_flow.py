@@ -382,3 +382,52 @@ def test_login_refusals_explain_the_reason(env):
     assert customer.status_code == 403
     assert customer.json()["detail"] == "Бул аккаунт ишкана колдонуучусу эмес"
     db.close()
+
+
+def test_login_prefers_enterprise_account_when_number_is_shared(env):
+    """A customer account and the enterprise login can share one number.
+
+    The admin panel stores the enterprise phone exactly as typed, so the
+    owner's customer account (+996…) and enterprise login (0…) are two rows
+    that both match the number. Login used to take whichever row came first
+    and refused the correct enterprise password.
+    """
+    c = env["client"]
+    db = env["Session"]()
+
+    # The owner signed up in the customer app first, so that row is older.
+    customer = db.get(User, env["customer_id"])
+    customer.phone = "+996700900800"
+    customer.hashed_password = hash_password("customer-pass")
+    # Later the admin created the enterprise login, typing the number as 0….
+    db.add(User(
+        phone="0700900800",
+        name="Ишкана логини",
+        hashed_password=hash_password(ENTERPRISE_PASSWORD),
+        is_active=True,
+        is_enterprise=True,
+        enterprise_id=env["enterprise_id"],
+    ))
+    db.commit()
+
+    # Enterprise password → enterprise account, whichever format is typed.
+    for typed in ("+996700900800", "0700900800", "700 900 800"):
+        res = _login(c, phone=typed)
+        assert res.status_code == 200, (typed, res.text)
+        assert res.json()["enterprise"]["enterprise_name"] == "Тест Ашкана"
+
+    # The customer password still reaches the customer row, which is refused.
+    customer_only = _login(c, phone="+996700900800", password="customer-pass")
+    assert customer_only.status_code == 403
+    assert customer_only.json()["detail"] == "Бул аккаунт ишкана колдонуучусу эмес"
+
+    # Same password on both rows: the enterprise account still wins.
+    customer.hashed_password = hash_password(ENTERPRISE_PASSWORD)
+    db.commit()
+    assert _login(c, phone="+996700900800").status_code == 200
+
+    # A row whose hash passlib cannot read must not break the login.
+    customer.hashed_password = "legacy-plain-text"
+    db.commit()
+    assert _login(c, phone="+996700900800").status_code == 200
+    db.close()
